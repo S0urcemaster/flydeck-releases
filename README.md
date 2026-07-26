@@ -8,6 +8,8 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 26.07.26 17:50 Fixes & Changes
+
 ### 23.07.25 13:04 
 
 ![alt text](releases/2607251304/sc1.png)
