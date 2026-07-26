@@ -20,17 +20,18 @@ export type ChatSnapshot = {
   activeRun: ChatRun | null;
 };
 
-const conversationId = "default";
-const chatApiPath = `/flydeck/api/chat/${conversationId}`;
+function chatApiPath(conversationId: string) {
+  return `/flydeck/api/chat/${encodeURIComponent(conversationId)}`;
+}
 
 export const chatApi = {
-  read: () => requestJson<ChatSnapshot>(chatApiPath),
-  start: (prompt: string, requestId: string, effort: ChatEffort, modelTier: ChatModelTier) => requestJson<ChatRun>(`${chatApiPath}/runs`, {
+  read: (conversationId: string) => requestJson<ChatSnapshot>(chatApiPath(conversationId)),
+  start: (conversationId: string, prompt: string, requestId: string, effort: ChatEffort, modelTier: ChatModelTier) => requestJson<ChatRun>(`${chatApiPath(conversationId)}/runs`, {
     method: "POST",
     body: JSON.stringify({ prompt, requestId, effort, modelTier }),
   }),
-  cancel: (runId: string) => requestJson<{ id: string; status: "cancelled" }>(`${chatApiPath}/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
-  eventsUrl: `${chatApiPath}/events`,
+  cancel: (conversationId: string, runId: string) => requestJson<{ id: string; status: "cancelled" }>(`${chatApiPath(conversationId)}/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
+  eventsUrl: (conversationId: string) => `${chatApiPath(conversationId)}/events`,
 };
 
 export function formatChatSnapshot(snapshot: ChatSnapshot) {

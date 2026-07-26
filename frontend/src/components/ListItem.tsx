@@ -9,6 +9,7 @@ type ListItemProps = {
   contentAriaDisabled?: boolean;
   contentDisabled?: boolean;
   contentTitle?: string;
+  deleteDisabled?: boolean;
   onContentClick: () => void;
   onArmDelete: () => void;
   children: ReactNode;
@@ -22,6 +23,7 @@ export function ListItem({
   contentAriaDisabled,
   contentDisabled,
   contentTitle,
+  deleteDisabled = false,
   onContentClick,
   onArmDelete,
   children,
@@ -38,7 +40,7 @@ export function ListItem({
       >
         {children}
       </button>
-      <DeleteButton label={label} armed={armed} onClick={onArmDelete} />
+      <DeleteButton label={label} armed={armed} disabled={deleteDisabled} onClick={onArmDelete} />
     </div>
   );
 }

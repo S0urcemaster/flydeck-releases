@@ -33,7 +33,6 @@ export function SettingsWorkspace(props: SettingsWorkspaceProps) {
           onValueChange={props.onChange}
           onSelectWord={props.onSelectWord}
           onMoveCursor={props.onMoveCursor}
-          onClear={() => props.onChange("")}
           onDictate={props.onDictate}
           dictating={props.dictating}
           onSubmit={props.onSave}

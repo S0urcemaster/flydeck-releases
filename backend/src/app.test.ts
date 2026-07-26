@@ -104,13 +104,18 @@ describe("DATA API", () => {
     const dueAt = new Date(Date.now() + 3600000).toISOString();
     const created = await request(baseUrl).post("/flydeck/api/cron").send({ title: "Backup", dueAt }).expect(201);
     expect(created.body).toMatchObject({ title: "Backup", dueAt, status: "active" });
+    const duplicateTitle = await request(baseUrl).post("/flydeck/api/cron").send({
+      title: "Backup",
+      dueAt: new Date(Date.now() + 5400000).toISOString(),
+    }).expect(201);
+    expect(duplicateTitle.body.id).not.toBe(created.body.id);
 
     const listed = await request(baseUrl).get("/flydeck/api/cron").expect(200);
-    expect(listed.body).toHaveLength(1);
+    expect(listed.body).toHaveLength(2);
     const changedDueAt = new Date(Date.now() + 7200000).toISOString();
     const updated = await request(baseUrl).put(`/flydeck/api/cron/${created.body.id}`).send({ dueAt: changedDueAt }).expect(200);
     expect(updated.body).toMatchObject({ id: created.body.id, title: "Backup", dueAt: changedDueAt });
     await request(baseUrl).delete(`/flydeck/api/cron/${created.body.id}`).expect(200);
-    expect((await request(baseUrl).get("/flydeck/api/cron")).body).toEqual([]);
+    expect((await request(baseUrl).get("/flydeck/api/cron")).body).toMatchObject([{ id: duplicateTitle.body.id, title: "Backup" }]);
   });
 });

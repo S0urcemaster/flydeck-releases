@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { Editor } from "../../components/Editor";
 import { TwoColumnList } from "../../components/TwoColumnList";
 import { promptSlotMarks, type Snippet } from "../../data/defaults";
@@ -6,6 +6,7 @@ import type { ChatEffort, ChatModelTier } from "../../api/chat";
 import { Repeat2 } from "lucide-react";
 import { TextInput } from "../../components/TextInput";
 import type { CharacterDialCornerAction, CharacterDialCorners, DwellMode } from "../../components/CharacterDial";
+import { getCommandHintLines } from "./commandHints";
 
 export type ChatSubTab = "PROM" | "SNIP";
 type ChatWorkspaceProps = {
@@ -30,13 +31,12 @@ type ChatWorkspaceProps = {
   onTextChange: (text: string) => void;
   onPromptSlotChange: (index: number) => void;
   onToggleAgentView: () => void;
-  onCancelAgent: () => void;
+  onNewChat: () => void;
   onAgentScroll: (scrollTop: number) => void;
   onCycleChatEffort: () => void;
   onCycleChatModelTier: () => void;
   onSelectWord: () => void;
   onMoveCursor: (direction: -1 | 1) => void;
-  onClear: () => void;
   onDictate: () => void;
   dictating: boolean;
   onSubmit: () => void;
@@ -48,6 +48,11 @@ type ChatWorkspaceProps = {
 };
 
 export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
+  const snippetNameRef = useRef<HTMLInputElement>(null);
+  const snippetKeyboardHostRef = useRef<HTMLDivElement>(null);
+  const [snippetNameKeyboardActive, setSnippetNameKeyboardActive] = useState(false);
+  const commandHintLines = getCommandHintLines(props.activeText);
+
   return (
     <section className="workspace chat-workspace" aria-label="Chat workspace">
       <div className="sub-tabs">
@@ -75,7 +80,22 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
       />
       {props.subTab === "SNIP" && (
         <>
-          <TextInput aria-label="Snippet Name" value={props.snippetName} onChange={(event) => props.onSnippetNameChange(event.target.value)} placeholder="Snippet Name" />
+          <TextInput
+            ref={snippetNameRef}
+            inputMode="none"
+            aria-label="Snippet Name"
+            value={props.snippetName}
+            onChange={(event) => props.onSnippetNameChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (!props.submitDisabled) props.onSubmit();
+            }}
+            onFocus={() => setSnippetNameKeyboardActive(true)}
+            onBlur={() => setSnippetNameKeyboardActive(false)}
+            placeholder="Snippet Name"
+          />
+          <div ref={snippetKeyboardHostRef} />
         </>
       )}
       <section className="composer" aria-label="Text input">
@@ -92,7 +112,10 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
               ))}
             </div>
             <div className="agent-control-tabs" aria-label="Agent controls">
-              {[0, 1].map((index) => <button key={index} disabled aria-hidden="true" />)}
+              {props.showAgentView
+                ? <button type="button" onClick={props.onNewChat} disabled={props.agentBusy}>NEW</button>
+                : <button type="button" disabled aria-hidden="true" />}
+              <button type="button" disabled aria-hidden="true" />
               <button
                 className={`chat-model-toggle model-${props.chatModelTier.toLowerCase()}`}
                 onClick={props.onCycleChatModelTier}
@@ -114,7 +137,9 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
           value={props.subTab === "SNIP" ? props.snippetText : props.activeText}
           readOnly={props.showAgentView && props.subTab === "PROM"}
           hint={props.subTab === "PROM" && !props.showAgentView && props.activeText.startsWith("/") && (
-            <div className="command-hint" aria-hidden="true"><span>COMMANDS</span><span>/status</span><span>/model</span><span>/server</span></div>
+            <div className="command-hint" aria-hidden="true">
+              {commandHintLines.map((line) => <span key={line}>{line}</span>)}
+            </div>
           )}
           onScroll={(event) => {
             if (props.showAgentView && props.subTab === "PROM") props.onAgentScroll(event.currentTarget.scrollTop);
@@ -129,8 +154,6 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
           onValueChange={props.onTextChange}
           onSelectWord={props.onSelectWord}
           onMoveCursor={props.onMoveCursor}
-          onClear={props.agentBusy && props.subTab === "PROM" ? props.onCancelAgent : props.onClear}
-          clearLabel={props.agentBusy && props.subTab === "PROM" ? "STOP" : undefined}
           onScrollToBottom={props.showAgentView && props.subTab === "PROM" ? () => {
             const textarea = chatRef.current;
             if (!textarea) return;
@@ -147,6 +170,15 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
           dialerDefaultSize={props.dialerDefaultSize}
           characterDialRightButtons={props.characterDialRightButtons}
           dialerDefaultDwell={props.dialerDefaultDwell}
+          temporaryInput={snippetNameKeyboardActive ? {
+            ref: snippetNameRef,
+            keyboardHostRef: snippetKeyboardHostRef,
+            value: props.snippetName,
+            onValueChange: props.onSnippetNameChange,
+            onSubmit: props.onSubmit,
+            submitDisabled: props.submitDisabled,
+          } : null}
+          onDismissTemporaryInput={() => setSnippetNameKeyboardActive(false)}
         />
       </section>
     </section>

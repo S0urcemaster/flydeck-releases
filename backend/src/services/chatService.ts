@@ -1,5 +1,6 @@
 import { Codex, type ThreadEvent } from "@openai/codex-sdk";
 import os from "node:os";
+import path from "node:path";
 import type { AppConfig } from "../config.js";
 import { ChatStore, type ChatRun, type ChatSnapshot } from "../storage/chatStore.js";
 import { executeSlashCommand } from "./chatCommands.js";
@@ -30,6 +31,9 @@ export class ChatService {
       tailscaleUrl: this.config.tailscaleUrl,
       uptimeSeconds: process.uptime(),
       memoryBytes: process.memoryUsage().rss,
+      backupDir: this.config.backupDir ?? path.join(this.config.workspaceRoot, ".flydon-backup"),
+      dataHome: this.config.dataHome,
+      flydonDir: this.config.flydonDir,
     });
     if (commandOutput !== null) {
       const run = this.store.completeCommand(conversationId, requestId, prompt, commandOutput);

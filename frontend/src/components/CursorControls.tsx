@@ -1,29 +1,78 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
-import { SafeButton } from "./SafeButton";
+import { useEffect, useRef, type PointerEvent, type ReactNode } from "react";
 
 type CursorControlsProps = {
   onSelectWord: () => void;
   onMove: (direction: -1 | 1) => void;
-  onClear: () => void;
-  clearLabel?: string;
+  onCopy: () => void;
+  onPaste: () => void;
+  onSelectAll: () => void;
   onScrollToBottom?: () => void;
 };
 
-export function CursorControls({ onSelectWord, onMove, onClear, clearLabel, onScrollToBottom }: CursorControlsProps) {
-  const [clearArmed, setClearArmed] = useState(false);
-  const keepEditorFocus = (event: React.PointerEvent<HTMLButtonElement>) => event.preventDefault();
+type AlternateActionButtonProps = {
+  children: ReactNode;
+  ariaLabel: string;
+  title: string;
+  onPress: () => void;
+  onLongPress: () => void;
+};
 
-  useEffect(() => {
-    if (!clearArmed) return;
-    const timeout = window.setTimeout(() => setClearArmed(false), 1_000);
-    return () => window.clearTimeout(timeout);
-  }, [clearArmed]);
+const longPressDelay = 500;
 
-  function confirmClear() {
-    setClearArmed(false);
-    onClear();
+function AlternateActionButton({ children, ariaLabel, title, onPress, onLongPress }: AlternateActionButtonProps) {
+  const timerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
+  function cancelTimer() {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
   }
+
+  useEffect(() => cancelTimer, []);
+
+  function beginPress(event: PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cancelTimer();
+    longPressTriggeredRef.current = false;
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      longPressTriggeredRef.current = true;
+      onLongPress();
+    }, longPressDelay);
+  }
+
+  function finishPress(event: PointerEvent<HTMLButtonElement>) {
+    cancelTimer();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    const wasLongPress = longPressTriggeredRef.current;
+    longPressTriggeredRef.current = false;
+    if (!wasLongPress) onPress();
+  }
+
+  function cancelPress() {
+    cancelTimer();
+    longPressTriggeredRef.current = false;
+  }
+
+  return (
+    <button
+      type="button"
+      onPointerDown={beginPress}
+      onPointerUp={finishPress}
+      onPointerCancel={cancelPress}
+      onClick={(event) => { if (event.detail === 0) onPress(); }}
+      onContextMenu={(event) => event.preventDefault()}
+      aria-label={ariaLabel}
+      title={title}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function CursorControls({ onSelectWord, onMove, onCopy, onPaste, onSelectAll, onScrollToBottom }: CursorControlsProps) {
+  const keepEditorFocus = (event: React.PointerEvent<HTMLButtonElement>) => event.preventDefault();
 
   return (
     <div className="cursor-row">
@@ -31,20 +80,31 @@ export function CursorControls({ onSelectWord, onMove, onClear, clearLabel, onSc
         <button type="button" onPointerDown={keepEditorFocus} onClick={onScrollToBottom} aria-label="Scroll to bottom" title="Scroll to bottom">
           <span className="button-symbol scroll-bottom-symbol">⊻</span>
         </button>
-      ) : <SafeButton
-        armed={clearArmed}
-        label="clear"
-        onPointerDown={keepEditorFocus}
-        onArm={() => setClearArmed(true)}
-        onConfirm={confirmClear}
-      ><span className="button-symbol">✕</span>{clearLabel ?? "CLEA"}</SafeButton>}
-      <button onPointerDown={keepEditorFocus} onClick={() => onMove(-1)} aria-label="Move cursor left">
-        <ChevronLeft size={24} />
-      </button>
-      <button onPointerDown={keepEditorFocus} onClick={() => onMove(1)} aria-label="Move cursor right">
-        <ChevronRight size={24} />
-      </button>
-      <button onPointerDown={keepEditorFocus} onClick={() => { setClearArmed(false); onSelectWord(); }} aria-label="Select word"><span className="word-selection-symbol">W</span></button>
+      ) : <button type="button" disabled aria-hidden="true" />}
+      <AlternateActionButton
+        ariaLabel="Move cursor left; long press to copy"
+        title="Left / long press: copy selection"
+        onPress={() => onMove(-1)}
+        onLongPress={onCopy}
+      >
+        <span className="alternate-action-label">&lt; <span>/ COP</span></span>
+      </AlternateActionButton>
+      <AlternateActionButton
+        ariaLabel="Move cursor right; long press to paste"
+        title="Right / long press: paste"
+        onPress={() => onMove(1)}
+        onLongPress={onPaste}
+      >
+        <span className="alternate-action-label">&gt; <span>PAS</span></span>
+      </AlternateActionButton>
+      <AlternateActionButton
+        ariaLabel="Select word; long press to select all"
+        title="Select word / long press: select all"
+        onPress={onSelectWord}
+        onLongPress={onSelectAll}
+      >
+        <span className="alternate-action-label">W <span>/ ALL</span></span>
+      </AlternateActionButton>
     </div>
   );
 }

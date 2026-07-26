@@ -37,7 +37,7 @@ input,
 textarea { font: inherit; }
 
 button {
-  min-height: 44px;
+  min-height: var(--ui-buttonheight-standard, 44px);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-button);
   background: var(--surface-button);

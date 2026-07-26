@@ -13,6 +13,7 @@ export type AppConfig = {
   ntfyTopic?: string;
   schedulerIntervalMs: number;
   frontendDist?: string;
+  backupDir?: string;
   auth: {
     mode: "off" | "token";
     token?: string;
@@ -42,6 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ntfyTopic: env.NTFY_TOPIC || undefined,
     schedulerIntervalMs: Number(env.SCHEDULER_INTERVAL_MS ?? 30_000),
     frontendDist: env.FRONTEND_DIST ? path.resolve(env.FRONTEND_DIST) : undefined,
+    backupDir: path.resolve(env.BACKUP_DIR ?? path.join(os.homedir(), ".flydon-backup")),
     auth: {
       mode: authMode,
       token: env.AUTH_TOKEN,

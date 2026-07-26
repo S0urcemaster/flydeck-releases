@@ -202,6 +202,11 @@ export class ChatStore {
       .run(runId, JSON.stringify(event), new Date().toISOString());
   }
 
+  backupDatabase(destination: string) {
+    const escapedDestination = destination.replaceAll("'", "''");
+    this.db.exec(`VACUUM INTO '${escapedDestination}'`);
+  }
+
   private ensureConversation(id: string) {
     const now = new Date().toISOString();
     this.db.prepare("INSERT OR IGNORE INTO conversations (id, created_at, updated_at) VALUES (?, ?, ?)").run(id, now, now);

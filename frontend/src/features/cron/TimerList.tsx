@@ -2,9 +2,10 @@ import { ListItem } from "../../components/ListItem";
 import type { CronTimer } from "@flydeck/shared/cron";
 import { useEffect, useState, type CSSProperties } from "react";
 
-export type TimerZoom = "1w" | "1m" | "1y" | "5y";
+export type TimerZoom = "1d" | "1w" | "1m" | "1y" | "5y";
 
 const zoomHours: Record<TimerZoom, number> = {
+  "1d": 24,
   "1w": 24 * 7,
   "1m": 24 * 30,
   "1y": 24 * 365,

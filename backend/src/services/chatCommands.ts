@@ -1,4 +1,5 @@
 import type { ChatStore } from "../storage/chatStore.js";
+import { createFlydonBackup } from "./backupService.js";
 
 type CommandContext = {
   conversationId: string;
@@ -10,6 +11,9 @@ type CommandContext = {
   tailscaleUrl: string;
   uptimeSeconds: number;
   memoryBytes: number;
+  backupDir: string;
+  dataHome: string;
+  flydonDir: string;
 };
 
 type CommandHandler = (argumentsText: string, context: CommandContext) => string;
@@ -46,6 +50,10 @@ const commands: Record<string, CommandHandler> = {
     `THREAD   ${context.store.getSnapshot(context.conversationId).codexThreadId ?? "NONE"}`,
     `TAILSCALE ${context.tailscaleUrl}`,
   ].join("\n"),
+  backup: (_argumentsText, context) => {
+    const backupDir = createFlydonBackup(context);
+    return `BACKUP   OK\nPATH     ${backupDir}`;
+  },
 };
 
 function formatUptime(totalSeconds: number) {
@@ -62,6 +70,6 @@ export function executeSlashCommand(input: string, context: CommandContext) {
   if (!input.startsWith("/")) return null;
   const [commandName = "", ...argumentsParts] = input.slice(1).trim().split(/\s+/);
   const handler = commands[commandName.toLowerCase()];
-  if (!handler) return `UNKNOWN  /${commandName}\nCOMMAND  /status\nCOMMAND  /model\nCOMMAND  /server`;
+  if (!handler) return `UNKNOWN  /${commandName}\nCOMMAND  /status\nCOMMAND  /model\nCOMMAND  /server\nCOMMAND  /backup`;
   return handler(argumentsParts.join(" "), context);
 }

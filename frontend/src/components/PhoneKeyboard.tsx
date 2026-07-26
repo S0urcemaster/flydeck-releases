@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useRef, useState, type RefObject } from "react";
 
 type PhoneKeyboardProps = {
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  textareaRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   value: string;
   onValueChange: (value: string) => void;
+  onEnter?: () => void;
 };
 
 type PendingCharacter = {
@@ -60,7 +61,7 @@ const emojiKeys = [
   { key: "#", characters: "" },
 ];
 
-export function PhoneKeyboard({ textareaRef, value, onValueChange }: PhoneKeyboardProps) {
+export function PhoneKeyboard({ textareaRef, value, onValueChange, onEnter }: PhoneKeyboardProps) {
   const pendingRef = useRef<PendingCharacter | null>(null);
   const commitTimerRef = useRef<number | null>(null);
   const backspaceDelayRef = useRef<number | null>(null);
@@ -286,7 +287,7 @@ export function PhoneKeyboard({ textareaRef, value, onValueChange }: PhoneKeyboa
             >⇧</button>
           )}
           {index === 11 && (
-            <button type="button" className="phone-keyboard-control" onPointerDown={(event) => event.preventDefault()} onClick={() => replaceSelection("\n")} aria-label="Enter">↵</button>
+            <button type="button" className="phone-keyboard-control" onPointerDown={(event) => event.preventDefault()} onClick={onEnter ?? (() => replaceSelection("\n"))} aria-label="Enter">↵</button>
           )}
         </Fragment>
       ))}

@@ -12,6 +12,7 @@ export type TwoColumnListEntry = {
   onClick: () => void;
   delete?: {
     armed: boolean;
+    disabled?: boolean;
     onArm: () => void;
   };
 };
@@ -34,6 +35,7 @@ export function TwoColumnList({ entries, ariaLabel, className = "" }: TwoColumnL
           contentClassName={entry.selected ? "active" : ""}
           contentDisabled={entry.disabled}
           contentTitle={entry.title}
+          deleteDisabled={entry.delete.disabled}
           onContentClick={entry.onClick}
           onArmDelete={entry.delete.onArm}
         >

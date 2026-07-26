@@ -41,9 +41,6 @@ export class CronStore {
     }
     return this.files.runExclusive(this.filePath, async () => {
       const timers = await this.readAll();
-      if (timers.some((timer) => timer.title.toLocaleLowerCase("de") === input.title.toLocaleLowerCase("de"))) {
-        throw new HttpError(409, "TIMER_EXISTS", `Timer ${input.title} already exists`);
-      }
       const timer: CronTimer = {
         id: randomUUID(), title: input.title, dueAt: input.dueAt, createdAt: now.toISOString(), status: "active",
       };

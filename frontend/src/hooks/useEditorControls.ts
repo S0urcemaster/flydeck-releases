@@ -40,7 +40,7 @@ export function useEditorControls(
     const input = editorRef.current;
     if (!input) return;
     const nextPosition = Math.max(0, Math.min(input.value.length, input.selectionStart + direction));
-    input.focus();
+    input.focus({ preventScroll: true });
     input.setSelectionRange(nextPosition, nextPosition);
   }
 
@@ -52,7 +52,7 @@ export function useEditorControls(
 
     const start = input.selectionStart;
     const end = input.selectionEnd;
-    input.focus();
+    input.focus({ preventScroll: true });
 
     if (start !== end) {
       const firstSelectedWord = words.findIndex((word) => word.end > start);
@@ -84,7 +84,7 @@ export function useEditorControls(
       return;
     }
     const input = editorRef.current;
-    input?.focus();
+    input?.focus({ preventScroll: true });
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!Recognition || !input) return;
 
@@ -110,7 +110,7 @@ export function useEditorControls(
       onValueChange(nextValue);
       requestAnimationFrame(() => {
         const nextCursor = selectionStart + transcript.length;
-        input.focus();
+        input.focus({ preventScroll: true });
         input.setSelectionRange(nextCursor, nextCursor);
       });
     };

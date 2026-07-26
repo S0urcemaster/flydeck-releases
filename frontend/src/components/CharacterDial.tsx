@@ -3,16 +3,18 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { RadialMark } from "./RadialMark";
 
 type CharacterDialProps = {
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  textareaRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   value: string;
   onValueChange: (value: string) => void;
   corners?: CharacterDialCorners;
   defaultSize?: "small" | "medium" | "large";
   rightButtons?: CharacterDialCornerAction[];
   defaultDwell?: DwellMode;
+  onEnter?: () => void;
 };
 
-export type CharacterDialCornerAction = "" | "SPACE" | "DIALERSIZE" | "TIME" | "DWELL";
+export type CharacterDialCornerAction =
+  "" | "BACKSPACE" | "ENTER" | "SPACE" | "DIALERSIZE" | "TIME" | "DWELL" | "CURRENTLETTER";
 export type CharacterDialCorners = Record<"nw" | "ne" | "sw" | "se", CharacterDialCornerAction>;
 export type DwellMode = "off" | "0.2" | "0.3" | "0.4";
 
@@ -60,10 +62,11 @@ export function CharacterDial({
   textareaRef,
   value,
   onValueChange,
-  corners = { nw: "TIME", ne: "", sw: "DIALERSIZE", se: "SPACE" },
+  corners = { nw: "CURRENTLETTER", ne: "", sw: "DIALERSIZE", se: "SPACE" },
   defaultSize = "small",
-  rightButtons = ["", "", "", "", ""],
+  rightButtons = ["BACKSPACE", "", "", "", "", "", "ENTER"],
   defaultDwell = "0.3",
+  onEnter,
 }: CharacterDialProps) {
   const [page, setPage] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -104,6 +107,7 @@ export function CharacterDial({
     pendingCursorRef.current = null;
     const textarea = textareaRef.current;
     if (!textarea) return;
+    textarea.focus({ preventScroll: true });
     textarea.setSelectionRange(position, position);
   }, [textareaRef, value]);
 
@@ -120,6 +124,7 @@ export function CharacterDial({
     }
     const textarea = textareaRef.current;
     if (!textarea) return;
+    textarea.focus({ preventScroll: true });
     textarea.setSelectionRange(position, position);
   }
 
@@ -249,13 +254,15 @@ export function CharacterDial({
     customHoldTimerRef.current = window.setTimeout(() => {
       customHoldTimerRef.current = null;
       const textarea = textareaRef.current;
-      if (!textarea || textarea.selectionStart === textarea.selectionEnd) return;
-      const selection = value.slice(textarea.selectionStart, textarea.selectionEnd);
+      const selectionStart = textarea?.selectionStart;
+      const selectionEnd = textarea?.selectionEnd;
+      if (!textarea || selectionStart === null || selectionStart === undefined || selectionEnd === null || selectionEnd === undefined || selectionStart === selectionEnd) return;
+      const selection = value.slice(selectionStart, selectionEnd);
       if (!selection) return;
       customHoldTriggeredRef.current = true;
       commitCustomKey();
       setCustomKeys((current) => current.map((characters, currentIndex) => currentIndex === index ? selection : characters));
-      restoreCursor(textarea.selectionEnd, false);
+      restoreCursor(selectionEnd, false);
     }, 500);
   }
 
@@ -335,21 +342,60 @@ export function CharacterDial({
   }
 
   function renderActionButton(action: CharacterDialCornerAction, className: string, ariaLabel: string) {
+    const symbolOnly = action === "BACKSPACE"
+      || action === "ENTER"
+      || action === "SPACE"
+      || action === "TIME"
+      || action === "CURRENTLETTER";
+    const actionClassName = `${className} dial-function-action${symbolOnly ? " symbol-only" : ""}`;
+    if (action === "BACKSPACE") {
+      return (
+        <button
+          type="button"
+          className={actionClassName}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={backspace}
+          aria-label="Backspace"
+        >⌫</button>
+      );
+    }
+    if (action === "ENTER") {
+      return (
+        <button
+          type="button"
+          className={actionClassName}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={onEnter ?? (() => replaceSelection("\n"))}
+          aria-label="Enter"
+        >↵</button>
+      );
+    }
     if (action === "SPACE") {
-      return <button type="button" className={className} onClick={() => replaceSelection(" ")}>SPACE</button>;
+      return (
+        <button
+          type="button"
+          className={actionClassName}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => replaceSelection(" ")}
+          aria-label="Space"
+        >␣</button>
+      );
     }
     if (action === "DIALERSIZE") {
       return (
-        <button type="button" className={className} onClick={cycleDialSize} aria-label="Change character dial size">
+        <button type="button" className={actionClassName} onClick={cycleDialSize} aria-label="Change character dial size">
           {dialSize === "small" ? "S" : dialSize === "compact" ? "M" : "L"}
         </button>
       );
     }
     if (action === "TIME") {
-      return <button type="button" className={className} onClick={insertTime}>TIME</button>;
+      return <button type="button" className={actionClassName} onClick={insertTime} aria-label="Insert time">◷</button>;
     }
     if (action === "DWELL") {
-      return <button type="button" className={`${className} ${dwellMode === "off" ? "" : "active"}`.trim()} onClick={cycleDwellMode} aria-label={`Dwell mode ${dwellMode}`}>{dwellMode === "off" ? "OFF" : dwellMode}</button>;
+      return <button type="button" className={`${actionClassName} ${dwellMode === "off" ? "" : "active"}`.trim()} onClick={cycleDwellMode} aria-label={`Dwell mode ${dwellMode}`}>{dwellMode === "off" ? "OFF" : dwellMode}</button>;
+    }
+    if (action === "CURRENTLETTER") {
+      return <button type="button" className={`${actionClassName} current-letter`} aria-label={`Current letter ${displayedCharacter}`}>{displayedCharacter}</button>;
     }
     return <button type="button" className={className} aria-label={ariaLabel} />;
   }
@@ -457,19 +503,16 @@ export function CharacterDial({
           aria-label={shifted ? "Use lowercase letters" : "Use uppercase letters"}
           aria-pressed={shifted}
         >
-          <strong>{displayedCharacter === " " ? "␠" : displayedCharacter}</strong>
           <span>{shiftMode === "locked" ? "⇧⇧" : "⇧"} {safePage + 1}/{pages.length}</span>
         </button>
         </div>
       </div>
 
       <div className="character-dial-side-controls character-dial-right-controls" aria-label="Character editing controls">
-        <button type="button" onClick={backspace} aria-label="Backspace">⌫</button>
-        {rightButtons.slice(0, 5).map((action, index) =>
-          <span key={index} className={`${index === 3 ? "small-hidden" : ""} ${index === 4 ? "large-only" : ""}`.trim()}>
+        {rightButtons.slice(0, 7).map((action, index) =>
+          <span key={index} className={`${index === 4 ? "small-hidden" : ""} ${index === 5 ? "large-only" : ""}`.trim()}>
             {renderActionButton(action, "right-action", `Unassigned character editing control ${index + 1}`)}
           </span>)}
-        <button type="button" onClick={() => replaceSelection("\n")} aria-label="Enter">↵</button>
       </div>
     </div>
   );
