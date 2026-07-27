@@ -195,7 +195,7 @@ export function CronWorkspace({ controller: cron, ...props }: CronWorkspaceProps
         </div>
       </div>
       <TimerList timers={cron.timers} armedTimer={cron.armedDeleteTimer} selectedTimer={cron.selectedTimerId}
-        onSelectOrDelete={(id) => void cron.selectOrDelete(id)} onArmDelete={cron.armDelete} zoom={cron.timerZoom} />
+        onSelectOrDelete={(id) => void cron.selectOrDelete(id)} onArmDelete={cron.armDelete} zoom={cron.timerZoom} busy={cron.busy} />
     </section>
   );
 }

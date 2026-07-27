@@ -1,0 +1,40 @@
+.root {
+  min-height: var(--control-height-standard);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-unit);
+  padding-inline: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.title,
+.subtitle {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--space-unit) * 2);
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+  font-size: var(--app-title-font-size);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.mark {
+  font-size: 1.25em;
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1;
+}

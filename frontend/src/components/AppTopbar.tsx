@@ -7,7 +7,9 @@ type AppTopbarProps = {
   chatBusy: boolean;
   chatRun: ChatRun | null;
   settingsOpen: boolean;
+  helpOpen: boolean;
   onToggleSettings: () => void;
+  onToggleHelp: () => void;
 };
 
 export function AppTopbar(props: AppTopbarProps) {
@@ -22,6 +24,12 @@ export function AppTopbar(props: AppTopbarProps) {
         <p className={`status-line ${status.isError ? "error" : ""}`} role="status">{status.message}</p>
       </div>
       <div className="top-actions">
+        <button
+          className={`icon-button help ${props.helpOpen ? "active" : ""}`}
+          aria-label="Help"
+          title="Help"
+          onClick={props.onToggleHelp}
+        >?</button>
         <button
           className={`icon-button settings ${props.settingsOpen ? "active" : ""}`}
           aria-label="Settings"

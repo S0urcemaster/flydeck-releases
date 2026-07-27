@@ -1,0 +1,18 @@
+.root {
+  width: min(100%, var(--app-width));
+  min-height: 100dvh;
+  margin-inline: auto;
+  padding:
+    max(var(--space-unit), env(safe-area-inset-top))
+    var(--space-unit)
+    max(var(--space-unit), env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-unit);
+  background: var(--color-app);
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+}

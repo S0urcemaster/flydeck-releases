@@ -12,8 +12,8 @@ export function useDataController() {
   const [page, setPage] = useState(0);
   const [text, setText] = useState("");
   const [newFileName, setNewFileName] = useState("");
-  const [armedDeleteFile, setArmedDeleteFile] = useState<string | null>(null);
-  const [armedDeleteLine, setArmedDeleteLine] = useState<number | null>(null);
+  const [armedDeleteFile, setArmedDeleteFile] = useState(false);
+  const [armedDeleteLine, setArmedDeleteLine] = useState(false);
   const [busy, setBusy] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function useDataController() {
   }
 
   function selectLine(index: number) {
-    setArmedDeleteLine(null);
+    setArmedDeleteLine(false);
     setSelectedLine(index);
     setText(data[selectedFile]?.[index] ?? "");
     requestAnimationFrame(() => editorRef.current?.focus({ preventScroll: true }));
@@ -75,21 +75,16 @@ export function useDataController() {
     });
   }
 
-  function armFile(file: string) {
+  function armFile() {
     if (deletePendingRef.current) return;
-    if (files.find((entry) => entry.name === file)?.valid) {
-      setSelectedFile(file);
-      setPage(0);
-      setSelectedLine(null);
-      setText("");
-    }
-    setArmedDeleteFile((current) => current === file ? null : file);
-    setArmedDeleteLine(null);
+    setArmedDeleteFile((current) => !current);
+    setArmedDeleteLine(false);
   }
 
-  function armLine(index: number) {
+  function armLine() {
     if (deletePendingRef.current) return;
-    setArmedDeleteLine((current) => current === index ? null : index);
+    setArmedDeleteLine((current) => !current);
+    setArmedDeleteFile(false);
   }
 
   async function runDelete(action: () => Promise<void>) {
@@ -109,8 +104,8 @@ export function useDataController() {
       deletePendingRef.current = false;
       setDeletePending(false);
       setBusy(false);
-      setArmedDeleteFile(null);
-      setArmedDeleteLine(null);
+      setArmedDeleteFile(false);
+      setArmedDeleteLine(false);
     }
   }
 
@@ -119,8 +114,8 @@ export function useDataController() {
     setPage(0);
     setSelectedLine(null);
     setText("");
-    setArmedDeleteFile(null);
-    setArmedDeleteLine(null);
+    setArmedDeleteFile(false);
+    setArmedDeleteLine(false);
     setError(null);
     try {
       const loadedFile = await dataApi.read(file);
@@ -149,7 +144,7 @@ export function useDataController() {
 
   async function selectOrDeleteLine(index: number) {
     if (deletePendingRef.current) return;
-    if (armedDeleteLine !== index) {
+    if (!armedDeleteLine) {
       selectLine(index);
       return;
     }
@@ -164,7 +159,7 @@ export function useDataController() {
 
   async function selectOrDeleteFile(file: string) {
     if (deletePendingRef.current) return;
-    if (armedDeleteFile !== file) {
+    if (!armedDeleteFile) {
       await selectFile(file);
       return;
     }
@@ -190,8 +185,8 @@ export function useDataController() {
       setPage(0);
       setSelectedLine(null);
       setText("");
-      setArmedDeleteFile(null);
-      setArmedDeleteLine(null);
+      setArmedDeleteFile(false);
+      setArmedDeleteLine(false);
     });
   }
 

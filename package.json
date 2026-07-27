@@ -1,7 +1,10 @@
 {
   "name": "flydeck",
   "private": true,
-  "workspaces": ["frontend", "backend", "shared"],
+  "workspaces": ["frontend", "frontend-v2", "backend", "shared"],
+  "devDependencies": {
+    "vite": "7.3.6"
+  },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

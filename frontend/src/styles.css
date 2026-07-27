@@ -35,7 +35,7 @@
   left: var(--ui-logo-position-x, 50%);
   top: var(--ui-logo-position-y, 42%);
   transform: translate(-50%, -50%);
-  color: #ffffff;
+  color: var(--clock-mark-background);
   opacity: 1;
   font-size: calc(var(--ui-logo-size, 85) * 1cqw);
   font-weight: 700;
@@ -106,7 +106,7 @@
 
 .top-actions {
   display: grid;
-  grid-template-columns: var(--ui-buttonheight-standard, 44px);
+  grid-template-columns: repeat(2, var(--ui-buttonheight-standard, 44px));
   gap: 3px;
 }
 
@@ -129,6 +129,61 @@
   background: var(--action-selected);
   border-color: var(--border-accent);
   color: var(--text-on-selected);
+}
+
+.icon-button.help {
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.icon-button.help.active {
+  background: var(--action-selected);
+  border-color: var(--border-accent);
+  color: var(--text-on-selected);
+}
+
+.manual-content {
+  min-height: calc(100dvh - 58px);
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  background: color-mix(
+    in srgb,
+    var(--surface-input) calc(100% - var(--ui-input-transparency, 60%)),
+    transparent
+  );
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.manual-content h1,
+.manual-content h2,
+.manual-content h3,
+.manual-content p {
+  margin: 0;
+}
+
+.manual-content h1 {
+  font-size: 1.55rem;
+}
+
+.manual-content h2 {
+  font-size: 1.3rem;
+}
+
+.manual-content h3 {
+  font-size: 1.1rem;
+}
+
+.manual-content p {
+  white-space: pre-wrap;
+}
+
+.manual-gap {
+  height: 0.8rem;
 }
 
 .ui-font-scope {
@@ -209,9 +264,14 @@
 }
 
 .sub-tabs button.active,
-.data-file-list .list-item-content.active,
 .prompt-slot-tabs button:not(.agent-toggle).active {
   background: var(--action-selected2);
+}
+
+.data-file-list .two-column-list-entry.active {
+  background: var(--action-data-selected);
+  border-color: var(--border-accent);
+  color: var(--text-on-selected);
 }
 
 .two-column-list {
@@ -223,9 +283,17 @@
 }
 
 .list-item {
+  min-width: 0;
+}
+
+.list-item.has-delete {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--ui-buttonheight-compact, 40px);
   gap: 3px;
+}
+
+.list-item:not(.has-delete) > .list-item-content {
+  width: 100%;
 }
 
 .file-create-row {
@@ -344,6 +412,30 @@
   align-items: center;
 }
 
+.pager-delete-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--ui-buttonheight-standard, 44px);
+  gap: 3px;
+}
+
+.pager-delete-row > .delete-button {
+  width: var(--ui-buttonheight-standard, 44px);
+  min-width: var(--ui-buttonheight-standard, 44px);
+  min-height: var(--ui-buttonheight-standard, 44px);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--state-danger);
+  border-color: var(--state-danger-border);
+  color: var(--state-danger-text);
+}
+
+.pager-delete-row > .delete-button.armed {
+  background: var(--surface-muted);
+  border-color: var(--border-muted);
+  color: var(--text-accent);
+}
+
 .pager button {
   min-height: var(--ui-buttonheight-standard, 44px);
   display: grid;
@@ -425,6 +517,8 @@ textarea {
 
 .settings-workspace textarea {
   min-height: 472px;
+  font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", monospace;
+  line-height: 1.15;
 }
 
 textarea.agent-output {
@@ -525,13 +619,23 @@ input[type="range"]::-moz-range-thumb {
 .alternate-action-label {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.18em;
+  gap: 0.22em;
   white-space: nowrap;
 }
 
-.alternate-action-label > span {
-  font-size: 0.72em;
+.alternate-action-label > sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12em;
+  transform: translateY(0.18em);
+  font-size: 0.68em;
+  line-height: 1;
   letter-spacing: 0.03em;
+}
+
+.alternate-primary-symbol {
+  font-size: 1.4rem;
+  line-height: 1;
 }
 
 .editor-function-row {
@@ -731,7 +835,7 @@ input[type="range"]::-moz-range-thumb {
 .character-dial-custom-controls button {
   font-size: 1.4rem;
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: 0.4em;
 }
 
 .character-dial-side-controls button.active {
@@ -1000,7 +1104,7 @@ input[type="range"]::-moz-range-thumb {
   border-color: var(--border-disabled);
 }
 
-.safe-button.armed {
+.safety-button.armed {
   background: var(--state-danger);
   border-color: var(--state-danger-border);
   color: var(--state-danger-text);
@@ -1161,9 +1265,19 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .cron-timer-row {
+  display: block;
+}
+
+.cron-timer-row.has-delete {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--ui-buttonheight-compact, 40px);
+  grid-template-columns: minmax(0, 1fr) var(--ui-buttonheight-standard, 44px);
   gap: 3px;
+}
+
+.cron-timer-row.has-delete > .delete-button {
+  width: var(--ui-buttonheight-standard, 44px);
+  min-width: var(--ui-buttonheight-standard, 44px);
+  min-height: var(--ui-buttonheight-standard, 44px);
 }
 
 .cron-timer-row > button:first-child {
@@ -1232,6 +1346,17 @@ input[type="range"]::-moz-range-thumb {
   background: var(--state-danger);
   border-color: var(--state-danger-border);
   color: var(--state-danger-text);
+  box-shadow: none;
+}
+
+.delete-mode .two-column-list-entry,
+.delete-mode .list-item-content,
+.delete-mode .two-column-list-entry.active,
+.delete-mode .list-item-content.active {
+  background: var(--state-danger);
+  border-color: var(--state-danger-border);
+  color: var(--state-danger-text);
+  box-shadow: none;
 }
 
 .cron-dial::before {

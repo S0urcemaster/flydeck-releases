@@ -4,6 +4,7 @@ import { Editor } from "../../components/Editor";
 import { Pager } from "../../components/Pager";
 import { TwoColumnList } from "../../components/TwoColumnList";
 import { TextInput } from "../../components/TextInput";
+import { DeleteButton } from "../../components/DeleteButton";
 import type { DataFileSummary } from "@flydeck/shared/data";
 import type { CharacterDialCornerAction, CharacterDialCorners, DwellMode } from "../../components/CharacterDial";
 
@@ -11,18 +12,18 @@ type DataWorkspaceProps = {
   data: Record<string, string[]>;
   files: DataFileSummary[];
   selectedFile: string;
-  armedDeleteFile: string | null;
-  armedDeleteLine: number | null;
+  armedDeleteFile: boolean;
+  armedDeleteLine: boolean;
   selectedLine: number | null;
   dataText: string;
   newFileName: string;
   dataRef: RefObject<HTMLTextAreaElement | null>;
   page: number;
   onPageChange: (page: number) => void;
-  onArmDelete: (file: string) => void;
+  onArmDelete: () => void;
   onSelectOrDelete: (file: string) => void;
   onSelectLine: (index: number) => void;
-  onArmDeleteLine: (index: number) => void;
+  onArmDeleteLine: () => void;
   onSelectOrDeleteLine: (index: number) => void;
   onTextChange: (text: string) => void;
   onNewFileNameChange: (name: string) => void;
@@ -129,7 +130,7 @@ export function DataWorkspace({ dataRef, ...props }: DataWorkspaceProps) {
       <div ref={fileNameKeyboardHostRef} />
       <TwoColumnList
         ariaLabel="Data files"
-        className="data-file-list"
+        className={`data-file-list ${props.armedDeleteFile ? "delete-mode" : ""}`}
         entries={props.files.slice(fileStart, fileStart + dataFilePageSize).map((file) => {
           const label = file.name.replace(/\.md$/, "");
           return {
@@ -137,32 +138,31 @@ export function DataWorkspace({ dataRef, ...props }: DataWorkspaceProps) {
             label,
             selected: file.valid && file.name === props.selectedFile,
             invalid: !file.valid,
-            disabled: !file.valid || props.deletePending,
+            disabled: props.deletePending || (!file.valid && !props.armedDeleteFile),
             title: file.error ?? undefined,
             onClick: () => props.onSelectOrDelete(file.name),
-            delete: {
-              armed: props.armedDeleteFile === file.name,
-              disabled: props.deletePending,
-              onArm: () => props.onArmDelete(file.name),
-            },
           };
         })}
       />
-      <Pager page={visibleFilePage} pageCount={filePageCount} start={fileStart} pageSize={dataFilePageSize} total={props.files.length} onPageChange={setFilePage} />
-      <Pager page={page} pageCount={pageCount} start={start} pageSize={dataPageSize} total={visibleLines.length} onPageChange={props.onPageChange} />
-      <div className="line-list" aria-label="File content">
+      <div className="pager-delete-row">
+        <Pager page={visibleFilePage} pageCount={filePageCount} start={fileStart} pageSize={dataFilePageSize} total={props.files.length} onPageChange={setFilePage} />
+        <DeleteButton label="data files" armed={props.armedDeleteFile} disabled={props.deletePending || props.files.length === 0} onClick={props.onArmDelete} />
+      </div>
+      <div className="pager-delete-row">
+        <Pager page={page} pageCount={pageCount} start={start} pageSize={dataPageSize} total={visibleLines.length} onPageChange={props.onPageChange} />
+        <DeleteButton label="data lines" armed={props.armedDeleteLine} disabled={props.deletePending || visibleLines.length === 0} onClick={props.onArmDeleteLine} />
+      </div>
+      <div className={`line-list ${props.armedDeleteLine ? "delete-mode" : ""}`} aria-label="File content">
         {visibleLines.slice(start, start + dataPageSize).map(({ text, index: absoluteIndex }) => {
           return (
             <ListItem
               key={`${props.selectedFile}-${absoluteIndex}`}
               label={`line ${absoluteIndex + 1}`}
-              armed={props.armedDeleteLine === absoluteIndex}
+              armed={props.armedDeleteLine}
               className="line-row"
               contentClassName={props.selectedLine === absoluteIndex ? "active" : ""}
               contentDisabled={props.deletePending}
-              deleteDisabled={props.deletePending}
               onContentClick={() => props.onSelectOrDeleteLine(absoluteIndex)}
-              onArmDelete={() => props.onArmDeleteLine(absoluteIndex)}
             >
               {text}
             </ListItem>

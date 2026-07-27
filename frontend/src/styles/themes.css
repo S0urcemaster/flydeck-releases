@@ -35,6 +35,7 @@
   --action-dictate-border: #1b1b1b;
   --action-selected: #58b957;
   --action-selected2: #4da5db;
+  --action-data-selected: var(--action-selected2);
   --action-primary: #ff8f3d;
   --action-primary-border: #a94d11;
   --action-economy: #58b957;
@@ -100,6 +101,7 @@
   --action-dictate-border: #303030;
   --action-selected: #9e9e9e;
   --action-selected2: #c1c1c1;
+  --action-data-selected: #4da5db;
   --action-primary: #727272;
   --action-primary-border: #3f3f3f;
   --action-economy: #a8a8a8;

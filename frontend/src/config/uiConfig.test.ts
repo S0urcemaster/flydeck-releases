@@ -21,7 +21,7 @@ describe("uiConfig", () => {
 
     expect(migrated).toContain("preferred-keyboard : mobile");
     expect(migrated).toContain("theme : FLYDECK");
-    expect(migrated).toContain("dialerinput-dwell : 0.3");
+    expect(migrated).toContain("dialerinput-dwell : off");
   });
 
   it("rejects unknown and duplicate settings", () => {
@@ -31,7 +31,7 @@ describe("uiConfig", () => {
 
   it("exposes typed UI preferences", () => {
     expect(getPreferredKeyboard(defaultUiConfig)).toBe("dialer");
-    expect(getDialerDefaultDwell(defaultUiConfig)).toBe("0.3");
+    expect(getDialerDefaultDwell(defaultUiConfig)).toBe("off");
     expect(getDialerScaleSize(defaultUiConfig, "inner")).toBe(20);
     expect(getDialerScaleSize(defaultUiConfig, "outer")).toBe(30);
     expect(getCharacterDialCorners(defaultUiConfig)).toEqual({

@@ -1,0 +1,21 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-page);
+  color: var(--color-text);
+  font-family: var(--font-family-ui);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}

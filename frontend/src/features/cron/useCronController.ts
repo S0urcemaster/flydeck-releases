@@ -43,11 +43,12 @@ export function useCronController() {
   const [timerZoom, setTimerZoom] = useState<TimerZoom>("1w");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [armedDeleteTimer, setArmedDeleteTimer] = useState<string | null>(null);
+  const [armedDeleteTimer, setArmedDeleteTimer] = useState(false);
   const [dateAnchor, setDateAnchor] = useState(() => new Date());
   const dialRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const titleKeyboardHostRef = useRef<HTMLDivElement>(null);
+  const deletePendingRef = useRef(false);
 
   const scaleMaxHours = cronMaxHours * scaleMode;
   const rangeHours = rangeSliderToHours(rangeValue, scaleMaxHours);
@@ -143,8 +144,9 @@ export function useCronController() {
     });
   }
 
-  function armDelete(id: string) {
-    setArmedDeleteTimer((current) => current === id ? null : id);
+  function armDelete() {
+    if (deletePendingRef.current) return;
+    setArmedDeleteTimer((current) => !current);
   }
 
   function selectTimer(id: string) {
@@ -165,20 +167,25 @@ export function useCronController() {
   }
 
   async function selectOrDelete(id: string) {
-    if (armedDeleteTimer !== id) {
-      setArmedDeleteTimer(null);
+    if (deletePendingRef.current) return;
+    if (!armedDeleteTimer) {
       selectTimer(id);
       return;
     }
-    await run(async () => {
-      await cronApi.remove(id);
-      setTimers((current) => current.filter((timer) => timer.id !== id));
-      if (selectedTimerId === id) {
-        setSelectedTimerId(null);
-        setTitle("");
-      }
-      setArmedDeleteTimer(null);
-    });
+    deletePendingRef.current = true;
+    try {
+      await run(async () => {
+        await cronApi.remove(id);
+        setTimers((current) => current.filter((timer) => timer.id !== id));
+        if (selectedTimerId === id) {
+          setSelectedTimerId(null);
+          setTitle("");
+        }
+      });
+    } finally {
+      deletePendingRef.current = false;
+      setArmedDeleteTimer(false);
+    }
   }
 
   async function submit() {

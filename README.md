@@ -8,6 +8,10 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 27.07.26 10:00 Final Release V1
+
+
+
 ### 26.07.26 17:50 Fixes & Changes
 
 ### 23.07.25 13:04 

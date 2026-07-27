@@ -23,7 +23,7 @@ const uiConfigDefaults = [
   "--CHARACTER DIALER--",
   "# button options: CURRENTLETTER, BACKSPACE, ENTER, SPACE, TIME, DIALERSIZE, DWELL, or empty",
   "dialerinput-defaultsize : small",
-  "dialerinput-dwell : 0.3",
+  "dialerinput-dwell : off",
   "dialerinput-innerscale-size : 20",
   "dialerinput-outerscale-size : 30",
   "dialerinput-nwkey : CURRENTLETTER",
@@ -185,7 +185,7 @@ export function getDialerDefaultSize(config: string): "small" | "medium" | "larg
 
 export function getDialerDefaultDwell(config: string): DwellMode {
   const value = getConfigValue(config, "dialerinput-dwell");
-  return value === "off" || value === "0.2" || value === "0.4" ? value : "0.3";
+  return value === "0.2" || value === "0.3" || value === "0.4" ? value : "off";
 }
 
 export function getDialerScaleSize(config: string, scale: "inner" | "outer") {

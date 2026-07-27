@@ -23,14 +23,15 @@ function formatTimerDate(date: Date) {
 
 type TimerListProps = {
   timers: CronTimer[];
-  armedTimer: string | null;
+  armedTimer: boolean;
   selectedTimer: string | null;
   onSelectOrDelete: (id: string) => void;
-  onArmDelete: (id: string) => void;
+  onArmDelete: () => void;
   zoom: TimerZoom;
+  busy: boolean;
 };
 
-export function TimerList({ timers, armedTimer, selectedTimer, onSelectOrDelete, onArmDelete, zoom }: TimerListProps) {
+export function TimerList({ timers, armedTimer, selectedTimer, onSelectOrDelete, onArmDelete, zoom, busy }: TimerListProps) {
   const [now, setNow] = useState(() => Date.now());
   const oneWeekAgo = now - 7 * 24 * 3600000;
   const sortedTimers = timers
@@ -55,7 +56,7 @@ export function TimerList({ timers, armedTimer, selectedTimer, onSelectOrDelete,
 
   return (
     <div className="cron-timer-list" aria-label="Timer list">
-      {sortedTimers.map((timer) => {
+      {sortedTimers.map((timer, index) => {
         const formattedDate = formatTimerDate(new Date(timer.dueAt));
         const remainingHours = Math.max(0, (new Date(timer.dueAt).getTime() - now) / 3600000);
         const expired = timer.status === "expired" || remainingHours === 0;
@@ -64,12 +65,14 @@ export function TimerList({ timers, armedTimer, selectedTimer, onSelectOrDelete,
         return <div key={timer.id} style={style} className="cron-timer-progress">
         <ListItem
           label={timer.title}
-          armed={armedTimer === timer.id}
+          armed={armedTimer}
           className={`cron-timer-row ${expired ? "expired" : ""}`}
           contentClassName={selectedTimer === timer.id ? "active" : ""}
           contentAriaDisabled={expired}
+          contentDisabled={armedTimer && busy}
+          deleteDisabled={busy}
           onContentClick={() => onSelectOrDelete(timer.id)}
-          onArmDelete={() => onArmDelete(timer.id)}
+          onArmDelete={index === 0 ? onArmDelete : undefined}
         >
           <span>{timer.title}</span>
           <span className="timer-date">

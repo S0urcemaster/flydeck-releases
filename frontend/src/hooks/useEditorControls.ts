@@ -99,6 +99,7 @@ export function useEditorControls(
     const selectionEnd = input.selectionEnd;
     const segments = new Map<number, string>();
     recognition.onresult = (event) => {
+      if (recognitionRef.current !== recognition) return;
       for (const index of segments.keys()) {
         if (index >= event.results.length) segments.delete(index);
       }
@@ -127,18 +128,38 @@ export function useEditorControls(
   return { moveCursor, selectWord, dictate, dictating };
 }
 
-function mergeSpeechSegments(segments: string[]) {
+export function mergeSpeechSegments(segments: string[]) {
   const words: string[] = [];
   for (const segment of segments) {
     const nextWords = segment.trim().split(/\s+/).filter(Boolean);
+    if (nextWords.length === 0) continue;
+    const normalizedWords = words.map(normalizeSpeechWord);
+    const normalizedNextWords = nextWords.map(normalizeSpeechWord);
+    let commonPrefix = 0;
+    while (
+      commonPrefix < normalizedWords.length
+      && commonPrefix < normalizedNextWords.length
+      && normalizedWords[commonPrefix] === normalizedNextWords[commonPrefix]
+    ) {
+      commonPrefix += 1;
+    }
+    const cumulativeThreshold = Math.min(2, normalizedWords.length, normalizedNextWords.length);
+    if (cumulativeThreshold > 0 && commonPrefix >= cumulativeThreshold) {
+      words.splice(0, words.length, ...nextWords);
+      continue;
+    }
     let overlap = Math.min(words.length, nextWords.length);
     while (overlap > 0) {
-      const tail = words.slice(-overlap).join(" ").toLocaleLowerCase();
-      const head = nextWords.slice(0, overlap).join(" ").toLocaleLowerCase();
-      if (tail === head) break;
+      const tail = normalizedWords.slice(-overlap);
+      const head = normalizedNextWords.slice(0, overlap);
+      if (tail.every((word, index) => word === head[index])) break;
       overlap -= 1;
     }
     words.push(...nextWords.slice(overlap));
   }
   return words.join(" ");
+}
+
+function normalizeSpeechWord(word: string) {
+  return word.normalize("NFKC").toLocaleLowerCase("de").replace(/[^\p{L}\p{N}]+/gu, "");
 }

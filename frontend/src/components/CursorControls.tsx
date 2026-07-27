@@ -87,7 +87,7 @@ export function CursorControls({ onSelectWord, onMove, onCopy, onPaste, onSelect
         onPress={() => onMove(-1)}
         onLongPress={onCopy}
       >
-        <span className="alternate-action-label">&lt; <span>/ COP</span></span>
+        <span className="alternate-action-label"><span className="alternate-primary-symbol">◀</span><sub>COPY</sub></span>
       </AlternateActionButton>
       <AlternateActionButton
         ariaLabel="Move cursor right; long press to paste"
@@ -95,7 +95,7 @@ export function CursorControls({ onSelectWord, onMove, onCopy, onPaste, onSelect
         onPress={() => onMove(1)}
         onLongPress={onPaste}
       >
-        <span className="alternate-action-label">&gt; <span>PAS</span></span>
+        <span className="alternate-action-label"><span className="alternate-primary-symbol">▶</span><sub>PAST</sub></span>
       </AlternateActionButton>
       <AlternateActionButton
         ariaLabel="Select word; long press to select all"
@@ -103,7 +103,7 @@ export function CursorControls({ onSelectWord, onMove, onCopy, onPaste, onSelect
         onPress={onSelectWord}
         onLongPress={onSelectAll}
       >
-        <span className="alternate-action-label">W <span>/ ALL</span></span>
+        <span className="alternate-action-label"><span>W</span><sub>ALL</sub></span>
       </AlternateActionButton>
     </div>
   );

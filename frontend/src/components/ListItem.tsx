@@ -3,7 +3,7 @@ import { DeleteButton } from "./DeleteButton";
 
 type ListItemProps = {
   label: string;
-  armed: boolean;
+  armed?: boolean;
   className?: string;
   contentClassName?: string;
   contentAriaDisabled?: boolean;
@@ -11,13 +11,13 @@ type ListItemProps = {
   contentTitle?: string;
   deleteDisabled?: boolean;
   onContentClick: () => void;
-  onArmDelete: () => void;
+  onArmDelete?: () => void;
   children: ReactNode;
 };
 
 export function ListItem({
   label,
-  armed,
+  armed = false,
   className = "",
   contentClassName = "",
   contentAriaDisabled,
@@ -29,7 +29,7 @@ export function ListItem({
   children,
 }: ListItemProps) {
   return (
-    <div className={`list-item ${className}`.trim()}>
+    <div className={`list-item ${onArmDelete ? "has-delete" : ""} ${className}`.trim()}>
       <button
         className={`list-item-content ${contentClassName} ${armed ? "delete-armed" : ""}`.trim()}
         type="button"
@@ -40,7 +40,7 @@ export function ListItem({
       >
         {children}
       </button>
-      <DeleteButton label={label} armed={armed} disabled={deleteDisabled} onClick={onArmDelete} />
+      {onArmDelete && <DeleteButton label={label} armed={armed} disabled={deleteDisabled} onClick={onArmDelete} />}
     </div>
   );
 }

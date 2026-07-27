@@ -13,6 +13,7 @@ import { useSnippetController } from "./features/chat/useSnippetController";
 import { DataWorkspace } from "./features/data/DataWorkspace";
 import { useDataController } from "./features/data/useDataController";
 import { SettingsWorkspace } from "./features/settings/SettingsWorkspace";
+import { HelpWorkspace } from "./features/help/HelpWorkspace";
 import { useUiSettings } from "./features/settings/useUiSettings";
 import { useCronController } from "./features/cron/useCronController";
 import { CronWorkspace } from "./features/cron/CronWorkspace";
@@ -39,6 +40,7 @@ export function App() {
     toggle: toggleSettings,
   } = useUiSettings();
   const [activeTab, setActiveTab] = useState<MainTab>("CHAT");
+  const [helpOpen, setHelpOpen] = useState(false);
   const {
     subTab: chatSubTab,
     setSubTab: setChatSubTab,
@@ -73,9 +75,12 @@ export function App() {
     selectedName: selectedSnippetName,
     setSelectedName: setSelectedSnippetName,
     armedDelete: armedDeleteSnippet,
+    busy: snippetBusy,
     error: snippetError,
     canSave: canSendSnippet,
+    canSaveAsNew: canSaveSnippetAsNew,
     save: saveSnippet,
+    saveAsNew: saveSnippetAsNew,
     armDelete: armDeleteSnippet,
     selectOrDelete: confirmDeleteSnippet,
   } = useSnippetController();
@@ -153,9 +158,9 @@ export function App() {
         "--ui-buttonheight-compact": `${getUiButtonHeight(uiConfig, "compact")}px`,
         "--dialer-inner-scale-size": 1 + (getDialerScaleSize(uiConfig, "inner") - 1) / 99,
         "--dialer-outer-scale-size": 1 + (getDialerScaleSize(uiConfig, "outer") - 1) / 99,
-        "--editor-font-size-medi": `${1.08 + 0.16 * editorFontScale}rem`,
+        "--editor-font-size-medi": `${1.08 + 0.26 * editorFontScale}rem`,
         "--editor-font-size-big": `${1.08 + 0.52 * editorFontScale}rem`,
-        "--agent-editor-font-size-medi": `${0.94 + 0.14 * editorFontScale}rem`,
+        "--agent-editor-font-size-medi": `${0.94 + 0.255 * editorFontScale}rem`,
         "--agent-editor-font-size-big": `${0.94 + 0.51 * editorFontScale}rem`,
       } as CSSProperties}
     >
@@ -168,11 +173,21 @@ export function App() {
         chatBusy={chatBusy}
         chatRun={chatRun}
         settingsOpen={settingsOpen}
-        onToggleSettings={toggleSettings}
+        helpOpen={helpOpen}
+        onToggleSettings={() => {
+          setHelpOpen(false);
+          toggleSettings();
+        }}
+        onToggleHelp={() => {
+          if (settingsOpen) closeSettings();
+          setHelpOpen((current) => !current);
+        }}
       />
 
       <div className="ui-font-scope">
-      {settingsOpen ? (
+      {helpOpen ? (
+        <HelpWorkspace />
+      ) : settingsOpen ? (
         <SettingsWorkspace
           value={uiConfigDraft}
           textareaRef={settingsRef}
@@ -201,6 +216,7 @@ export function App() {
           subTab={chatSubTab}
           snippets={snippets}
           armedDeleteSnippet={armedDeleteSnippet}
+          snippetBusy={snippetBusy}
           snippetName={snippetName}
           snippetText={snippetText}
           selectedSnippetName={selectedSnippetName}
@@ -208,7 +224,7 @@ export function App() {
           activeText={activeChatText}
           showAgentView={showAgentView}
           chatRef={chatRef}
-          submitDisabled={chatSubTab === "SNIP" ? !canSendSnippet : !canSendPrompt}
+          submitDisabled={chatSubTab === "SNIP" ? !canSendSnippet && !canSaveSnippetAsNew : !canSendPrompt}
           agentBusy={chatBusy}
           chatEffort={chatEffort}
           chatModelTier={chatModelTier}
@@ -239,6 +255,7 @@ export function App() {
           onDictate={dictate}
           dictating={dictating}
           onSubmit={chatSubTab === "PROM" ? () => void sendPrompt() : () => void saveSnippet()}
+          onSubmitAsNew={() => void saveSnippetAsNew()}
         />
       )}
 

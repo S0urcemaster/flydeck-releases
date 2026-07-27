@@ -107,8 +107,8 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
   const activeInputRef = (temporaryInput?.ref ?? internalTextareaRef) as RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   const activeValue = temporaryInput?.value ?? value;
   const setActiveValue = temporaryInput?.onValueChange ?? onValueChange;
-  const activePhoneKeyboard = temporaryInput ? temporaryKeyboardMode === "mobile" : phoneKeyboardEnabled;
-  const activeCharacterDial = temporaryInput ? temporaryKeyboardMode === "dialer" : characterDialEnabled;
+  const activePhoneKeyboard = !keyboardEnabled && (temporaryInput ? temporaryKeyboardMode === "mobile" : phoneKeyboardEnabled);
+  const activeCharacterDial = !keyboardEnabled && (temporaryInput ? temporaryKeyboardMode === "dialer" : characterDialEnabled);
 
   function moveActiveCursor(direction: -1 | 1) {
     if (!temporaryInput) {
@@ -196,11 +196,11 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
     if (nextEnabled) setCharacterDialEnabled(false);
     if (nextEnabled) keyboardClosedViewportHeightRef.current = window.visualViewport?.height ?? window.innerHeight;
     setKeyboardEnabled(nextEnabled);
-    const textarea = internalTextareaRef.current;
-    if (!textarea) return;
-    textarea.setAttribute("inputmode", nextEnabled ? "text" : "none");
-    if (nextEnabled) textarea.focus({ preventScroll: true });
-    else textarea.blur();
+    const input = activeInputRef.current;
+    if (!input) return;
+    input.setAttribute("inputmode", nextEnabled ? "text" : "none");
+    if (nextEnabled) input.focus({ preventScroll: true });
+    else input.blur();
   }
 
   const keyboardBlock = (
@@ -227,6 +227,7 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
         phoneKeyboardEnabled={activePhoneKeyboard}
         onTogglePhoneKeyboard={() => {
           if (temporaryInput) {
+            setKeyboardEnabled(false);
             setTemporaryKeyboardMode("mobile");
             return;
           }
@@ -241,6 +242,7 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
         characterDialEnabled={activeCharacterDial}
         onToggleCharacterDial={() => {
           if (temporaryInput) {
+            setKeyboardEnabled(false);
             setTemporaryKeyboardMode("dialer");
             return;
           }

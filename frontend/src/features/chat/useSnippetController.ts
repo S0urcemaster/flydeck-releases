@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { snippetsApi } from "../../api/snippets";
 import { runRequest } from "../../api/runRequest";
 import { defaultSnippets } from "../../data/defaults";
@@ -11,9 +11,10 @@ export function useSnippetController() {
   const [text, setText] = useState(() => defaultSnippets[1]?.text ?? "");
   const [selectedName, setSelectedName] = useState<string | null>(initiallySelectedName);
   const [editingName, setEditingName] = useState<string | null>(initiallySelectedName);
-  const [armedDelete, setArmedDelete] = useState<string | null>(null);
+  const [armedDelete, setArmedDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const deletePendingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,11 +42,16 @@ export function useSnippetController() {
     });
   }
 
-  async function save() {
-    const nextName = name.trim();
+  async function save(asNew = false) {
+    const requestedName = name.trim();
+    const nextName = asNew ? getAvailableSnippetName(requestedName, snippets) : requestedName;
     if (!nextName) return;
+    if (!asNew) {
+      const currentSnippet = editingName ? snippets.find((snippet) => snippet.name === editingName) : undefined;
+      if (currentSnippet && currentSnippet.name === nextName && currentSnippet.text === text) return;
+    }
     await run(async () => {
-      const updatesSelected = editingName === nextName;
+      const updatesSelected = !asNew && editingName === nextName;
       const saved = updatesSelected
         ? await snippetsApi.update(editingName, { text })
         : await snippetsApi.create({ name: nextName, text });
@@ -54,35 +60,41 @@ export function useSnippetController() {
         : [...current, saved]);
       setEditingName(saved.name);
       setSelectedName(saved.name);
-      setArmedDelete(null);
+      setArmedDelete(false);
     });
   }
 
-  function armDelete(nameToArm: string) {
-    setArmedDelete((current) => current === nameToArm ? null : nameToArm);
+  function armDelete() {
+    if (deletePendingRef.current) return;
+    setArmedDelete((current) => !current);
   }
 
   async function selectOrDelete(nameToSelect: string) {
-    if (armedDelete !== nameToSelect) {
+    if (deletePendingRef.current) return;
+    if (!armedDelete) {
       const snippet = snippets.find((entry) => entry.name === nameToSelect);
-      setArmedDelete(null);
       setName(nameToSelect);
       setText(snippet?.text ?? "");
       setEditingName(nameToSelect);
       setSelectedName(nameToSelect);
       return;
     }
-    await run(async () => {
-      await snippetsApi.remove(nameToSelect);
-      setSnippets((current) => current.filter((snippet) => snippet.name !== nameToSelect));
-      if (editingName === nameToSelect) {
-        setName("");
-        setText("");
-        setEditingName(null);
-      }
-      if (selectedName === nameToSelect) setSelectedName(null);
-      setArmedDelete(null);
-    });
+    deletePendingRef.current = true;
+    try {
+      await run(async () => {
+        await snippetsApi.remove(nameToSelect);
+        setSnippets((current) => current.filter((snippet) => snippet.name !== nameToSelect));
+        if (editingName === nameToSelect) {
+          setName("");
+          setText("");
+          setEditingName(null);
+        }
+        if (selectedName === nameToSelect) setSelectedName(null);
+      });
+    } finally {
+      deletePendingRef.current = false;
+      setArmedDelete(false);
+    }
   }
 
   const trimmedName = name.trim();
@@ -107,8 +119,21 @@ export function useSnippetController() {
     busy,
     error,
     canSave: !busy && trimmedName.length > 0 && !nameExists && hasChanges,
-    save,
+    canSaveAsNew: !busy && editingName !== null && trimmedName.length > 0,
+    save: () => save(),
+    saveAsNew: () => save(true),
     armDelete,
     selectOrDelete,
   };
+}
+
+export function getAvailableSnippetName(requestedName: string, snippets: Array<{ name: string }>) {
+  if (!requestedName || !snippets.some((snippet) => snippet.name.toLocaleLowerCase() === requestedName.toLocaleLowerCase())) {
+    return requestedName;
+  }
+  let suffix = 2;
+  while (snippets.some((snippet) => snippet.name.toLocaleLowerCase() === `${requestedName} ${suffix}`.toLocaleLowerCase())) {
+    suffix += 1;
+  }
+  return `${requestedName} ${suffix}`;
 }

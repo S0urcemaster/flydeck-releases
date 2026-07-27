@@ -7,12 +7,14 @@ import { Repeat2 } from "lucide-react";
 import { TextInput } from "../../components/TextInput";
 import type { CharacterDialCornerAction, CharacterDialCorners, DwellMode } from "../../components/CharacterDial";
 import { getCommandHintLines } from "./commandHints";
+import { SafetyButton } from "../../components/SafetyButton";
 
 export type ChatSubTab = "PROM" | "SNIP";
 type ChatWorkspaceProps = {
   subTab: ChatSubTab;
   snippets: Snippet[];
-  armedDeleteSnippet: string | null;
+  armedDeleteSnippet: boolean;
+  snippetBusy: boolean;
   snippetName: string;
   snippetText: string;
   selectedSnippetName: string | null;
@@ -26,7 +28,7 @@ type ChatWorkspaceProps = {
   chatModelTier: ChatModelTier;
   onSubTabChange: (tab: ChatSubTab) => void;
   onSnippetClick: (snippet: Snippet) => void;
-  onArmDeleteSnippet: (name: string) => void;
+  onArmDeleteSnippet: () => void;
   onSnippetNameChange: (name: string) => void;
   onTextChange: (text: string) => void;
   onPromptSlotChange: (index: number) => void;
@@ -40,6 +42,7 @@ type ChatWorkspaceProps = {
   onDictate: () => void;
   dictating: boolean;
   onSubmit: () => void;
+  onSubmitAsNew: () => void;
   characterDialCorners: CharacterDialCorners;
   preferredKeyboard: "system" | "mobile" | "dialer";
   dialerDefaultSize: "small" | "medium" | "large";
@@ -67,14 +70,17 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
       </div>
       <TwoColumnList
         ariaLabel="Prompt snippets"
-        entries={props.snippets.map((snippet) => ({
+        className={props.subTab === "SNIP" && props.armedDeleteSnippet ? "delete-mode" : ""}
+        entries={props.snippets.map((snippet, index) => ({
           key: snippet.name,
           label: snippet.name,
           selected: props.subTab === "SNIP" && props.selectedSnippetName === snippet.name,
           onClick: () => props.onSnippetClick(snippet),
-          delete: props.subTab === "SNIP" ? {
-            armed: props.armedDeleteSnippet === snippet.name,
-            onArm: () => props.onArmDeleteSnippet(snippet.name),
+          disabled: props.subTab === "SNIP" && props.snippetBusy,
+          delete: props.subTab === "SNIP" && index === 0 ? {
+            armed: props.armedDeleteSnippet,
+            disabled: props.snippetBusy,
+            onArm: props.onArmDeleteSnippet,
           } : undefined,
         }))}
       />
@@ -113,7 +119,7 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
             </div>
             <div className="agent-control-tabs" aria-label="Agent controls">
               {props.showAgentView
-                ? <button type="button" onClick={props.onNewChat} disabled={props.agentBusy}>NEW</button>
+                ? <SafetyButton label="New chat" onConfirm={props.onNewChat} disabled={props.agentBusy}>NEW</SafetyButton>
                 : <button type="button" disabled aria-hidden="true" />}
               <button type="button" disabled aria-hidden="true" />
               <button
@@ -164,7 +170,10 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
           dictating={props.dictating}
           dictateDisabled={props.showAgentView && props.subTab === "PROM"}
           onSubmit={props.onSubmit}
+          onSubmitLongPress={props.subTab === "SNIP" && props.selectedSnippetName !== null ? props.onSubmitAsNew : undefined}
           submitDisabled={props.submitDisabled}
+          submitLabel={props.subTab === "SNIP" ? props.selectedSnippetName === null ? "NEW" : "SAVE" : undefined}
+          submitSecondaryLabel={props.subTab === "SNIP" && props.selectedSnippetName !== null ? "NEW" : undefined}
           characterDialCorners={props.characterDialCorners}
           preferredKeyboard={props.preferredKeyboard}
           dialerDefaultSize={props.dialerDefaultSize}
