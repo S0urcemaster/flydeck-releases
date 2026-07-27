@@ -10,7 +10,12 @@ Your agent should be able to connect it
 
 ### 27.07.26 10:00 Final Release V1
 
-
+![alt text](releases/2607271000/sc1.png)
+![alt text](releases/2607271000/sc2.png)
+![alt text](releases/2607271000/sc3.png)
+![alt text](releases/2607271000/sc4.png)
+![alt text](releases/2607271000/sc5.png)
+![alt text](releases/2607271000/sc6.png)
 
 ### 26.07.26 17:50 Fixes & Changes
 
