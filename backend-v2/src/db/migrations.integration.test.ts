@@ -115,8 +115,8 @@ integration("PostgreSQL migrations", () => {
     const renamed = await trees.renameNode(workspaceId, first.node.id, "Renamed", 0);
     expect(renamed.treeRevision).toBe(4);
     await trees.updateContent(workspaceId, first.node.id, "# Content\n", 0);
-    await trees.setEnabled(workspaceId, userId, first.node.id, true, 0);
     await trees.setEnabled(workspaceId, userId, first.node.id, false, 1);
+    await trees.setEnabled(workspaceId, userId, second.node.id, false, 1);
     await trees.setSelection(workspaceId, userId, {
       selectedPath: [first.node.id], expectedRevision: 0,
     });
@@ -131,7 +131,20 @@ integration("PostgreSQL migrations", () => {
     expect(loaded.semanticState.nodeRevisions[first.node.id]).toBe(2);
     expect(loaded.selection.selectedPath).toEqual([second.node.id]);
     expect(loaded.selection.revision).toBe(2);
-    await trees.deleteNode(workspaceId, second.node.id, 4);
+    const reparented = await trees.reparentNode(
+      workspaceId,
+      first.node.id,
+      second.node.id,
+      4,
+    );
+    expect(reparented.node.parentId).toBe(second.node.id);
+    await expect(trees.reparentNode(
+      workspaceId,
+      second.node.id,
+      first.node.id,
+      5,
+    )).rejects.toMatchObject({ status: 400, code: "INVALID_REQUEST" });
+    await trees.deleteNode(workspaceId, second.node.id, 5);
 
     const cron = new CronService(database!);
     const timer = await cron.create(workspaceId, userId, {

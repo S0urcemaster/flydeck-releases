@@ -30,9 +30,22 @@ export type TreeBrowserNode<TData = unknown> = {
 export type TreeBrowserInitialNode<TData = unknown> =
   TreeBrowserModelInitialNode<TData>;
 
+export type TreeBrowserRootTarget = {
+  id: string | null;
+  label: string;
+  eligible: boolean;
+};
+
+export type TreeBrowserRootControl = {
+  current: TreeBrowserRootTarget;
+  targets: readonly TreeBrowserRootTarget[];
+  onChange: (parentId: string | null) => Promise<boolean>;
+};
+
 export type TreeBrowserContentRenderProps<TContent> = {
   height?: string;
   node: TreeBrowserNode<TContent>;
+  root?: TreeBrowserRootControl;
 };
 
 export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
@@ -81,6 +94,10 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     nodeId: string,
     afterNodeId: string | null,
   ) => boolean | void | Promise<boolean | void>;
+  onReparentNode?: (
+    nodeId: string,
+    parentId: string | null,
+  ) => boolean | void | Promise<boolean | void>;
   onDeleteNode?: (nodeId: string) => boolean | void | Promise<boolean | void>;
   onEnabledNode?: (
     nodeId: string,
@@ -124,6 +141,7 @@ export function TreeBrowser<TContent = unknown>({
   onCreateNode,
   onRenameNode,
   onMoveNode,
+  onReparentNode,
   onDeleteNode,
   onEnabledNode,
   onSelectedPathChange,
@@ -210,6 +228,38 @@ export function TreeBrowser<TContent = unknown>({
       const removedDepth = current.indexOf(id);
       return removedDepth < 0 ? current : current.slice(0, removedDepth);
     });
+  }
+
+  async function reparentNode(nodeId: string, parentId: string | null) {
+    if (!onReparentNode) return false;
+    const confirmed = await onReparentNode(nodeId, parentId);
+    if (confirmed === false) return false;
+    const target = parentId ? findTreeNode(tree, parentId) : null;
+    const nextPath = parentId
+      ? [...(findTreePath(tree, parentId) ?? []), nodeId]
+      : [nodeId];
+    const targetItemCount = target ? target.children.length : tree.length;
+    setTree((current) => reparentInTree(current, nodeId, parentId));
+    setRevision((current) => current + 1);
+    if (parentId) {
+      setContentVisibleByNodeId((current) => ({
+        ...current,
+        [parentId]: false,
+      }));
+    }
+    const targetListId = parentId ?? rootId;
+    setPages((current) => ({
+      ...current,
+      [targetListId]: Math.floor(
+        targetItemCount / (pageSizes[targetListId] ?? defaultPageSize),
+      ),
+    }));
+    if (onSelectedPathChange) {
+      const selectionConfirmed = await onSelectedPathChange(nextPath);
+      if (selectionConfirmed === false) return false;
+    }
+    setSelectedPath(nextPath);
+    return true;
   }
 
   function renderLevel(
@@ -423,6 +473,24 @@ export function TreeBrowser<TContent = unknown>({
                   browserItemProps?.buttonProps?.height,
                   rowGap,
                 ),
+                root: onReparentNode ? {
+                  current: parentId === rootId
+                    ? { id: null, label: "", eligible: true }
+                    : {
+                        id: parentId,
+                        label: findTreeNode(tree, parentId)?.label ?? "",
+                        eligible: true,
+                      },
+                  targets: createRootTargets(
+                    tree,
+                    selectedNode.id,
+                    rootListItemLimit,
+                  ),
+                  onChange: (nextParentId) => reparentNode(
+                    selectedNode.id,
+                    nextParentId,
+                  ),
+                } : undefined,
               })
             : renderLevel(
                 selectedNode.children,
@@ -541,6 +609,81 @@ export function moveInTree<
     ...node,
     children: moveInTree(node.children, id, direction),
   }));
+}
+
+export function reparentInTree<
+  TNode extends { id: string; children: TNode[] },
+>(nodes: TNode[], nodeId: string, parentId: string | null): TNode[] {
+  const node = findTreeNode(nodes, nodeId);
+  if (!node || node.id === parentId || collectTreeIds(node).has(parentId ?? "")) {
+    return nodes;
+  }
+  const withoutNode = removeFromTree(nodes, nodeId);
+  if (parentId === null) return [...withoutNode, node];
+  return mapTree(withoutNode, parentId, (parent) => ({
+    ...parent,
+    children: [...parent.children, node],
+  }));
+}
+
+export function createRootTargets<
+  TNode extends {
+    id: string;
+    label: string;
+    listEditable?: boolean;
+    listItemLimit?: number;
+    children: TNode[];
+  },
+>(nodes: TNode[], nodeId: string, rootItemLimit?: number): TreeBrowserRootTarget[] {
+  const source = findTreeNode(nodes, nodeId);
+  const forbidden = source ? collectTreeIds(source) : new Set<string>();
+  return [{
+    id: null,
+    label: "",
+    eligible: nodes.length < (rootItemLimit ?? Infinity),
+  }, ...flattenTree(nodes).map((node) => ({
+    id: node.id,
+    label: node.label,
+    eligible: !forbidden.has(node.id)
+      && node.listEditable !== false
+      && node.children.length < (node.listItemLimit ?? Infinity),
+  }))];
+}
+
+function findTreeNode<TNode extends { id: string; children: TNode[] }>(
+  nodes: TNode[],
+  id: string,
+): TNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const nested = findTreeNode(node.children, id);
+    if (nested) return nested;
+  }
+}
+
+function findTreePath<TNode extends { id: string; children: TNode[] }>(
+  nodes: TNode[],
+  id: string,
+): string[] | null {
+  for (const node of nodes) {
+    if (node.id === id) return [node.id];
+    const nested = findTreePath(node.children, id);
+    if (nested) return [node.id, ...nested];
+  }
+  return null;
+}
+
+function flattenTree<TNode extends { children: TNode[] }>(nodes: TNode[]): TNode[] {
+  return nodes.flatMap((node) => [node, ...flattenTree(node.children)]);
+}
+
+function collectTreeIds<TNode extends { id: string; children: TNode[] }>(
+  node: TNode,
+): Set<string> {
+  return new Set([
+    node.id,
+    ...node.children.flatMap((child) => [...collectTreeIds(child)]),
+  ]);
 }
 
 function toDocumentNode<TContent>(

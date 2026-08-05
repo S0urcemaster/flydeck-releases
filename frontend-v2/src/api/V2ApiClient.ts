@@ -16,6 +16,7 @@ import {
   type DeleteCronTimerRequest,
   type DeleteTreeNodeRequest,
   type MoveTreeNodeRequest,
+  type ReparentTreeNodeRequest,
   type LoginRequest,
   type RenameTreeNodeRequest,
   type SetTreeNodeEnabledRequest,
@@ -71,6 +72,12 @@ export class V2ApiClient {
   moveDataNode(workspaceId: string, nodeId: string, input: MoveTreeNodeRequest) {
     return this.request(`${this.dataNodePath(workspaceId, nodeId)}/move`, createTreeNodeResponseSchema, {
       method: "POST", body: input,
+    });
+  }
+
+  reparentDataNode(workspaceId: string, nodeId: string, input: ReparentTreeNodeRequest) {
+    return this.request(`${this.dataNodePath(workspaceId, nodeId)}/parent`, createTreeNodeResponseSchema, {
+      method: "PUT", body: input,
     });
   }
 

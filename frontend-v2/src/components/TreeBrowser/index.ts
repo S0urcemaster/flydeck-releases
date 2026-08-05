@@ -3,10 +3,14 @@ export {
   insertAt,
   mapTree,
   moveInTree,
+  reparentInTree,
+  createRootTargets,
   removeFromTree,
   type TreeBrowserNode,
   type TreeBrowserInitialNode,
   type TreeBrowserContentRenderProps,
+  type TreeBrowserRootControl,
+  type TreeBrowserRootTarget,
   type TreeBrowserProps,
 } from "./TreeBrowser";
 export {

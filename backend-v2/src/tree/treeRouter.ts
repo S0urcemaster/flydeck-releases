@@ -4,6 +4,7 @@ import {
   createTreeNodeResponseSchema,
   deleteTreeNodeRequestSchema,
   moveTreeNodeRequestSchema,
+  reparentTreeNodeRequestSchema,
   renameTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
   setTreeNodeEnabledResponseSchema,
@@ -70,6 +71,19 @@ export function createTreeRouter(sessions: SessionService, trees: TreeService) {
     response.json(createTreeNodeResponseSchema.parse(
       await trees.moveNode(
         workspaceId, nodeId, input.afterNodeId, input.expectedTreeRevision,
+      ),
+    ));
+  });
+
+  router.put("/nodes/:nodeId/parent", async (request, response) => {
+    const { workspaceId } = await requireWorkspaceAccess(
+      sessions, request, workspaceIdParameter(request), true,
+    );
+    const nodeId = uuidSchema.parse(request.params.nodeId);
+    const input = reparentTreeNodeRequestSchema.parse(request.body);
+    response.json(createTreeNodeResponseSchema.parse(
+      await trees.reparentNode(
+        workspaceId, nodeId, input.parentId, input.expectedTreeRevision,
       ),
     ));
   });

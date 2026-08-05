@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   TreeBrowser,
+  createRootTargets,
   insertAt,
   moveInTree,
   removeFromTree,
+  reparentInTree,
   type TreeBrowserNode,
 } from "./TreeBrowser";
 import { TreeBrowserModel } from "./TreeBrowserModel";
@@ -85,5 +87,46 @@ describe("TreeBrowser", () => {
 
     expect(removeFromTree(nestedTree, "rose")[0].children[0].id).toBe("oak");
     expect(moveInTree(nestedTree, "oak", -1)[0].children[0].id).toBe("oak");
+  });
+
+  it("moves a complete subtree to another root without losing its children", () => {
+    const nodes = [{
+      id: "source",
+      label: "Source",
+      children: [{ id: "child", label: "Child", children: [] }],
+    }, {
+      id: "target",
+      label: "Target",
+      children: [],
+    }];
+
+    expect(reparentInTree(nodes, "source", "target")).toEqual([{
+      id: "target",
+      label: "Target",
+      children: [nodes[0]],
+    }]);
+    expect(reparentInTree(nodes, "source", "child")).toBe(nodes);
+  });
+
+  it("marks self, descendants, locked lists, and full lists as ineligible roots", () => {
+    const nodes = [{
+      id: "source",
+      label: "Source",
+      children: [{ id: "child", label: "Child", children: [] }],
+    }, {
+      id: "locked",
+      label: "Locked",
+      listEditable: false,
+      children: [],
+    }, {
+      id: "full",
+      label: "Full",
+      listItemLimit: 0,
+      children: [],
+    }];
+    const targets = createRootTargets(nodes, "source");
+
+    expect(Object.fromEntries(targets.map(({ label, eligible }) => [label, eligible])))
+      .toMatchObject({ "": true, Source: false, Child: false, Locked: false, Full: false });
   });
 });

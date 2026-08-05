@@ -70,6 +70,11 @@ export const moveTreeNodeRequestSchema = z.object({
   expectedTreeRevision: revisionSchema,
 }).strict();
 
+export const reparentTreeNodeRequestSchema = z.object({
+  parentId: z.uuid().nullable(),
+  expectedTreeRevision: revisionSchema,
+}).strict();
+
 export const deleteTreeNodeRequestSchema = z.object({
   expectedTreeRevision: revisionSchema,
 }).strict();
@@ -112,6 +117,7 @@ export type CreateTreeNodeRequest = z.infer<typeof createTreeNodeRequestSchema>;
 export type CreateTreeNodeResponse = z.infer<typeof createTreeNodeResponseSchema>;
 export type RenameTreeNodeRequest = z.infer<typeof renameTreeNodeRequestSchema>;
 export type MoveTreeNodeRequest = z.infer<typeof moveTreeNodeRequestSchema>;
+export type ReparentTreeNodeRequest = z.infer<typeof reparentTreeNodeRequestSchema>;
 export type DeleteTreeNodeRequest = z.infer<typeof deleteTreeNodeRequestSchema>;
 export type SetTreeNodeEnabledRequest = z.infer<typeof setTreeNodeEnabledRequestSchema>;
 export type SetTreeNodeEnabledResponse = z.infer<typeof setTreeNodeEnabledResponseSchema>;

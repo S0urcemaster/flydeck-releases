@@ -1,0 +1,48 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { resolveRootTarget, RootInputControl } from "./RootInputControl";
+
+const current = { id: null, label: "", eligible: true } as const;
+const targets = [
+  current,
+  { id: "archive", label: "Archive", eligible: true },
+  { id: "locked", label: "Locked", eligible: false },
+];
+
+describe("RootInputControl", () => {
+  it("shows the current root as valid without enabling an unchanged send", () => {
+    const markup = renderToStaticMarkup(
+      <RootInputControl
+        current={current}
+        targets={targets}
+        value=""
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Root node"');
+    expect(markup).toContain('value=""');
+    expect(markup).toContain('placeholder="Set parent node (empty for root)"');
+    expect(markup).toContain("color:var(--color-success)");
+    expect(markup).not.toContain('aria-label="Send root"');
+  });
+
+  it("resolves only one exact and eligible changed root", () => {
+    expect(resolveRootTarget(current, targets, "Archive")?.id).toBe("archive");
+    expect(resolveRootTarget(current, targets, "archive")).toBeNull();
+    expect(resolveRootTarget(current, targets, "Locked")).toBeNull();
+    expect(resolveRootTarget(current, [
+      ...targets,
+      { id: "second-archive", label: "Archive", eligible: true },
+    ], "Archive")).toBeNull();
+  });
+
+  it("uses an empty value to move a nested item to the top level", () => {
+    expect(resolveRootTarget(
+      { id: "archive", label: "Archive", eligible: true },
+      targets,
+      "",
+    )).toEqual(current);
+  });
+});

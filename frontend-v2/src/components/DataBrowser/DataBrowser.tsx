@@ -8,8 +8,15 @@ import {
   TreeBrowserModel,
   type TreeBrowserInitialNode,
   type TreeBrowserProps,
+  type TreeBrowserRootControl,
 } from "../TreeBrowser";
 import { InputControl, type InputControlProps } from "../InputControl";
+import {
+  resolveRootTarget,
+  RootInputControl,
+  type RootInputControlProps,
+} from "../RootInputControl";
+import styles from "./DataBrowser.module.css";
 
 export type DataBrowserProps = Omit<
   TreeBrowserProps,
@@ -149,7 +156,7 @@ function ServerDataBrowser({
         if (result === false) return false;
         treeRevision.current = result.treeRevision;
         nodeRevisions.current.set(result.node.id, result.node.revision);
-        enabledRevisions.current[result.node.id] = 0;
+        enabledRevisions.current[result.node.id] = 1;
         return toCreatedTreeNode(result.node);
       }}
       onRenameNode={async (nodeId, label) => {
@@ -165,6 +172,16 @@ function ServerDataBrowser({
       onMoveNode={async (nodeId, afterNodeId) => {
         const result = await confirmed(() => v2Api.moveDataNode(workspaceId, nodeId, {
           afterNodeId,
+          expectedTreeRevision: treeRevision.current,
+        }));
+        if (result === false) return false;
+        treeRevision.current = result.treeRevision;
+        nodeRevisions.current.set(nodeId, result.node.revision);
+        return true;
+      }}
+      onReparentNode={async (nodeId, parentId) => {
+        const result = await confirmed(() => v2Api.reparentDataNode(workspaceId, nodeId, {
+          parentId,
           expectedTreeRevision: treeRevision.current,
         }));
         if (result === false) return false;
@@ -200,11 +217,13 @@ function ServerDataBrowser({
         selectionRevision.current = result.revision;
         return true;
       }}
-      renderContent={({ height, node }) => (
+      renderContent={({ height, node, root }) => (
         <ServerDataContent
           {...inputControlProps}
           height={height}
           nodeId={node.id}
+          root={root}
+          rootInputProps={treeBrowserProps.listControlProps?.inputProps}
           workspaceId={workspaceId}
           onSynchronizationError={fail}
         />
@@ -215,16 +234,35 @@ function ServerDataBrowser({
 
 function ServerDataContent({
   nodeId,
+  root,
+  rootInputProps,
   workspaceId,
   onSynchronizationError,
   ...inputControlProps
 }: InputControlProps & {
   nodeId: string;
+  root?: TreeBrowserRootControl;
+  rootInputProps?: RootInputControlProps["inputProps"];
   workspaceId: string;
   onSynchronizationError: (error: unknown) => void;
 }) {
   const [document, setDocument] = useState<TreeNodeContentDto | null>(null);
   const [draft, setDraft] = useState("");
+  const [rootDraft, setRootDraft] = useState({
+    nodeId,
+    currentId: root?.current.id,
+    currentLabel: root?.current.label,
+    value: root?.current.label ?? "",
+  });
+  const rootValue = rootDraft.nodeId === nodeId
+    && rootDraft.currentId === root?.current.id
+    && rootDraft.currentLabel === root?.current.label
+    ? rootDraft.value
+    : root?.current.label ?? "";
+  const rootTarget = root
+    ? resolveRootTarget(root.current, root.targets, rootValue)
+    : null;
+  const rootValid = !root || Boolean(rootTarget);
 
   useEffect(() => {
     let active = true;
@@ -237,30 +275,63 @@ function ServerDataContent({
   }, [nodeId, onSynchronizationError, workspaceId]);
 
   return (
-    <InputControl
-      {...inputControlProps}
-      value={draft}
-      onChange={setDraft}
-      onSend={async (content) => {
-        if (!document) return;
-        try {
-          const confirmed = await v2Api.updateDataContent(workspaceId, nodeId, {
-            content,
-            expectedRevision: document.revision,
-          });
-          setDocument(confirmed);
-          setDraft(confirmed.content);
-        } catch (error) {
-          if (error instanceof V2ApiError && error.response.error === "REVISION_CONFLICT") {
-            const current = await v2Api.readDataContent(workspaceId, nodeId);
-            setDocument(current);
-            setDraft(current.content);
+    <div className={styles.content} style={{ height: inputControlProps.height }}>
+      {root && (
+        <RootInputControl
+          current={root.current}
+          inputProps={rootInputProps}
+          targets={root.targets}
+          value={rootValue}
+          onChange={(value) => setRootDraft({
+            nodeId,
+            currentId: root.current.id,
+            currentLabel: root.current.label,
+            value,
+          })}
+        />
+      )}
+      <InputControl
+        {...inputControlProps}
+        buttonProps={{
+          ...inputControlProps.buttonProps,
+          disabled: inputControlProps.buttonProps?.disabled || !document || !rootValid,
+        }}
+        height={root ? "100%" : inputControlProps.height}
+        value={draft}
+        onChange={setDraft}
+        onSend={async (content) => {
+          if (!document || !rootValid) return;
+          try {
+            const confirmed = await v2Api.updateDataContent(workspaceId, nodeId, {
+              content,
+              expectedRevision: document.revision,
+            });
+            setDocument(confirmed);
+            setDraft(confirmed.content);
+          } catch (error) {
+            if (error instanceof V2ApiError && error.response.error === "REVISION_CONFLICT") {
+              const current = await v2Api.readDataContent(workspaceId, nodeId);
+              setDocument(current);
+              setDraft(current.content);
+              return;
+            }
+            onSynchronizationError(error);
             return;
           }
-          onSynchronizationError(error);
-        }
-      }}
-    />
+          if (root && rootTarget && rootTarget.id !== root.current.id) {
+            const confirmed = await root.onChange(rootTarget.id);
+            if (confirmed) {
+              setRootDraft({
+                nodeId,
+                currentId: rootTarget.id,
+                currentLabel: rootTarget.label,
+                value: rootTarget.label,
+              });
+            }
+          }
+        }}
+      />
+    </div>
   );
 }
 
@@ -297,7 +368,7 @@ function toCreatedTreeNode(node: TreeNodeDto) {
     id: node.id,
     kind: node.kind,
     label: node.label,
-    enabled: false,
+    enabled: true,
     contentVisible: true,
     contentEditable: node.capabilities.contentEditable,
     listEditable: node.capabilities.listEditable,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCronTimerRequestSchema,
   createTreeNodeRequestSchema,
+  reparentTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
   treeDocumentDtoSchema,
 } from "./index.js";
@@ -46,6 +47,18 @@ describe("V2 network contracts", () => {
       label: "Name from the list input",
       content: "This must not become the item name",
       expectedTreeRevision: 0,
+    }).success).toBe(false);
+  });
+
+  it("uses a narrow parent command for tree restructuring", () => {
+    expect(reparentTreeNodeRequestSchema.parse({
+      parentId: secondId,
+      expectedTreeRevision: 4,
+    })).toEqual({ parentId: secondId, expectedTreeRevision: 4 });
+    expect(reparentTreeNodeRequestSchema.safeParse({
+      parentId: secondId,
+      expectedTreeRevision: 4,
+      nodes: [],
     }).success).toBe(false);
   });
 

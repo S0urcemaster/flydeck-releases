@@ -142,6 +142,10 @@ export class TreeService {
         INSERT INTO node_contents (node_id, format, content)
         VALUES ($1, 'markdown', '')
       `, [nodeId]);
+      await client.query(`
+        INSERT INTO node_user_states (node_id, user_id, enabled, revision)
+        VALUES ($1, $2, true, 1)
+      `, [nodeId, userId]);
       const updatedTree = await bumpTree(client, tree.id);
       const response = createTreeNodeResponseSchema.parse({
         node: toNodeDto(inserted.rows[0]),
@@ -249,6 +253,79 @@ export class TreeService {
         SELECT *, false AS enabled, 0 AS enabled_revision
         FROM tree_nodes WHERE id = $1
       `, [nodeId]);
+      const treeRevision = await bumpTree(client, tree.id);
+      return createTreeNodeResponseSchema.parse({
+        node: toNodeDto(moved.rows[0]), treeRevision,
+      });
+    });
+  }
+
+  async reparentNode(
+    workspaceId: string,
+    nodeId: string,
+    parentId: string | null,
+    expectedTreeRevision: number,
+  ) {
+    return this.database.transaction(async (client) => {
+      const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
+      assertRevision(tree.revision, expectedTreeRevision, "Tree");
+      const sourceResult = await client.query<MutableNodeRow>(`
+        SELECT *, false AS enabled, 0 AS enabled_revision
+        FROM tree_nodes WHERE tree_id = $1 AND id = $2
+      `, [tree.id, nodeId]);
+      const source = sourceResult.rows[0];
+      if (!source) throw new HttpError(404, "NOT_FOUND", "Node was not found");
+      if (source.parent_id === parentId) {
+        return createTreeNodeResponseSchema.parse({
+          node: toNodeDto(source), treeRevision: Number(tree.revision),
+        });
+      }
+      if (parentId === nodeId) {
+        throw new HttpError(400, "INVALID_REQUEST", "A node cannot be its own parent");
+      }
+      await assertWritableParent(client, tree.id, parentId);
+      if (parentId) {
+        const cycle = await client.query<{ found: boolean }>(`
+          WITH RECURSIVE descendants AS (
+            SELECT id FROM tree_nodes WHERE tree_id = $1 AND parent_id = $2
+            UNION ALL
+            SELECT child.id
+            FROM tree_nodes child
+            JOIN descendants parent ON child.parent_id = parent.id
+            WHERE child.tree_id = $1
+          )
+          SELECT EXISTS (
+            SELECT 1 FROM descendants WHERE id = $3
+          ) AS found
+        `, [tree.id, nodeId, parentId]);
+        if (cycle.rows[0].found) {
+          throw new HttpError(
+            400,
+            "INVALID_REQUEST",
+            "A node cannot be moved below its descendant",
+          );
+        }
+      }
+
+      const targetPosition = await insertionPosition(
+        client,
+        tree.id,
+        parentId,
+        null,
+      );
+      await client.query(`
+        UPDATE tree_nodes SET position = position - 1, updated_at = now()
+        WHERE tree_id = $1
+          AND parent_id IS NOT DISTINCT FROM $2
+          AND position > $3
+      `, [tree.id, source.parent_id, source.position]);
+      const moved = await client.query<MutableNodeRow>(`
+        UPDATE tree_nodes
+        SET parent_id = $1, position = $2,
+            revision = revision + 1, updated_at = now()
+        WHERE id = $3 AND tree_id = $4
+        RETURNING *, false AS enabled, 0 AS enabled_revision
+      `, [parentId, targetPosition, nodeId, tree.id]);
       const treeRevision = await bumpTree(client, tree.id);
       return createTreeNodeResponseSchema.parse({
         node: toNodeDto(moved.rows[0]), treeRevision,
