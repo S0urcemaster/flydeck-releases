@@ -1,0 +1,50 @@
+.root {
+  position: relative;
+  width: min(100%, 520px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  isolation: isolate;
+}
+
+.cornerButtons {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.topLeft {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.topRight {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.bottomLeft {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.bottomRight {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.centerButton {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  font-size: clamp(1.1rem, 5vw, 2rem);
+}

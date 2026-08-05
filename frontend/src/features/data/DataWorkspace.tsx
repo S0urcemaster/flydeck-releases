@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ListItem } from "../../components/ListItem";
-import { Editor } from "../../components/Editor";
+import { Editor, type EditorDictate } from "../../components/Editor";
 import { Pager } from "../../components/Pager";
 import { TwoColumnList } from "../../components/TwoColumnList";
 import { TextInput } from "../../components/TextInput";
 import { DeleteButton } from "../../components/DeleteButton";
 import type { DataFileSummary } from "@flydeck/shared/data";
 import type { CharacterDialCornerAction, CharacterDialCorners, DwellMode } from "../../components/CharacterDial";
+import type { MediKeyboardAction } from "../../components/MediKeyboard";
 
 type DataWorkspaceProps = {
   data: Record<string, string[]>;
@@ -29,7 +30,7 @@ type DataWorkspaceProps = {
   onNewFileNameChange: (name: string) => void;
   onSelectWord: () => void;
   onMoveCursor: (direction: -1 | 1) => void;
-  onDictate: () => void;
+  onDictate: EditorDictate;
   dictating: boolean;
   onSubmit: () => void;
   onSubmitAsNew: () => void;
@@ -37,9 +38,10 @@ type DataWorkspaceProps = {
   isBusy: boolean;
   deletePending: boolean;
   characterDialCorners: CharacterDialCorners;
-  preferredKeyboard: "system" | "mobile" | "dialer";
+  preferredKeyboard: "system" | "mobile" | "medi" | "dialer";
   dialerDefaultSize: "small" | "medium" | "large";
   characterDialRightButtons: CharacterDialCornerAction[];
+  mediKeyboardActions: MediKeyboardAction[];
   dialerDefaultDwell: DwellMode;
 };
 
@@ -191,6 +193,7 @@ export function DataWorkspace({ dataRef, ...props }: DataWorkspaceProps) {
           preferredKeyboard={props.preferredKeyboard}
           dialerDefaultSize={props.dialerDefaultSize}
           characterDialRightButtons={props.characterDialRightButtons}
+          mediKeyboardActions={props.mediKeyboardActions}
           dialerDefaultDwell={props.dialerDefaultDwell}
           temporaryInput={fileNameKeyboardActive ? {
             ref: newFileNameRef,

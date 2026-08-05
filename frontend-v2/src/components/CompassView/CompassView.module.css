@@ -1,0 +1,15 @@
+.category {
+  display: grid;
+  gap: var(--app-section-gap);
+}
+
+.category > div,
+.category ul {
+  margin: 0;
+}
+
+.category ul {
+  display: grid;
+  gap: var(--app-section-gap);
+  padding-inline-start: var(--space-lg);
+}

@@ -1,0 +1,13 @@
+.inheritedProperties {
+  min-width: 0;
+  margin: 0;
+  padding: calc(var(--space-unit) * 3);
+  border: 1px solid var(--color-border);
+}
+
+.inheritedProperties legend {
+  padding-inline: var(--space-unit);
+  color: var(--color-text);
+  font-size: var(--font-size-form-title);
+  font-weight: 700;
+}

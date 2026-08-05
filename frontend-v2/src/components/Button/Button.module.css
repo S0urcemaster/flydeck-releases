@@ -1,0 +1,11 @@
+.root {
+  min-width: 0;
+  border-radius: var(--radius-control);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.root:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}

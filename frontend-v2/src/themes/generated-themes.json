@@ -1,0 +1,63 @@
+{
+  "activeTheme": "flydeck",
+  "themes": {
+    "flydeck": {
+      "page": "#b9b9b9ff",
+      "app": "#ecf3ffff",
+      "text": "#181818ff",
+      "textMuted": "#626262ff",
+      "border": "#888888ff",
+      "surface": "#d3ceb3ff",
+      "accentOne": "#2468b2ff",
+      "accentTwo": "#287a3fff",
+      "success": "#287a3fff",
+      "error": "#a52b2bff"
+    },
+    "greyscale": {
+      "page": "#b9b9b9ff",
+      "app": "#eeeeeeff",
+      "text": "#181818ff",
+      "textMuted": "#626262ff",
+      "border": "#888888ff",
+      "surface": "#ffffffff",
+      "accentOne": "#555555ff",
+      "accentTwo": "#777777ff",
+      "success": "#707070ff",
+      "error": "#303030ff"
+    }
+  },
+  "tokens": {
+    "flydeck": {
+      "appTitleFontSize": 22,
+      "appMaxWidth": 520,
+      "appInset": 3,
+      "appSectionGap": 3,
+      "spaceUnit": 3,
+      "spaceXs": 3,
+      "spaceSm": 6,
+      "spaceMd": 12,
+      "spaceLg": 18,
+      "buttonWidth": 44,
+      "itemFontSize": 24,
+      "unlockButtonTimeout": 800,
+      "radiusControl": 3,
+      "borderStandard": "1px solid COLOR_BORDER"
+    },
+    "greyscale": {
+      "appTitleFontSize": 28,
+      "appMaxWidth": 520,
+      "appInset": 3,
+      "appSectionGap": 3,
+      "spaceUnit": 3,
+      "spaceXs": 3,
+      "spaceSm": 6,
+      "spaceMd": 12,
+      "spaceLg": 18,
+      "buttonWidth": 44,
+      "itemFontSize": 20,
+      "unlockButtonTimeout": 500,
+      "radiusControl": 3,
+      "borderStandard": "1px solid COLOR_BORDER"
+    }
+  }
+}

@@ -1,11 +1,8 @@
 .root {
-  min-height: var(--control-height-standard);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-unit);
-  padding-inline: 6px;
-  border: 1px solid var(--color-border);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: calc(var(--space-unit) * 2);
 }
 
 .title,
@@ -13,14 +10,23 @@
   margin: 0;
 }
 
-.row {
+.identity {
+  position: relative;
+  top: var(--app-title-top, 0px);
+  left: var(--app-title-left, 0px);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: calc(var(--space-unit) * 2);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  min-width: 0;
+  gap: var(--space-unit) calc(var(--space-unit) * 2);
+}
+
+.actions {
+  align-self: start;
 }
 
 .title {
+  flex: 0 0 auto;
   display: flex;
   align-items: baseline;
   gap: 0.35em;
@@ -30,11 +36,25 @@
 }
 
 .mark {
-  font-size: 1.25em;
+  position: relative;
+  top: var(--app-title-symbol-top, 0px);
+  left: var(--app-title-symbol-left, 0px);
+  font-size: var(--app-title-symbol-font-size, 1.25em);
+}
+
+.titleText {
+  position: relative;
+  top: var(--app-title-text-top, 0px);
+  left: var(--app-title-text-left, 0px);
 }
 
 .subtitle {
+  flex: 1 1 12rem;
+  min-width: min(100%, 12rem);
+  position: relative;
+  top: var(--app-title-subtitle-top, 0px);
+  left: var(--app-title-subtitle-left, 0px);
   color: var(--color-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--app-title-subtitle-font-size, 0.78rem);
   line-height: 1;
 }

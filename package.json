@@ -1,7 +1,7 @@
 {
   "name": "flydeck",
   "private": true,
-  "workspaces": ["frontend", "frontend-v2", "backend", "shared"],
+  "workspaces": ["frontend", "frontend-v2", "backend", "backend-v2", "shared"],
   "devDependencies": {
     "vite": "7.3.6"
   },

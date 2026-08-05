@@ -1,0 +1,18 @@
+.root,
+.level,
+.list {
+  display: grid;
+  min-width: 0;
+}
+
+.level {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.emptyItem {
+  border-radius: var(--radius-control);
+  background:
+    color-mix(in srgb, var(--color-surface) 72%, transparent);
+}

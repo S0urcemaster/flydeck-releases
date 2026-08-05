@@ -8,7 +8,8 @@
     "./data": "./src/data.ts",
     "./snippets": "./src/snippets.ts",
     "./snippet-defaults": "./src/snippetDefaults.ts",
-    "./cron": "./src/cron.ts"
+    "./cron": "./src/cron.ts",
+    "./v2": "./src/v2/index.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

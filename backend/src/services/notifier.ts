@@ -1,7 +1,10 @@
 import type { AppConfig } from "../config.js";
 
 export class NtfyNotifier {
-  constructor(private readonly config: Pick<AppConfig, "ntfyUrl" | "ntfyTopic">) {}
+  constructor(
+    private readonly config: Pick<AppConfig, "ntfyUrl" | "ntfyTopic">,
+    private readonly timeoutMs = 10_000,
+  ) {}
 
   get enabled() {
     return Boolean(this.config.ntfyUrl && this.config.ntfyTopic);
@@ -16,6 +19,7 @@ export class NtfyNotifier {
       method: "POST",
       headers: { "Content-Type": "text/plain; charset=utf-8", Title: "Flydeck Timer", Tags: "alarm_clock" },
       body: title,
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!response.ok) throw new Error(`ntfy antwortete mit HTTP ${response.status}`);
   }

@@ -3,12 +3,13 @@ import type {
   CharacterDialCorners,
   DwellMode,
 } from "../components/CharacterDial";
+import type { MediKeyboardAction } from "../components/MediKeyboard";
 
 export const uiConfigStorageKey = "flydeck.uiConfig";
 
 const uiConfigDefaults = [
   "--MAIN--",
-  "# preferred keyboard options: system, mobile, dialer",
+  "# preferred keyboard options: system, mobile, medi, dialer",
   "preferred-keyboard : dialer",
   "",
   "--DISPLAY--",
@@ -37,6 +38,14 @@ const uiConfigDefaults = [
   "dialerinput-rightkey5 :",
   "dialerinput-rightkey6 :",
   "dialerinput-rightkey7 : ENTER",
+  "",
+  "--MEDIKEYBOARD--",
+  "# button options: BACKSPACE, SHIFT, ENTER, SPACE, TIME, or empty",
+  "medikeyboard-key1 : BACKSPACE",
+  "medikeyboard-key2 : SHIFT",
+  "medikeyboard-key3 : SPACE",
+  "medikeyboard-key4 : TIME",
+  "medikeyboard-key5 : ENTER",
   "",
   "--MAINTENANCE--",
   "# set to true and apply to restore all local storage defaults",
@@ -72,13 +81,19 @@ export function normalizeUiConfig(value: unknown, addMissingDefaults: boolean) {
       } else return null;
       continue;
     }
+    if (/^medikeyboard-key[1-5]$/.test(name)) {
+      const action = rawValue === "" ? "" : rawValue.toUpperCase();
+      if (["", "BACKSPACE", "SHIFT", "ENTER", "SPACE", "TIME"].includes(action)) normalizedValues.set(name, action);
+      else return null;
+      continue;
+    }
     if (name === "localstorage-reset") {
       if (rawValue === "true" || rawValue === "false") normalizedValues.set(name, rawValue);
       else return null;
       continue;
     }
     if (name === "preferred-keyboard") {
-      if (rawValue === "system" || rawValue === "mobile" || rawValue === "dialer") normalizedValues.set(name, rawValue);
+      if (rawValue === "system" || rawValue === "mobile" || rawValue === "medi" || rawValue === "dialer") normalizedValues.set(name, rawValue);
       else return null;
       continue;
     }
@@ -173,9 +188,14 @@ export function getCharacterDialRightButtons(config: string) {
     getConfigValue(config, `dialerinput-rightkey${index + 1}`) as CharacterDialCornerAction);
 }
 
-export function getPreferredKeyboard(config: string): "system" | "mobile" | "dialer" {
+export function getPreferredKeyboard(config: string): "system" | "mobile" | "medi" | "dialer" {
   const value = getConfigValue(config, "preferred-keyboard");
-  return value === "system" || value === "mobile" ? value : "dialer";
+  return value === "system" || value === "mobile" || value === "medi" ? value : "dialer";
+}
+
+export function getMediKeyboardActions(config: string) {
+  return Array.from({ length: 5 }, (_, index) =>
+    getConfigValue(config, `medikeyboard-key${index + 1}`) as MediKeyboardAction);
 }
 
 export function getDialerDefaultSize(config: string): "small" | "medium" | "large" {

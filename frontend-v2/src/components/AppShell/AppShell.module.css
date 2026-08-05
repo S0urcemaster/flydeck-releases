@@ -1,18 +1,49 @@
 .root {
-  width: min(100%, var(--app-width));
+  position: relative;
+  isolation: isolate;
+  max-width: var(--app-max-width);
   min-height: 100dvh;
-  margin-inline: auto;
-  padding:
-    max(var(--space-unit), env(safe-area-inset-top))
-    var(--space-unit)
-    max(var(--space-unit), env(safe-area-inset-bottom));
+  padding: var(--app-shell-padding);
   display: flex;
   flex-direction: column;
-  gap: var(--space-unit);
-  background: var(--color-app);
+  gap: var(--app-section-gap);
 }
 
+.root.root[data-safe-area="true"] {
+  padding:
+    max(var(--app-shell-padding), env(safe-area-inset-top))
+    max(var(--app-shell-padding), env(safe-area-inset-right))
+    max(var(--app-shell-padding), env(safe-area-inset-bottom))
+    max(var(--app-shell-padding), env(safe-area-inset-left));
+}
+
+.root.root[data-safe-area="false"] {
+  padding: var(--app-shell-padding);
+}
+
+.root[data-viewport="container"] {
+  min-height: 100%;
+}
+
+.backgroundLayer {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.title,
 .content {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
+}
+
+.title {
+  flex: 0 0 auto;
 }

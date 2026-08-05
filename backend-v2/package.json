@@ -1,0 +1,32 @@
+{
+  "name": "flydeck-backend-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc --noEmit",
+    "bootstrap": "tsx src/setup/bootstrap.ts",
+    "set-password": "tsx src/setup/setPassword.ts",
+    "import:v1": "tsx src/import/runV1Import.ts",
+    "test": "vitest run",
+    "migrate": "tsx src/db/runMigrations.ts"
+  },
+  "dependencies": {
+    "@flydeck/shared": "*",
+    "express": "^5.1.0",
+    "pg": "^8.16.3",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.5",
+    "@types/supertest": "^6.0.0",
+    "supertest": "^7.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.0"
+  }
+}

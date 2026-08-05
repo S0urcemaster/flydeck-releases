@@ -1,0 +1,40 @@
+.editor {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.commentHighlights {
+  position: absolute;
+  z-index: 0;
+  inset: 1px;
+  margin: 0;
+  padding: var(--space-sm);
+  overflow: hidden;
+  color: transparent;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 1rem;
+  line-height: 1.4;
+  pointer-events: none;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.commentHighlights span {
+  display: block;
+}
+
+.commentHighlights span[data-comment="true"] {
+  background: color-mix(
+    in srgb,
+    var(--color-border) 18%,
+    transparent
+  );
+}
+
+.textarea {
+  position: relative;
+  z-index: 1;
+}

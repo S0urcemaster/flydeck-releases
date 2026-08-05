@@ -54,7 +54,51 @@ describe("DATA API", () => {
 
     const listed = await request(baseUrl).get("/flydeck/api/data").expect(200);
     expect(listed.body).toMatchObject([{ name: "ideen.md", title: "Ideen", entryCount: 1 }]);
-    expect((await readFile(path.join(config.dataHome, "ideen.md"), "utf8"))).toContain("--data--\nZweiter Eintrag");
+    expect(await readFile(path.join(config.dataHome, "ideen.md"), "utf8")).toContain("--data--\nZweiter Eintrag");
+  });
+
+  it("retires legacy service workers instead of serving the SPA fallback", async () => {
+    for (const workerPath of ["/sw.js", "/service-worker.js", "/flydeck/sw.js", "/flydeck/service-worker.js"]) {
+      const response = await request(baseUrl).get(workerPath).expect(200).expect("Content-Type", /application\/javascript/);
+      expect(response.headers["cache-control"]).toContain("no-store");
+      expect(response.headers["service-worker-allowed"]).toBe("/");
+      expect(response.text).toContain("self.registration.unregister()");
+    }
+  });
+
+  it("keeps multiline data entries on one physical Markdown line", async () => {
+    const filePath = path.join(config.dataHome, "notizen.md");
+    await request(baseUrl).post("/flydeck/api/data").send({ name: "notizen.md", title: "Notizen" }).expect(201);
+
+    const text = "Erste Zeile\nZweite Zeile mit \\\\n als Text";
+    const appended = await request(baseUrl)
+      .post("/flydeck/api/data/notizen.md/entries")
+      .send({ text })
+      .expect(201);
+    expect(appended.body.entries).toEqual([text]);
+
+    const markdown = await readFile(filePath, "utf8");
+    expect(markdown).toContain("entry-format: escaped-lines-v1");
+    expect(markdown).toContain("Erste Zeile\\nZweite Zeile mit \\\\\\\\n als Text");
+    expect(markdown.split("\n").filter((line) => line.startsWith("Erste Zeile"))).toHaveLength(1);
+
+    const reloaded = await request(baseUrl).get("/flydeck/api/data/notizen.md").expect(200);
+    expect(reloaded.body.entries).toEqual([text]);
+  });
+
+  it("reads legacy DATA lines and migrates them when writing", async () => {
+    const filePath = path.join(config.dataHome, "legacy.md");
+    await writeFile(filePath, "# Legacy\n\n--data--\nAlter \\\\n Text\nZweiter Eintrag\n");
+
+    const legacy = await request(baseUrl).get("/flydeck/api/data/legacy.md").expect(200);
+    expect(legacy.body.entries).toEqual(["Alter \\\\n Text", "Zweiter Eintrag"]);
+
+    await request(baseUrl)
+      .put("/flydeck/api/data/legacy.md/entries/1")
+      .send({ text: "Zweite\nZeile" })
+      .expect(200);
+    const migrated = await request(baseUrl).get("/flydeck/api/data/legacy.md").expect(200);
+    expect(migrated.body.entries).toEqual(["Alter \\\\n Text", "Zweite\nZeile"]);
   });
 
   it("moves deleted files into the flydon trash", async () => {

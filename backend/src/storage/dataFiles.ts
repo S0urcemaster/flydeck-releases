@@ -7,6 +7,40 @@ import { HttpError } from "../errors.js";
 import { createMarkdownData, parseMarkdownData, serializeMarkdownData, touchUpdatedMetadata } from "./markdownFormat.js";
 import { AtomicFileStore } from "./atomicFileStore.js";
 
+const entryFormatKey = "entry-format";
+const escapedLinesFormat = "escaped-lines-v1";
+
+function encodeEntry(text: string) {
+  return text.replace(/\\/g, "\\\\").replace(/\r\n?|\n/g, "\\n");
+}
+
+function decodeEntry(text: string) {
+  return text.replace(/\\(\\|n)/g, (_match, escaped: string) => escaped === "n" ? "\n" : "\\");
+}
+
+function setEntryFormat(preamble: string[]) {
+  const formatLine = `${entryFormatKey}: ${escapedLinesFormat}`;
+  const index = preamble.findIndex((line) => line.startsWith(`${entryFormatKey}:`));
+  if (index >= 0) return preamble.map((line, lineIndex) => lineIndex === index ? formatLine : line);
+  const markerGap = preamble.at(-1) === "" ? preamble.length - 1 : preamble.length;
+  return [...preamble.slice(0, markerGap), formatLine, "", ...preamble.slice(markerGap + 1)];
+}
+
+function decodeEntries(content: string) {
+  const parsed = parseMarkdownData(content);
+  if (parsed.metadata[entryFormatKey] === escapedLinesFormat) {
+    parsed.entries = parsed.entries.map(decodeEntry);
+  }
+  return parsed;
+}
+
+function serializeEntries(data: ReturnType<typeof parseMarkdownData>) {
+  return serializeMarkdownData({
+    preamble: setEntryFormat(data.preamble),
+    entries: data.entries.map(encodeEntry),
+  });
+}
+
 export class DataFileStore {
   private readonly files = new AtomicFileStore();
 
@@ -49,7 +83,7 @@ export class DataFileStore {
   async read(name: string): Promise<DataFile> {
     const filePath = await this.resolveExistingFile(name);
     const [content, fileStat] = await Promise.all([readFile(filePath, "utf8"), stat(filePath)]);
-    const parsed = parseMarkdownData(content);
+    const parsed = decodeEntries(content);
     return { name, title: parsed.title, metadata: parsed.metadata, entries: parsed.entries, modifiedAt: fileStat.mtime.toISOString() };
   }
 
@@ -63,7 +97,8 @@ export class DataFileStore {
         if (error instanceof HttpError) throw error;
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
-      await this.files.write(filePath, createMarkdownData(title));
+      const data = parseMarkdownData(createMarkdownData(title));
+      await this.files.write(filePath, serializeEntries(data));
       return this.read(name);
     });
   }
@@ -106,10 +141,10 @@ export class DataFileStore {
     const filePath = this.resolveFile(name);
     return this.files.runExclusive(filePath, async () => {
       await this.resolveExistingFile(name);
-      const parsed = parseMarkdownData(await readFile(filePath, "utf8"));
+      const parsed = decodeEntries(await readFile(filePath, "utf8"));
       parsed.entries = updateEntries(parsed.entries);
       parsed.preamble = touchUpdatedMetadata(parsed.preamble);
-      await this.files.write(filePath, serializeMarkdownData(parsed));
+      await this.files.write(filePath, serializeEntries(parsed));
       return this.read(name);
     });
   }

@@ -1,0 +1,14 @@
+.root {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.placeholder {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  border: var(--border-standard);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  font-weight: 700;
+}

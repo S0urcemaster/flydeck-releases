@@ -1,0 +1,73 @@
+.durationScale {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.durationMark {
+  --cron-mark-angle: 0deg;
+
+  position: absolute;
+  inset: 3%;
+  transform: rotate(var(--cron-mark-angle));
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+
+.tick {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 7%;
+  transform: translateX(-50%);
+  border-radius: var(--control-radius);
+  background: currentColor;
+}
+
+.markLabel {
+  position: absolute;
+  top: 9%;
+  left: 50%;
+  transform:
+    translateX(-50%)
+    rotate(calc(-1 * var(--cron-mark-angle)));
+  font-size: clamp(0.48rem, 2.2vw, 0.72rem);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.durationMark[data-selected] {
+  color: var(--color-accent-two);
+  text-shadow:
+    0 0 4px var(--color-accent-two),
+    0 0 9px var(--color-accent-two);
+}
+
+.durationMark[data-selected] .tick {
+  width: 3px;
+  height: 9%;
+  box-shadow:
+    0 0 4px var(--color-accent-two),
+    0 0 10px var(--color-accent-two);
+}
+
+.illuminatedPointer {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  width: 3px;
+  height: 46%;
+  transform: translateX(-50%);
+  border-radius: var(--control-radius);
+  background: linear-gradient(
+    to bottom,
+    var(--color-accent-two),
+    color-mix(in srgb, var(--color-accent-two) 52%, transparent) 48%,
+    transparent
+  );
+  box-shadow:
+    0 -2px 6px var(--color-accent-two),
+    0 -5px 14px color-mix(in srgb, var(--color-accent-two) 70%, transparent);
+}

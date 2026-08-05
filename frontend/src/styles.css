@@ -639,7 +639,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .editor-function-row {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .phone-keyboard {
@@ -697,6 +697,63 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: inset 0 0 0 2px var(--border-accent);
 }
 
+.medi-keyboard {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.medi-keyboard button {
+  min-width: 0;
+  min-height: 48px;
+  padding: 3px;
+  background: var(--surface-phone-keyboard);
+  font-weight: 900;
+}
+
+.medi-letter-key {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.medi-letter-key strong {
+  font-size: 1.2em;
+}
+
+.medi-letter-key small {
+  overflow: hidden;
+  font-size: 0.66em;
+  letter-spacing: 0.14em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.medi-custom-key {
+  overflow: hidden;
+  font-size: 0.75em;
+  letter-spacing: 0.14em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.medi-keyboard .medi-action-key {
+  display: grid;
+  place-items: center;
+  font-size: 1.15em;
+}
+
+.medi-keyboard .medi-action-key.active {
+  color: var(--text-on-selected);
+  background: var(--action-selected2);
+  border-color: var(--border-accent);
+}
+
+.medi-keyboard .medi-action-key.locked {
+  box-shadow: inset 0 0 0 2px var(--border-accent);
+}
+
 .editor-function-row button {
   min-height: var(--ui-buttonheight-standard, 44px);
 }
@@ -729,11 +786,16 @@ input[type="range"]::-moz-range-thumb {
   transform: translateX(-104%);
 }
 
+.medi-keyboard-panel {
+  transform: translateY(8%);
+}
+
 .dial-keyboard-panel {
   transform: translateX(104%);
 }
 
 .show-phone .phone-keyboard-panel,
+.show-medi .medi-keyboard-panel,
 .show-dial .dial-keyboard-panel {
   z-index: 1;
   transform: translateX(0);
@@ -744,6 +806,10 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .show-phone .dial-keyboard-panel,
+.show-phone .medi-keyboard-panel,
+.show-medi .phone-keyboard-panel,
+.show-medi .dial-keyboard-panel,
+.show-dial .medi-keyboard-panel,
 .show-dial .phone-keyboard-panel,
 .keyboard-hidden .keyboard-panel {
   z-index: 0;
@@ -771,6 +837,12 @@ input[type="range"]::-moz-range-thumb {
 .character-dial-symbol {
   font-size: 1.8rem;
   line-height: 1;
+}
+
+.medi-keyboard-symbol {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
 }
 
 .character-dial-stage {

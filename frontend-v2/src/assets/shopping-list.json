@@ -1,0 +1,32 @@
+[
+  {
+    "id": "fruit-vegetables",
+    "category": "Obst & Gemüse",
+    "items": ["Äpfel", "Bananen", "Tomaten", "Kartoffeln", "Karotten"]
+  },
+  {
+    "id": "bakery",
+    "category": "Backwaren",
+    "items": ["Brot", "Brötchen", "Toast", "Croissants"]
+  },
+  {
+    "id": "dairy",
+    "category": "Milchprodukte",
+    "items": ["Milch", "Butter", "Käse", "Joghurt", "Quark"]
+  },
+  {
+    "id": "drinks",
+    "category": "Getränke",
+    "items": ["Wasser", "Kaffee", "Tee", "Apfelsaft"]
+  },
+  {
+    "id": "pantry",
+    "category": "Vorrat",
+    "items": ["Nudeln", "Reis", "Mehl", "Zucker", "Olivenöl"]
+  },
+  {
+    "id": "household",
+    "category": "Haushalt",
+    "items": ["Küchenrolle", "Spülmittel", "Müllbeutel", "Waschmittel"]
+  }
+]

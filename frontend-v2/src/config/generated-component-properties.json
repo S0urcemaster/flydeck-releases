@@ -1,0 +1,560 @@
+{
+  "Base": {
+    "showComponentName": false,
+    "color": "inherit",
+    "background": "inherit",
+    "border": "inherit",
+    "padding": "inherit",
+    "margin": "inherit",
+    "width": "unset",
+    "height": "unset"
+  },
+  "BackgroundLogo": {
+    "symbol": "𐦍",
+    "fontSizeFactor": 1.8,
+    "opacity": 0.06,
+    "top": "-85px",
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "Button": {
+    "activeColor": "COLOR_ACCENT_ONE",
+    "fontSize": "24px",
+    "fontWeight": "500",
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "COLOR_SURFACE",
+      "border": "BORDER_STANDARD",
+      "padding": "0 SPACE_SM",
+      "margin": "0",
+      "width": "inherit",
+      "height": "40px"
+    }
+  },
+  "ModuleButton": {
+    "symbol": "◆",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "SideModuleButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "BUTTON_WIDTH",
+      "height": "inherit"
+    }
+  },
+  "AgentModuleButton": {
+    "symbol": "●",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "DataModuleButton": {
+    "symbol": "◆",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "FuncModuleButton": {
+    "symbol": "⚙",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "CronModuleButton": {
+    "symbol": "◷",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "HelpModuleButton": {
+    "symbol": "?",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "ConfigModuleButton": {
+    "symbol": "⚙",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "ModuleMenuActions": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "ButtonLink": {
+    "href": "/lab",
+    "label": "LAB",
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "COLOR_SURFACE",
+      "border": "BORDER_STANDARD",
+      "padding": "0 SPACE_SM",
+      "margin": "0",
+      "width": "100px",
+      "height": "50px"
+    }
+  },
+  "BlockingDialog": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "COLOR_SURFACE",
+      "border": "BORDER_STANDARD",
+      "padding": "SPACE_MD",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "LoginDialog": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "SynchronizationDialog": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "BrowserItem": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "BrowserItemLabelButton": {
+    "fontSize": "24px",
+    "fontWeight": "300",
+    "base": {
+      "color": "inherit",
+      "background": "COLOR_SURFACE",
+      "border": "BORDER_STANDARD",
+      "padding": "3px 3px 3px 8px",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "inherit"
+    }
+  },
+  "BrowserItemModeButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "BUTTON_WIDTH",
+      "height": "inherit"
+    }
+  },
+  "Checkbox": {
+    "activeColor": "COLOR_ACCENT_TWO",
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "COLOR_SURFACE",
+      "border": "BORDER_STANDARD",
+      "padding": "0",
+      "margin": "inherit",
+      "width": "BUTTON_WIDTH",
+      "height": "inherit"
+    }
+  },
+  "DeviceInfo": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "800px"
+    }
+  },
+  "DeviceInfoButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "DeleteButton": {
+    "armedColor": "COLOR_ERROR",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "0",
+      "margin": "inherit",
+      "width": "BUTTON_WIDTH",
+      "height": "inherit"
+    }
+  },
+  "DialerButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "SPACE_SM",
+      "margin": "inherit",
+      "width": "100%",
+      "height": "100%"
+    }
+  },
+  "DialerCenterButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "0",
+      "margin": "inherit",
+      "width": "25%",
+      "height": "25%"
+    }
+  },
+  "MemoryBrowser": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "TreeBrowser": {
+    "rowGap": "1px",
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "DataBrowser": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "FunctionBrowser": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "Input": {
+    "fontSize": "24px",
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "BORDER_STANDARD",
+      "padding": "3px 3px 3px 7px",
+      "margin": "0",
+      "width": "100%",
+      "height": "inherit"
+    }
+  },
+  "InputControl": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "BORDER_STANDARD",
+      "padding": "SPACE_XS",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "ListControl": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "ListControlButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "BUTTON_WIDTH",
+      "height": "inherit"
+    }
+  },
+  "ListControlListSizeButton": {
+    "fontSize": "20px",
+    "fontWeight": "inherit",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "AppTitle": {
+    "title": "Flydeck",
+    "subtitle": "Workspace Console",
+    "fontSize": 22,
+    "titleTop": -7,
+    "titleLeft": -5,
+    "flydeckTitleTop": 0,
+    "flydeckTitleLeft": 0,
+    "symbolFontSize": 20,
+    "symbolTop": 0,
+    "symbolLeft": 2,
+    "subtitleFontSize": 12,
+    "subtitleTop": 2,
+    "subtitleLeft": -3,
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "BORDER_STANDARD",
+      "padding": "SPACE_SM",
+      "margin": "0",
+      "width": "400",
+      "height": "unset"
+    }
+  },
+  "AppShell": {
+    "respectSafeArea": true,
+    "appMaxWidth": 520,
+    "appInset": 3,
+    "appSectionGap": 3,
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "COLOR_APP",
+      "border": "0",
+      "padding": "APP_INSET",
+      "margin": "0 auto",
+      "width": "100%",
+      "height": "unset"
+    }
+  },
+  "ModulePanel": {
+    "activeItem": "AGNT",
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0 0 5px 0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "Module": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "AgentModule": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "DataModule": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "FunctionsModule": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "CronModule": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "HelpModule": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "inherit",
+      "padding": "3px 3px 3px 10px",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "SettingsModule": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "SubmoduleButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "SubmodulePanel": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "Textarea": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "BORDER_STANDARD",
+      "padding": "SPACE_SM",
+      "margin": "0",
+      "width": "100%",
+      "height": "unset"
+    }
+  }
+}

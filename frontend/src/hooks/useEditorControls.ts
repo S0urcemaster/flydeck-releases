@@ -31,7 +31,7 @@ function getWords(value: string) {
 }
 
 export function useEditorControls(
-  editorRef: RefObject<HTMLTextAreaElement | null>,
+  editorRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
   onValueChange: (value: string) => void,
 ) {
   const recognitionRef = useRef<InstanceType<SpeechRecognitionConstructor> | null>(null);
@@ -39,7 +39,7 @@ export function useEditorControls(
   function moveCursor(direction: -1 | 1) {
     const input = editorRef.current;
     if (!input) return;
-    const nextPosition = Math.max(0, Math.min(input.value.length, input.selectionStart + direction));
+    const nextPosition = Math.max(0, Math.min(input.value.length, (input.selectionStart ?? input.value.length) + direction));
     input.focus({ preventScroll: true });
     input.setSelectionRange(nextPosition, nextPosition);
   }
@@ -50,8 +50,8 @@ export function useEditorControls(
     const words = getWords(input.value);
     if (words.length === 0) return;
 
-    const start = input.selectionStart;
-    const end = input.selectionEnd;
+    const start = input.selectionStart ?? 0;
+    const end = input.selectionEnd ?? start;
     input.focus({ preventScroll: true });
 
     if (start !== end) {
@@ -78,12 +78,15 @@ export function useEditorControls(
     input.setSelectionRange(nearestWord.start, nearestWord.end);
   }
 
-  function dictate() {
+  function dictate(
+    targetRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null> = editorRef,
+    targetOnValueChange: (value: string) => void = onValueChange,
+  ) {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       return;
     }
-    const input = editorRef.current;
+    const input = targetRef.current;
     input?.focus({ preventScroll: true });
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!Recognition || !input) return;
@@ -95,8 +98,8 @@ export function useEditorControls(
     recognition.continuous = true;
     recognition.interimResults = true;
     const originalValue = input.value;
-    const selectionStart = input.selectionStart;
-    const selectionEnd = input.selectionEnd;
+    const selectionStart = input.selectionStart ?? input.value.length;
+    const selectionEnd = input.selectionEnd ?? selectionStart;
     const segments = new Map<number, string>();
     recognition.onresult = (event) => {
       if (recognitionRef.current !== recognition) return;
@@ -108,7 +111,7 @@ export function useEditorControls(
       }
       const transcript = mergeSpeechSegments([...segments.entries()].sort(([left], [right]) => left - right).map(([, text]) => text));
       const nextValue = `${originalValue.slice(0, selectionStart)}${transcript}${originalValue.slice(selectionEnd)}`;
-      onValueChange(nextValue);
+      targetOnValueChange(nextValue);
       requestAnimationFrame(() => {
         const nextCursor = selectionStart + transcript.length;
         input.focus({ preventScroll: true });

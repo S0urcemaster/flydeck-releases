@@ -1,0 +1,54 @@
+.root {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: var(--border-standard);
+  border-radius: 50%;
+  clip-path: circle(50%);
+  color: var(--color-text);
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.root:active {
+  cursor: grabbing;
+}
+
+.root[data-layer="outer"] {
+  z-index: 2;
+  width: 82%;
+  height: 82%;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+}
+
+.root[data-layer="inner"] {
+  z-index: 3;
+  width: 54%;
+  height: 54%;
+  background: color-mix(in srgb, var(--color-app) 94%, transparent);
+}
+
+.markerPosition {
+  position: absolute;
+  z-index: 1;
+  inset: 3%;
+  transform: rotate(var(--dial-marker-angle));
+  pointer-events: none;
+}
+
+.marker {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--color-text);
+  border-radius: 50%;
+  background: var(--color-accent-two);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-surface) 75%, transparent);
+}

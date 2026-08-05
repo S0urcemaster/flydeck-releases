@@ -8,6 +8,11 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 05.08.26 17:15 Pre-Release V2
+New data model with import from V1
+Use this client for DATA collection for deep tree lists
+
+
 ### 27.07.26 10:00 Final Release V1
 
 ![alt text](releases/2607271000/sc1.png)

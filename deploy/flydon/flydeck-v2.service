@@ -1,0 +1,17 @@
+[Unit]
+Description=Flydeck v2 PostgreSQL backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/flydon/.local/share/flydeck-v2/releases/current
+Environment=HOME=/home/flydon
+Environment=PATH=/home/flydon/.nvm/versions/node/v24.18.0/bin:/usr/bin:/bin
+EnvironmentFile=/home/flydon/.config/flydeck-v2.env
+ExecStart=/home/flydon/.nvm/versions/node/v24.18.0/bin/node /home/flydon/.local/share/flydeck-v2/releases/current/node_modules/tsx/dist/cli.mjs backend-v2/src/server.ts
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

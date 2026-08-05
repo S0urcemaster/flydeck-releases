@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/refs -- The controller is a state model containing DOM refs; its other fields are ordinary render state. */
 import { Repeat2, Send } from "lucide-react";
-import { Editor } from "../../components/Editor";
+import { Editor, type EditorDictate } from "../../components/Editor";
 import { RadialMark } from "../../components/RadialMark";
 import { TextInput } from "../../components/TextInput";
 import type {
@@ -21,15 +21,17 @@ import { DisplayClockTime, DisplayUnit } from "./CronDisplay";
 import { getDurationParts } from "./model";
 import { TimerList } from "./TimerList";
 import type { CronController } from "./useCronController";
+import type { MediKeyboardAction } from "../../components/MediKeyboard";
 
 type CronWorkspaceProps = {
   controller: CronController;
-  onDictate: () => void;
+  onDictate: EditorDictate;
   dictating: boolean;
   characterDialCorners: CharacterDialCorners;
-  preferredKeyboard: "system" | "mobile" | "dialer";
+  preferredKeyboard: "system" | "mobile" | "medi" | "dialer";
   dialerDefaultSize: "small" | "medium" | "large";
   characterDialRightButtons: CharacterDialCornerAction[];
+  mediKeyboardActions: MediKeyboardAction[];
   dialerDefaultDwell: DwellMode;
 };
 
@@ -94,6 +96,7 @@ export function CronWorkspace({ controller: cron, ...props }: CronWorkspaceProps
         preferredKeyboard={props.preferredKeyboard}
         dialerDefaultSize={props.dialerDefaultSize}
         characterDialRightButtons={props.characterDialRightButtons}
+        mediKeyboardActions={props.mediKeyboardActions}
         dialerDefaultDwell={props.dialerDefaultDwell}
         temporaryInput={cron.titleKeyboardActive ? {
           ref: cron.titleRef,
@@ -102,6 +105,7 @@ export function CronWorkspace({ controller: cron, ...props }: CronWorkspaceProps
           onValueChange: cron.setTitle,
           onSubmit: () => void cron.submit(),
           submitDisabled: cron.submitDisabled,
+          allowDictation: true,
         } : null}
         onDismissTemporaryInput={() => cron.setTitleKeyboardActive(false)}
       />

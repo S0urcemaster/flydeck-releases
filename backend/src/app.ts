@@ -14,6 +14,16 @@ import { ChatService } from "./services/chatService.js";
 import { createChatRouter } from "./routes/chat.js";
 import { createAuthGuard } from "./auth.js";
 
+const retiredServiceWorker = `self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    await self.registration.unregister();
+    const clients = await self.clients.matchAll({ type: "window" });
+    await Promise.all(clients.map((client) => client.navigate(client.url)));
+  })());
+});
+`;
+
 export async function createApp(config: AppConfig, cronStore = new CronStore(config), chatService = new ChatService(config)) {
   const app = express();
   const store = new DataFileStore(config);
@@ -38,6 +48,25 @@ export async function createApp(config: AppConfig, cronStore = new CronStore(con
   app.use(`${config.basePath}/api/cron`, createCronRouter(cronStore));
   app.use(`${config.basePath}/api/chat`, createChatRouter(chatService));
 
+  // Older Flydeck releases may have left a service worker behind. Returning the
+  // SPA fallback for its script URL makes the browser reject the update and keep
+  // the stale worker alive. Serve a valid worker at the common legacy URLs that
+  // immediately unregisters itself instead.
+  const serviceWorkerPaths = [...new Set([
+    "/sw.js",
+    "/service-worker.js",
+    `${config.basePath}/sw.js`,
+    `${config.basePath}/service-worker.js`,
+  ])];
+  app.get(serviceWorkerPaths, (_request, response) => {
+    response.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Service-Worker-Allowed": "/",
+    });
+    response.send(retiredServiceWorker);
+  });
+
   if (config.frontendDist) {
     app.use(express.static(config.frontendDist));
     app.use((request, response, next) => {
@@ -45,6 +74,7 @@ export async function createApp(config: AppConfig, cronStore = new CronStore(con
         next();
         return;
       }
+      response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       response.sendFile(path.join(config.frontendDist!, "index.html"));
     });
   }

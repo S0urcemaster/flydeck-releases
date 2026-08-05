@@ -23,6 +23,7 @@ import {
   getDialerDefaultDwell,
   getDialerDefaultSize,
   getDialerScaleSize,
+  getMediKeyboardActions,
   getPreferredKeyboard,
   getUiButtonHeight,
   getUiFontScale,
@@ -143,6 +144,7 @@ export function App() {
   const editorPreferences = {
     characterDialCorners: getCharacterDialCorners(uiConfig),
     characterDialRightButtons: getCharacterDialRightButtons(uiConfig),
+    mediKeyboardActions: getMediKeyboardActions(uiConfig),
     preferredKeyboard: getPreferredKeyboard(uiConfig),
     dialerDefaultSize: getDialerDefaultSize(uiConfig),
     dialerDefaultDwell: getDialerDefaultDwell(uiConfig),

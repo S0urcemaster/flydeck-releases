@@ -7,14 +7,20 @@ import { CursorControls } from "./CursorControls";
 import { PhoneKeyboard } from "./PhoneKeyboard";
 import { CharacterDial } from "./CharacterDial";
 import type { CharacterDialCornerAction, CharacterDialCorners, DwellMode } from "./CharacterDial";
+import { MediKeyboard, type MediKeyboardAction } from "./MediKeyboard";
 
 export type EditorTextSize = "SMAL" | "MEDI" | "BIG";
-type CustomKeyboardMode = "mobile" | "dialer";
+type CustomKeyboardMode = "mobile" | "medi" | "dialer";
+
+export type EditorDictate = (
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
+  onValueChange: (value: string) => void,
+) => void;
 
 export function getPreferredCustomKeyboard(
-  preferredKeyboard: "system" | "mobile" | "dialer",
+  preferredKeyboard: "system" | "mobile" | "medi" | "dialer",
 ): CustomKeyboardMode {
-  return preferredKeyboard === "mobile" ? "mobile" : "dialer";
+  return preferredKeyboard === "mobile" || preferredKeyboard === "medi" ? preferredKeyboard : "dialer";
 }
 
 type EditorProps = {
@@ -32,7 +38,7 @@ type EditorProps = {
   onSelectWord: () => void;
   onMoveCursor: (direction: -1 | 1) => void;
   onScrollToBottom?: () => void;
-  onDictate: () => void;
+  onDictate: EditorDictate;
   dictating: boolean;
   dictateDisabled?: boolean;
   onSubmit: () => void;
@@ -41,10 +47,11 @@ type EditorProps = {
   submitLabel?: string;
   submitSecondaryLabel?: string;
   characterDialCorners?: CharacterDialCorners;
-  preferredKeyboard?: "system" | "mobile" | "dialer";
+  preferredKeyboard?: "system" | "mobile" | "medi" | "dialer";
   dialerDefaultSize?: "small" | "medium" | "large";
   spellCheck?: boolean;
   characterDialRightButtons?: CharacterDialCornerAction[];
+  mediKeyboardActions?: MediKeyboardAction[];
   dialerDefaultDwell?: DwellMode;
   temporaryInput?: {
     ref: RefObject<HTMLInputElement | null>;
@@ -54,6 +61,7 @@ type EditorProps = {
     onSubmit: () => void;
     submitDisabled: boolean;
     submitLabel?: string;
+    allowDictation?: boolean;
   } | null;
   onDismissTemporaryInput?: () => void;
   hideTextarea?: boolean;
@@ -87,6 +95,7 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
   dialerDefaultSize = "small",
   spellCheck,
   characterDialRightButtons,
+  mediKeyboardActions,
   dialerDefaultDwell = "0.3",
   temporaryInput,
   onDismissTemporaryInput,
@@ -95,8 +104,9 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
   const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
   const keyboardClosedViewportHeightRef = useRef(0);
   const [keyboardEnabled, setKeyboardEnabled] = useState(false);
-  const [phoneKeyboardEnabled, setPhoneKeyboardEnabled] = useState(false);
-  const [characterDialEnabled, setCharacterDialEnabled] = useState(true);
+  const [phoneKeyboardEnabled, setPhoneKeyboardEnabled] = useState(preferredKeyboard === "mobile");
+  const [mediKeyboardEnabled, setMediKeyboardEnabled] = useState(preferredKeyboard === "medi");
+  const [characterDialEnabled, setCharacterDialEnabled] = useState(preferredKeyboard === "dialer" || preferredKeyboard === "system");
   const [temporaryKeyboardMode, setTemporaryKeyboardMode] = useState<CustomKeyboardMode>(
     () => getPreferredCustomKeyboard(preferredKeyboard),
   );
@@ -108,6 +118,7 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
   const activeValue = temporaryInput?.value ?? value;
   const setActiveValue = temporaryInput?.onValueChange ?? onValueChange;
   const activePhoneKeyboard = !keyboardEnabled && (temporaryInput ? temporaryKeyboardMode === "mobile" : phoneKeyboardEnabled);
+  const activeMediKeyboard = !keyboardEnabled && (temporaryInput ? temporaryKeyboardMode === "medi" : mediKeyboardEnabled);
   const activeCharacterDial = !keyboardEnabled && (temporaryInput ? temporaryKeyboardMode === "dialer" : characterDialEnabled);
 
   function moveActiveCursor(direction: -1 | 1) {
@@ -193,6 +204,7 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
   function toggleKeyboard() {
     const nextEnabled = !keyboardEnabled;
     if (nextEnabled) setPhoneKeyboardEnabled(false);
+    if (nextEnabled) setMediKeyboardEnabled(false);
     if (nextEnabled) setCharacterDialEnabled(false);
     if (nextEnabled) keyboardClosedViewportHeightRef.current = window.visualViewport?.height ?? window.innerHeight;
     setKeyboardEnabled(nextEnabled);
@@ -235,6 +247,23 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
             if (current) return true;
             setKeyboardEnabled(false);
             setCharacterDialEnabled(false);
+            setMediKeyboardEnabled(false);
+            internalTextareaRef.current?.blur();
+            return true;
+          });
+        }}
+        mediKeyboardEnabled={activeMediKeyboard}
+        onToggleMediKeyboard={() => {
+          if (temporaryInput) {
+            setKeyboardEnabled(false);
+            setTemporaryKeyboardMode("medi");
+            return;
+          }
+          setMediKeyboardEnabled((current) => {
+            if (current) return true;
+            setKeyboardEnabled(false);
+            setPhoneKeyboardEnabled(false);
+            setCharacterDialEnabled(false);
             internalTextareaRef.current?.blur();
             return true;
           });
@@ -250,6 +279,7 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
             if (current) return true;
             setKeyboardEnabled(false);
             setPhoneKeyboardEnabled(false);
+            setMediKeyboardEnabled(false);
             internalTextareaRef.current?.blur();
             return true;
           });
@@ -257,7 +287,7 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
       />
       <div
         className={`keyboard-switcher ${
-          activePhoneKeyboard ? "show-phone" : activeCharacterDial ? "show-dial" : "keyboard-hidden"
+          activePhoneKeyboard ? "show-phone" : activeMediKeyboard ? "show-medi" : activeCharacterDial ? "show-dial" : "keyboard-hidden"
         }`}
       >
         <div className="keyboard-panel phone-keyboard-panel" aria-hidden={!activePhoneKeyboard} inert={!activePhoneKeyboard}>
@@ -266,6 +296,18 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
             textareaRef={activeInputRef}
             value={activeValue}
             onValueChange={setActiveValue}
+            onEnter={temporaryInput ? () => {
+              if (!temporaryInput.submitDisabled) temporaryInput.onSubmit();
+            } : undefined}
+          />
+        </div>
+        <div className="keyboard-panel medi-keyboard-panel" aria-hidden={!activeMediKeyboard} inert={!activeMediKeyboard}>
+          <MediKeyboard
+            key={temporaryInput ? "temporary-medi" : "textarea-medi"}
+            inputRef={activeInputRef}
+            value={activeValue}
+            onValueChange={setActiveValue}
+            actions={mediKeyboardActions}
             onEnter={temporaryInput ? () => {
               if (!temporaryInput.submitDisabled) temporaryInput.onSubmit();
             } : undefined}
@@ -289,9 +331,9 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
       </div>
       <div>
         <EditorActions
-          onDictate={onDictate}
+          onDictate={() => onDictate(activeInputRef, setActiveValue)}
           dictating={dictating}
-          dictateDisabled={Boolean(temporaryInput) || dictateDisabled}
+          dictateDisabled={(Boolean(temporaryInput) && !temporaryInput?.allowDictation) || dictateDisabled}
           onSubmit={temporaryInput?.onSubmit ?? onSubmit}
           onSubmitLongPress={temporaryInput ? undefined : onSubmitLongPress}
           submitDisabled={temporaryInput?.submitDisabled ?? submitDisabled}
@@ -322,13 +364,17 @@ export const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(function Edit
           onKeyDown={onKeyDown}
           onFocus={onDismissTemporaryInput}
           onClick={() => {
-            if (readOnly || keyboardEnabled || phoneKeyboardEnabled || characterDialEnabled) return;
+            if (readOnly || keyboardEnabled || phoneKeyboardEnabled || mediKeyboardEnabled || characterDialEnabled) return;
             if (preferredKeyboard === "mobile") {
               setPhoneKeyboardEnabled(true);
               return;
             }
             if (preferredKeyboard === "dialer") {
               setCharacterDialEnabled(true);
+              return;
+            }
+            if (preferredKeyboard === "medi") {
+              setMediKeyboardEnabled(true);
               return;
             }
             keyboardClosedViewportHeightRef.current = window.visualViewport?.height ?? window.innerHeight;

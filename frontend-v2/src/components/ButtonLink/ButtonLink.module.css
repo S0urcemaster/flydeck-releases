@@ -1,13 +1,7 @@
 .root {
-  min-width: var(--control-height-standard);
-  min-height: var(--control-height-standard);
   display: inline-grid;
   place-items: center;
-  padding-inline: calc(var(--space-unit) * 3);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  background: var(--color-surface);
-  color: var(--color-text);
   font-weight: 700;
   line-height: 1;
   text-decoration: none;
@@ -17,7 +11,14 @@
   position: fixed;
   z-index: 1;
   top: max(var(--space-unit), env(safe-area-inset-top));
-  left: calc(50% + (var(--app-width) / 2) + var(--space-unit));
+  left: calc(50% + (var(--app-max-width) / 2) + var(--space-unit));
+}
+
+.root[data-placement="viewport-edge"] {
+  position: fixed;
+  z-index: 2;
+  top: max(var(--space-unit), env(safe-area-inset-top));
+  right: max(var(--space-unit), env(safe-area-inset-right));
 }
 
 @media (max-width: 620px) {

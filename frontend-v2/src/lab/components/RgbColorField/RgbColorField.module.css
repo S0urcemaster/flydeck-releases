@@ -1,0 +1,59 @@
+.root {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-sm);
+  display: grid;
+  grid-template-columns: max-content repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.root legend {
+  padding-inline: var(--space-xs);
+  color: var(--color-text);
+  font-size: var(--font-size-form-title);
+  font-weight: 700;
+}
+
+.swatch {
+  position: relative;
+  width: calc(var(--space-lg) * 2);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.swatch::before {
+  content: "α";
+}
+
+.swatch > span {
+  position: absolute;
+  inset: 0;
+}
+
+.channel {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.channel span {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.root output {
+  align-self: center;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+}

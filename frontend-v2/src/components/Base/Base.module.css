@@ -1,0 +1,53 @@
+.root {
+  box-sizing: border-box;
+}
+
+.root[data-show-component-name] {
+  position: relative;
+}
+
+.root[data-show-component-name]::before {
+  position: absolute;
+  z-index: 2147483647;
+  top: 0;
+  left: 0;
+  padding: 1px 3px;
+  color: rgb(255 255 255 / 92%);
+  background: rgb(255 20 147 / 58%);
+  border-radius: 0 0 3px;
+  font: 700 10px/1.2 monospace;
+  letter-spacing: 0;
+  pointer-events: none;
+  content: attr(data-component-name);
+}
+
+.inspector {
+  position: fixed;
+  z-index: 2147483647;
+  display: grid;
+  min-width: 170px;
+  overflow: hidden;
+  border: 1px solid rgb(255 20 147 / 90%);
+  border-radius: var(--radius-control);
+  background: rgb(255 240 249 / 96%);
+  box-shadow: 0 4px 18px rgb(40 0 25 / 28%);
+}
+
+.inspectorLink {
+  padding: 7px 9px;
+  color: #4b002d;
+  border-bottom: 1px solid rgb(255 20 147 / 24%);
+  font: 700 12px/1.2 monospace;
+  text-decoration: none;
+}
+
+.inspectorLink:last-child {
+  border-bottom: 0;
+}
+
+.inspectorLink:hover,
+.inspectorLink:focus-visible {
+  color: #fff;
+  background: rgb(255 20 147 / 78%);
+  outline: none;
+}

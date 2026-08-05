@@ -50,6 +50,12 @@ To completely clear a text input use : select all +backspace
 The buttons on the left column are programmable : select a text and long press the button to create a cycle through the saved letters when single clicking
 The dialer corner and riht column buttons are programmable : use the settings in the config to set the layout to your liking (e.g. if you,re a lefty)
 
+### MediKeyboard
+
+MediKeyboard uses a 5 by 5 multi-tap layout. Repeatedly press a letter key to use its secondary letters.
+The fourth row stores selected text on long press, like the programmable character dial buttons.
+The five function buttons in the bottom row are configured with `medikeyboard-key1` through `medikeyboard-key5`.
+
 ## Maintenance
 
 Use the factory reset setting in the config section to reset the client to default configuration

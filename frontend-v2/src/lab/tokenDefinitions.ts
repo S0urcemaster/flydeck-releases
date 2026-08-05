@@ -1,21 +1,74 @@
-export const labTokenDefinitions = {
-  appTitleFontSize: {
-    cssName: "--app-title-font-size",
-    label: "Title font size",
-    min: 12,
-    max: 40,
-    step: 1,
-    unit: "px",
-    defaultValue: 16,
-  },
-} as const;
-
-export type LabTokenName = keyof typeof labTokenDefinitions;
-export type LabTokenValues = Record<LabTokenName, number>;
-
-export const defaultLabTokenValues: LabTokenValues = {
-  appTitleFontSize: labTokenDefinitions.appTitleFontSize.defaultValue,
+export type LabTokenValues = {
+  appTitleFontSize: number;
+  appMaxWidth: number;
+  appInset: number;
+  appSectionGap: number;
+  spaceUnit: number;
+  spaceXs: number;
+  spaceSm: number;
+  spaceMd: number;
+  spaceLg: number;
+  buttonWidth: number;
+  itemFontSize: number;
+  unlockButtonTimeout: number;
+  radiusControl: number;
+  borderStandard: string;
 };
+
+type NumberTokenDefinition = {
+  kind: "number";
+  cssName: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  defaultValue: number;
+};
+
+type CssTokenDefinition = {
+  kind: "css";
+  cssName: string;
+  label: string;
+  description: string;
+  defaultValue: string;
+};
+
+type LabTokenDefinition = NumberTokenDefinition | CssTokenDefinition;
+
+export const labTokenDefinitions: {
+  [Name in keyof LabTokenValues]: LabTokenDefinition;
+} = {
+  appTitleFontSize: numberToken("--app-title-font-size", "Title font size", 12, 40, 1, "px", 16),
+  appMaxWidth: numberToken("--app-max-width", "App maximum width", 320, 600, 1, "px", 520),
+  appInset: numberToken("--app-inset", "App edge inset", 0, 24, 1, "px", 3),
+  appSectionGap: numberToken("--app-section-gap", "Section gap", 0, 24, 1, "px", 3),
+  spaceUnit: numberToken("--space-unit", "Space unit", 0, 12, 1, "px", 3),
+  spaceXs: numberToken("--space-xs", "Extra-small space", 0, 24, 1, "px", 3),
+  spaceSm: numberToken("--space-sm", "Small space", 0, 32, 1, "px", 6),
+  spaceMd: numberToken("--space-md", "Medium space", 0, 48, 1, "px", 12),
+  spaceLg: numberToken("--space-lg", "Large space", 0, 64, 1, "px", 18),
+  buttonWidth: numberToken("--button-width", "Button width", 1, 320, 1, "px", 44),
+  itemFontSize: numberToken("--item-fontsize", "Item font size", 1, 100, 1, "px", 20),
+  unlockButtonTimeout: numberToken("--unlock-button-timeout", "Unlock button timeout", 100, 10000, 100, "ms", 500),
+  radiusControl: numberToken("--radius-control", "Control radius", 0, 24, 1, "px", 3),
+  borderStandard: {
+    kind: "css",
+    cssName: "--border-standard",
+    label: "Standard border",
+    description:
+      '<0..8>px <solid|dashed|dotted|double> <COLOR_TOKEN|hex>; example:'
+      + " 1px solid COLOR_BORDER",
+    defaultValue: "1px solid COLOR_BORDER",
+  },
+};
+
+export type LabTokenName = keyof LabTokenValues;
+
+export const defaultLabTokenValues = Object.fromEntries(
+  (Object.keys(labTokenDefinitions) as LabTokenName[])
+    .map((name) => [name, labTokenDefinitions[name].defaultValue]),
+) as LabTokenValues;
 
 export function parseLabTokenValues(input: unknown): LabTokenValues | null {
   if (!isRecord(input)) {
@@ -23,27 +76,39 @@ export function parseLabTokenValues(input: unknown): LabTokenValues | null {
   }
 
   const names = Object.keys(labTokenDefinitions) as LabTokenName[];
-  if (Object.keys(input).some((name) => !names.includes(name as LabTokenName))) {
+  if (
+    Object.keys(input).length !== names.length
+    || Object.keys(input).some((name) => !names.includes(name as LabTokenName))
+  ) {
     return null;
   }
 
-  const values = { ...defaultLabTokenValues };
+  const values = {} as LabTokenValues;
 
   for (const name of names) {
     const value = input[name];
     const definition = labTokenDefinitions[name];
 
-    if (
-      typeof value !== "number"
-      || !Number.isFinite(value)
-      || value < definition.min
-      || value > definition.max
-      || !isOnStep(value, definition.min, definition.step)
-    ) {
-      return null;
+    if (definition.kind === "number") {
+      if (
+        typeof value !== "number"
+        || !Number.isFinite(value)
+        || value < definition.min
+        || value > definition.max
+        || !isOnStep(value, definition.min, definition.step)
+      ) {
+        return null;
+      }
+    } else {
+      if (typeof value !== "string" || value.trim() === "") {
+        return null;
+      }
+      if (name === "borderStandard" && !isBorderStandard(value)) {
+        return null;
+      }
     }
 
-    values[name] = value;
+    Object.assign(values, { [name]: value });
   }
 
   return values;
@@ -53,11 +118,41 @@ export function renderLabTokens(values: LabTokenValues): string {
   const declarations = (Object.keys(labTokenDefinitions) as LabTokenName[])
     .map((name) => {
       const definition = labTokenDefinitions[name];
-      return `  ${definition.cssName}: ${values[name]}${definition.unit};`;
+      const value = values[name];
+      const renderedValue = definition.kind === "number"
+        ? `${value}${definition.unit}`
+        : resolveTokenReferences(String(value));
+      return `  ${definition.cssName}: ${renderedValue};`;
     })
     .join("\n");
 
   return `/* Generated by the development-only component lab. */\n:root {\n${declarations}\n}\n`;
+}
+
+function numberToken(
+  cssName: string,
+  label: string,
+  min: number,
+  max: number,
+  step: number,
+  unit: string,
+  defaultValue: number,
+): NumberTokenDefinition {
+  return { kind: "number", cssName, label, min, max, step, unit, defaultValue };
+}
+
+function resolveTokenReferences(value: string): string {
+  return value.replace(
+    /\b[A-Z][A-Z0-9_]*\b/g,
+    (token) => `var(--${token.toLowerCase().replace(/_/g, "-")})`,
+  );
+}
+
+function isBorderStandard(value: string): boolean {
+  const match = value.match(
+    /^(\d+(?:\.\d+)?)px (solid|dashed|dotted|double) ([A-Z][A-Z0-9_]*|#[0-9a-fA-F]{3,8})$/,
+  );
+  return Boolean(match && Number(match[1]) <= 8);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

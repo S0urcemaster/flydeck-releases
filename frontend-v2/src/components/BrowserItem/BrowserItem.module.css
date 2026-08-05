@@ -1,0 +1,16 @@
+.root {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) auto;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+}
+
+.actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+}
+
+.action {
+  min-width: 0;
+}

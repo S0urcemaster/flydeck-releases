@@ -1,0 +1,8 @@
+.root {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

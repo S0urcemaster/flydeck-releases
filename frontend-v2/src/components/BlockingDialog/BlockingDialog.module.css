@@ -1,0 +1,55 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--space-sm);
+  overflow: auto;
+  background: color-mix(in srgb, var(--color-page) 82%, transparent);
+}
+
+.backdrop[data-viewport="container"] {
+  position: relative;
+  min-height: 18rem;
+}
+
+.dialog {
+  display: grid;
+  gap: var(--space-sm);
+  width: min(100%, var(--app-max-width));
+  max-height: calc(100dvh - 2 * var(--space-sm));
+  overflow: auto;
+  box-sizing: border-box;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-page) 70%, transparent);
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-sm);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.close {
+  min-width: var(--button-width);
+}
+
+.content {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}

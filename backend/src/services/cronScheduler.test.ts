@@ -29,6 +29,34 @@ describe("cron scheduler", () => {
 
   afterEach(async () => rm(root, { recursive: true, force: true }));
 
+  it("arms an exact timeout for a timer due before the next scan", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    try {
+      const now = new Date("2026-07-20T10:00:00.000Z");
+      vi.setSystemTime(now);
+      await store.create({ title: "Exact", dueAt: "2026-07-20T10:00:12.000Z" }, now);
+      let markSent!: () => void;
+      const sent = new Promise<void>((resolve) => { markSent = resolve; });
+      const sendTimer = vi.fn(async () => { markSent(); });
+      const scheduler = new CronScheduler(store, { sendTimer }, 30_000);
+
+      await scheduler.tick(now);
+      await vi.advanceTimersByTimeAsync(11_999);
+      expect(sendTimer).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await sent;
+      expect(sendTimer).toHaveBeenCalledWith("Exact");
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if ((await store.list())[0].status === "expired") break;
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      expect((await store.list())[0].status).toBe("expired");
+      scheduler.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("notifies and expires due timers", async () => {
     const createdAt = new Date("2026-07-20T10:00:00.000Z");
     const timer = await store.create({ title: "Backup", dueAt: "2026-07-20T11:00:00.000Z" }, createdAt);

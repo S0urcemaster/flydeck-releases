@@ -1,0 +1,12 @@
+.root {
+  position: relative;
+  top: var(--background-logo-top);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: var(--background-logo-font-size);
+  line-height: 1;
+  opacity: var(--background-logo-opacity);
+  pointer-events: none;
+  user-select: none;
+}

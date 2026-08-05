@@ -10,4 +10,8 @@ describe("getPreferredCustomKeyboard", () => {
     expect(getPreferredCustomKeyboard("dialer")).toBe("dialer");
     expect(getPreferredCustomKeyboard("system")).toBe("dialer");
   });
+
+  it("uses MediKeyboard when configured", () => {
+    expect(getPreferredCustomKeyboard("medi")).toBe("medi");
+  });
 });

@@ -1,0 +1,8 @@
+.root {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--radius-control);
+  font: inherit;
+  outline-offset: -2px;
+}

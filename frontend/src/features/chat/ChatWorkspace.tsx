@@ -1,11 +1,12 @@
 import { useRef, useState, type RefObject } from "react";
-import { Editor } from "../../components/Editor";
+import { Editor, type EditorDictate } from "../../components/Editor";
 import { TwoColumnList } from "../../components/TwoColumnList";
 import { promptSlotMarks, type Snippet } from "../../data/defaults";
 import type { ChatEffort, ChatModelTier } from "../../api/chat";
 import { Repeat2 } from "lucide-react";
 import { TextInput } from "../../components/TextInput";
 import type { CharacterDialCornerAction, CharacterDialCorners, DwellMode } from "../../components/CharacterDial";
+import type { MediKeyboardAction } from "../../components/MediKeyboard";
 import { getCommandHintLines } from "./commandHints";
 import { SafetyButton } from "../../components/SafetyButton";
 
@@ -39,14 +40,15 @@ type ChatWorkspaceProps = {
   onCycleChatModelTier: () => void;
   onSelectWord: () => void;
   onMoveCursor: (direction: -1 | 1) => void;
-  onDictate: () => void;
+  onDictate: EditorDictate;
   dictating: boolean;
   onSubmit: () => void;
   onSubmitAsNew: () => void;
   characterDialCorners: CharacterDialCorners;
-  preferredKeyboard: "system" | "mobile" | "dialer";
+  preferredKeyboard: "system" | "mobile" | "medi" | "dialer";
   dialerDefaultSize: "small" | "medium" | "large";
   characterDialRightButtons: CharacterDialCornerAction[];
+  mediKeyboardActions: MediKeyboardAction[];
   dialerDefaultDwell: DwellMode;
 };
 
@@ -178,6 +180,7 @@ export function ChatWorkspace({ chatRef, ...props }: ChatWorkspaceProps) {
           preferredKeyboard={props.preferredKeyboard}
           dialerDefaultSize={props.dialerDefaultSize}
           characterDialRightButtons={props.characterDialRightButtons}
+          mediKeyboardActions={props.mediKeyboardActions}
           dialerDefaultDwell={props.dialerDefaultDwell}
           temporaryInput={snippetNameKeyboardActive ? {
             ref: snippetNameRef,

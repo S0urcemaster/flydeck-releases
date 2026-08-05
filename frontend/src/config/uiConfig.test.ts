@@ -5,6 +5,7 @@ import {
   getCharacterDialRightButtons,
   getDialerDefaultDwell,
   getDialerScaleSize,
+  getMediKeyboardActions,
   getPreferredKeyboard,
   getUiButtonHeight,
   getUiFontScale,
@@ -22,6 +23,14 @@ describe("uiConfig", () => {
     expect(migrated).toContain("preferred-keyboard : mobile");
     expect(migrated).toContain("theme : FLYDECK");
     expect(migrated).toContain("dialerinput-dwell : off");
+    expect(migrated).toContain("medikeyboard-key1 : BACKSPACE");
+  });
+
+  it("accepts MediKeyboard as preferred keyboard", () => {
+    const config = defaultUiConfig.replace("preferred-keyboard : dialer", "preferred-keyboard : medi");
+    const normalized = normalizeUiConfig(config, false);
+    expect(normalized).not.toBeNull();
+    expect(getPreferredKeyboard(normalized!)).toBe("medi");
   });
 
   it("rejects unknown and duplicate settings", () => {
@@ -42,6 +51,9 @@ describe("uiConfig", () => {
     });
     expect(getCharacterDialRightButtons(defaultUiConfig)).toEqual([
       "BACKSPACE", "", "", "", "", "", "ENTER",
+    ]);
+    expect(getMediKeyboardActions(defaultUiConfig)).toEqual([
+      "BACKSPACE", "SHIFT", "SPACE", "TIME", "ENTER",
     ]);
     expect(getUiFontScale(defaultUiConfig, "ui-font-size")).toBe(1);
     expect(getUiButtonHeight(defaultUiConfig, "standard")).toBe(44);

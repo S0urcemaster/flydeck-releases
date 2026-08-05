@@ -1,0 +1,34 @@
+.manual {
+  min-height: 0;
+  overflow: auto;
+  font-size: var(--font-size-manual-body);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.manual h1,
+.manual h2,
+.manual h3,
+.manual p {
+  margin: 0;
+}
+
+.manual h1 {
+  font-size: var(--font-size-manual-title);
+}
+
+.manual h2 {
+  font-size: var(--font-size-manual-section);
+}
+
+.manual h3 {
+  font-size: var(--font-size-manual-body);
+}
+
+.manual p {
+  white-space: pre-wrap;
+}
+
+.gap {
+  height: var(--space-md);
+}
