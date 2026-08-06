@@ -8,6 +8,9 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 06.08.26 18:30 Pre-Release V2 (1cd855ad11be)
+DATA/TreeBrowser improvements
+
 ### 05.08.26 21:15 Pre-Release V2 (3142011905fb)
 New data model with import from V1
 Use this client for DATA collection for deep tree lists
