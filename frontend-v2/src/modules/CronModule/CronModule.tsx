@@ -1,4 +1,3 @@
-import { ColorDialer } from "../../components/ColorDialer";
 import { Module, type ModuleProps } from "../../components/Module";
 import {
   CronDialer,
@@ -22,10 +21,6 @@ export function CronModule({
   return (
     <Module {...props} componentName="CronModule" aria-label="Cron module">
       <CronDialer
-        buttonProps={dialerButtonProps}
-        centerButtonProps={dialerCenterButtonProps}
-      />
-      <ColorDialer
         buttonProps={dialerButtonProps}
         centerButtonProps={dialerCenterButtonProps}
       />

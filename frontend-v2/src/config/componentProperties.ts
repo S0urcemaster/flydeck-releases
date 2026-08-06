@@ -81,8 +81,16 @@ export type ComponentPropertiesConfig = {
     fontWeight: string;
     base: StoredBaseProperties;
   };
+  AppStatusLine: {
+    error: boolean;
+    fontSize: string;
+    fontWeight: string;
+    message: string;
+    base: StoredBaseProperties;
+  };
   AppTitle: {
     title: string;
+    symbol: string;
     subtitle: string;
     fontSize: number;
     titleTop: number;
@@ -161,6 +169,7 @@ export function parseComponentPropertiesConfig(
   const listControl = input.ListControl;
   const listControlButton = input.ListControlButton;
   const listControlListSizeButton = input.ListControlListSizeButton;
+  const appStatusLine = input.AppStatusLine;
   const appTitle = input.AppTitle;
   const appShell = input.AppShell;
   const modulePanel = input.ModulePanel;
@@ -213,6 +222,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(listControl)
     || !isRecord(listControlButton)
     || !isRecord(listControlListSizeButton)
+    || !isRecord(appStatusLine)
     || !isRecord(appTitle)
     || !isRecord(appShell)
     || !isRecord(modulePanel)
@@ -273,6 +283,7 @@ export function parseComponentPropertiesConfig(
   const listControlListSizeButtonBase = parseStoredBaseProperties(
     listControlListSizeButton.base,
   );
+  const appStatusLineBase = parseStoredBaseProperties(appStatusLine.base);
   const titleBase = parseStoredBaseProperties(appTitle.base);
   const shellBase = parseStoredBaseProperties(appShell.base);
   const panelBase = parseStoredBaseProperties(modulePanel.base);
@@ -328,6 +339,7 @@ export function parseComponentPropertiesConfig(
     || !listControlBase
     || !listControlButtonBase
     || !listControlListSizeButtonBase
+    || !appStatusLineBase
     || !titleBase
     || !shellBase
     || !panelBase
@@ -363,6 +375,13 @@ export function parseComponentPropertiesConfig(
     || isUnitlessNonZeroDimension(listControlListSizeButton.fontSize)
     || typeof listControlListSizeButton.fontWeight !== "string"
     || listControlListSizeButton.fontWeight.trim() === ""
+    || typeof appStatusLine.error !== "boolean"
+    || typeof appStatusLine.fontSize !== "string"
+    || appStatusLine.fontSize.trim() === ""
+    || isUnitlessNonZeroDimension(appStatusLine.fontSize)
+    || typeof appStatusLine.fontWeight !== "string"
+    || appStatusLine.fontWeight.trim() === ""
+    || typeof appStatusLine.message !== "string"
     || typeof checkbox.activeColor !== "string"
     || checkbox.activeColor.trim() === ""
     || typeof treeBrowser.rowGap !== "string"
@@ -377,6 +396,7 @@ export function parseComponentPropertiesConfig(
     || button.fontWeight.trim() === ""
     || typeof buttonLink.label !== "string"
     || typeof appTitle.title !== "string"
+    || typeof appTitle.symbol !== "string"
     || typeof appTitle.subtitle !== "string"
     || !isNumberInRange(appTitle.fontSize, 12, 40)
     || !isNumberInRange(appTitle.titleTop, -40, 40)
@@ -493,8 +513,16 @@ export function parseComponentPropertiesConfig(
       fontWeight: listControlListSizeButton.fontWeight,
       base: listControlListSizeButtonBase,
     },
+    AppStatusLine: {
+      error: appStatusLine.error,
+      fontSize: appStatusLine.fontSize,
+      fontWeight: appStatusLine.fontWeight,
+      message: appStatusLine.message,
+      base: appStatusLineBase,
+    },
     AppTitle: {
       title: appTitle.title,
+      symbol: appTitle.symbol,
       subtitle: appTitle.subtitle,
       fontSize: appTitle.fontSize,
       titleTop: appTitle.titleTop,

@@ -13,6 +13,5 @@
 
 .emptyItem {
   border-radius: var(--radius-control);
-  background:
-    color-mix(in srgb, var(--color-surface) 72%, transparent);
+  background: var(--color-surface);
 }

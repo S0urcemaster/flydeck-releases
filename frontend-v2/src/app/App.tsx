@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "../components/AppShell";
+import { AppStatusLine } from "../components/AppStatusLine";
 import { AppTitle } from "../components/AppTitle";
 import { BaseConfigurationProvider } from "../components/Base";
 import { ButtonLink } from "../components/ButtonLink";
@@ -26,6 +27,14 @@ import { FunctionsModule } from "../modules/FunctionsModule";
 import { HelpModule } from "../modules/HelpModule";
 import { SettingsModule } from "../modules/SettingsModule";
 import {
+  applyThemeConfiguration,
+  defaultThemeConfiguration,
+  isPersistedThemeConfiguration,
+  normalizeThemeConfiguration,
+  resolveThemeVariables,
+  type ThemeConfiguration,
+} from "../themes/themeConfiguration";
+import {
   isPrimaryModuleItem,
   toggleModuleAction,
   type ModuleActionItem,
@@ -35,7 +44,7 @@ import { useClientStateSlice, type ClientStateSlice } from "../state";
 import { V2ApiError, v2Api } from "../api/V2ApiClient";
 
 const properties = requireComponentPropertiesConfig(generatedProperties);
-const activeThemeTokens = generatedThemes.tokens[
+const generatedActiveThemeTokens = generatedThemes.tokens[
   generatedThemes.activeTheme as keyof typeof generatedThemes.tokens
 ];
 const initialMenuItem = properties.ModulePanel.activeItem;
@@ -44,6 +53,16 @@ const initialPrimaryMenuItem: PrimaryModuleItem =
 const synchronizationIgnoreKey = "flydeck:v2:synchronization-ignore-until";
 const synchronizationIgnoreDuration = 10 * 60 * 1_000;
 
+type ServerReadiness = {
+  state: "checking" | "ready" | "unavailable";
+  message: string;
+};
+
+const checkingServer: ServerReadiness = {
+  state: "checking",
+  message: "Checking Flydeck server and PostgreSQL …",
+};
+
 export function App() {
   const [accessGate, setAccessGate] = useState<
     "checking" | "ready" | "login" | "synchronization" | "bypassed"
@@ -51,12 +70,25 @@ export function App() {
   const [accessReason, setAccessReason] = useState("");
   const [loginPending, setLoginPending] = useState(false);
   const [workspaceId, setWorkspaceId] = useState<string>();
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [serverReadiness, setServerReadiness] =
+    useState<ServerReadiness>(checkingServer);
   const synchronizationIgnoredUntil = useRef(readSynchronizationIgnoredUntil());
   const [activeMenuItem, setActiveMenuItem] = useClientStateSlice(
     activeMenuItemSlice,
   );
   const [previousPrimaryMenuItem, setPreviousPrimaryMenuItem] =
     useClientStateSlice(previousPrimaryMenuItemSlice);
+  const [persistedThemeConfiguration, setThemeConfiguration] = useClientStateSlice(
+    themeConfigurationSlice,
+  );
+  const themeConfiguration = normalizeThemeConfiguration(
+    persistedThemeConfiguration,
+  );
+  const effectiveThemeVariables = resolveThemeVariables(themeConfiguration);
+  const unlockButtonTimeout = parseCssMilliseconds(
+    effectiveThemeVariables["--unlock-button-timeout"],
+  ) ?? generatedActiveThemeTokens.unlockButtonTimeout;
   const titleBase = resolveBaseProperties(properties.AppTitle.base);
   const backgroundLogoBase = resolveBaseProperties(
     properties.BackgroundLogo.base,
@@ -64,6 +96,11 @@ export function App() {
   const shellBase = resolveBaseProperties(properties.AppShell.base);
   const panelBase = resolveBaseProperties(properties.ModulePanel.base);
   const buttonBase = resolveBaseProperties(properties.Button.base);
+  const resolvedAppStatusLineBase = resolveDerivedBaseProperties(
+    buttonBase,
+    properties.AppStatusLine.base,
+  );
+  const appStatusLineBase = withoutColor(resolvedAppStatusLineBase);
   const moduleButtonBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.ModuleButton.base,
@@ -206,7 +243,7 @@ export function App() {
       deleteButtonProps: {
         ...deleteButtonBase,
         armedColor: properties.DeleteButton.armedColor,
-        timeout: activeThemeTokens.unlockButtonTimeout,
+        timeout: unlockButtonTimeout,
       },
     },
     listControlProps: {
@@ -249,9 +286,14 @@ export function App() {
 
   const showSynchronizationError = useCallback((reason: string) => {
     if (Date.now() < synchronizationIgnoredUntil.current) return;
+    setStatusDialogOpen(false);
     setAccessReason(reason);
     setAccessGate("synchronization");
   }, []);
+
+  useEffect(() => {
+    applyThemeConfiguration(themeConfiguration, document.documentElement.style);
+  }, [themeConfiguration]);
 
   const ignoreSynchronization = useCallback(() => {
     const ignoredUntil = Date.now() + synchronizationIgnoreDuration;
@@ -280,7 +322,12 @@ export function App() {
     void v2Api.session().then((session) => {
       if (!active) return;
       window.clearTimeout(waitingTimer);
+      setServerReadiness({
+        state: "ready",
+        message: "Flydeck server and PostgreSQL are ready.",
+      });
       if (session.authenticated && session.workspaces[0]) {
+        setAccessReason("");
         setWorkspaceId(session.workspaces[0].id);
         setAccessGate("ready");
       }
@@ -291,6 +338,10 @@ export function App() {
     }).catch((error: unknown) => {
       if (!active) return;
       window.clearTimeout(waitingTimer);
+      setServerReadiness({
+        state: "unavailable",
+        message: "The Flydeck server is not reachable.",
+      });
       if (Date.now() < synchronizationIgnoredUntil.current) {
         setAccessGate("bypassed");
       } else {
@@ -311,6 +362,11 @@ export function App() {
     try {
       const session = await v2Api.login({ loginName, password });
       if (session.authenticated && session.workspaces[0]) {
+        setAccessReason("");
+        setServerReadiness({
+          state: "ready",
+          message: "Flydeck server and PostgreSQL are ready.",
+        });
         setWorkspaceId(session.workspaces[0].id);
         setAccessGate("ready");
       } else {
@@ -326,6 +382,28 @@ export function App() {
       setLoginPending(false);
     }
   }
+
+  function openStatusDialog() {
+    setStatusDialogOpen(true);
+    setServerReadiness(checkingServer);
+    void v2Api.readiness().then(() => {
+      setServerReadiness({
+        state: "ready",
+        message: "Flydeck server and PostgreSQL are ready.",
+      });
+    }).catch((error: unknown) => {
+      setServerReadiness({
+        state: "unavailable",
+        message: error instanceof Error
+          ? error.message
+          : "The Flydeck server is not reachable.",
+      });
+    });
+  }
+
+  const statusMessage = accessReason || serverReadiness.message;
+  const statusIsError = Boolean(accessReason)
+    || serverReadiness.state === "unavailable";
 
   function selectPrimaryModule(item: ModuleMenuItem) {
     if (!isPrimaryModuleItem(item)) {
@@ -357,6 +435,15 @@ export function App() {
       fontSize={properties.Button.fontSize}
       fontWeight={properties.Button.fontWeight}
     >
+    {import.meta.env.DEV && (
+      <ButtonLink
+        {...buttonLinkBase}
+        href={properties.ButtonLink.href}
+        placement="app-edge"
+      >
+        {properties.ButtonLink.label}
+      </ButtonLink>
+    )}
     <AppShell
       {...shellBase}
       backgroundLogoProps={{
@@ -371,11 +458,13 @@ export function App() {
         accessGate === "checking"
         || accessGate === "login"
         || accessGate === "synchronization"
+        || statusDialogOpen
       }
       title={(
         <AppTitle
           {...titleBase}
           title={properties.AppTitle.title}
+          symbol={properties.AppTitle.symbol}
           subtitle={properties.AppTitle.subtitle}
           fontSize={properties.AppTitle.fontSize}
           titleTop={properties.AppTitle.titleTop}
@@ -388,33 +477,32 @@ export function App() {
           subtitleFontSize={properties.AppTitle.subtitleFontSize}
           subtitleTop={properties.AppTitle.subtitleTop}
           subtitleLeft={properties.AppTitle.subtitleLeft}
+          status={(
+            <AppStatusLine
+              {...appStatusLineBase}
+              error={statusIsError}
+              fontSize={properties.AppStatusLine.fontSize}
+              fontWeight={properties.AppStatusLine.fontWeight}
+              message={statusMessage}
+              onClick={openStatusDialog}
+            />
+          )}
           action={(
-            <>
-              <ModuleMenuActions
-                {...moduleMenuActionsBase}
-                activeItem={activeMenuItem}
-                helpButtonProps={{
-                  ...helpModuleButtonBase,
-                  activeColor: properties.Button.activeColor,
-                  symbol: properties.HelpModuleButton.symbol,
-                }}
-                configButtonProps={{
-                  ...configModuleButtonBase,
-                  activeColor: properties.Button.activeColor,
-                  symbol: properties.ConfigModuleButton.symbol,
-                }}
-                onChange={toggleActionModule}
-              />
-              {import.meta.env.DEV && (
-                  <ButtonLink
-                    {...buttonLinkBase}
-                    href={properties.ButtonLink.href}
-                    placement="app-edge"
-                  >
-                    {properties.ButtonLink.label}
-                  </ButtonLink>
-              )}
-            </>
+            <ModuleMenuActions
+              {...moduleMenuActionsBase}
+              activeItem={activeMenuItem}
+              helpButtonProps={{
+                ...helpModuleButtonBase,
+                activeColor: properties.Button.activeColor,
+                symbol: properties.HelpModuleButton.symbol,
+              }}
+              configButtonProps={{
+                ...configModuleButtonBase,
+                activeColor: properties.Button.activeColor,
+                symbol: properties.ConfigModuleButton.symbol,
+              }}
+              onChange={toggleActionModule}
+            />
           )}
         />
       )}
@@ -501,9 +589,41 @@ export function App() {
       )}
       {activeMenuItem === "HELP" && <HelpModule {...helpModuleBase} />}
       {activeMenuItem === "CONFIG" && (
-        <SettingsModule {...settingsModuleBase} />
+        <SettingsModule
+          {...settingsModuleBase}
+          configuration={themeConfiguration}
+          inputProps={{ ...inputBase, fontSize: properties.Input.fontSize }}
+          saveButtonProps={{
+            ...buttonBase,
+            activeColor: properties.Button.activeColor,
+          }}
+          treeBrowserProps={{
+            ...treeBrowserBase,
+            rowGap: properties.TreeBrowser.rowGap,
+            ...sharedTreeChildProps,
+          }}
+          onSave={setThemeConfiguration}
+        />
       )}
     </AppShell>
+    <BlockingDialog
+      {...blockingDialogBase}
+      buttonProps={buttonBase}
+      open={statusDialogOpen}
+      onClose={() => setStatusDialogOpen(false)}
+      title="Flydeck status"
+    >
+      {accessReason && (
+        <section>
+          <strong>Error</strong>
+          <p role="alert">{accessReason}</p>
+        </section>
+      )}
+      <section>
+        <strong>Server status</strong>
+        <p role="status">{serverReadiness.message}</p>
+      </section>
+    </BlockingDialog>
     <BlockingDialog
       {...blockingDialogBase}
       buttonProps={buttonBase}
@@ -544,6 +664,12 @@ function readSynchronizationIgnoredUntil() {
   }
 }
 
+function withoutColor<T extends { color: string }>(values: T): Omit<T, "color"> {
+  const copy = { ...values };
+  delete (copy as Partial<T>).color;
+  return copy;
+}
+
 function loginErrorMessage(error: V2ApiError) {
   switch (error.response.error) {
     case "INVALID_CREDENTIALS": return "The user name or password is incorrect.";
@@ -570,3 +696,18 @@ const previousPrimaryMenuItemSlice: ClientStateSlice<PrimaryModuleItem> = {
     value === "AGNT" || value === "DATA" || value === "FUNC" || value === "CRON"
   ),
 };
+
+const themeConfigurationSlice: ClientStateSlice<ThemeConfiguration> = {
+  name: "configuration.themes",
+  version: 1,
+  defaultValue: defaultThemeConfiguration,
+  validate: isPersistedThemeConfiguration,
+};
+
+function parseCssMilliseconds(value: string | undefined) {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d+(?:\.\d+)?)(ms|s)$/);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  return match[2] === "s" ? amount * 1_000 : amount;
+}

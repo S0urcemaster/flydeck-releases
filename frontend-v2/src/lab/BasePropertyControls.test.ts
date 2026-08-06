@@ -28,6 +28,20 @@ describe("Base lab properties", () => {
     expect(parseBasePropertyText(renderBasePropertyText(values), values)).toEqual(values);
   });
 
+  it("can omit a fixed base property from component props", () => {
+    const text = renderPropertyText(
+      "AppStatusLine",
+      { error: false },
+      values,
+      {},
+      [],
+      ["color"],
+    );
+
+    expect(text).not.toContain("color =");
+    expect(text).not.toContain("# color:");
+  });
+
   it("accepts an individual CSS value containing spaces", () => {
     expect(parseBasePropertyText("margin = 1rem auto", values).margin).toBe(
       "1rem auto",

@@ -42,7 +42,9 @@ describe("AppTitle", () => {
     const markup = renderToStaticMarkup(
       <AppTitle
         title="Flydeck"
+        symbol="F"
         subtitle="Workspace Console"
+        status={<button type="button">Server ready</button>}
         action={<button type="button">?</button>}
       />,
     );
@@ -50,7 +52,11 @@ describe("AppTitle", () => {
     expect(markup.indexOf("Flydeck")).toBeLessThan(
       markup.indexOf("Workspace Console"),
     );
+    expect(markup).toContain(">F</span>");
     expect(markup.indexOf("Workspace Console")).toBeLessThan(
+      markup.indexOf("Server ready"),
+    );
+    expect(markup.indexOf("Server ready")).toBeLessThan(
       markup.indexOf(">?</button>"),
     );
   });

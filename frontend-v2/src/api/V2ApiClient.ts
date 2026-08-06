@@ -53,6 +53,10 @@ export class V2ApiClient {
     return this.request("/auth/logout", logoutResponseSchema, { method: "POST" });
   }
 
+  readiness() {
+    return this.request("/health/ready", { parse: parseReadiness });
+  }
+
   loadDataTree(workspaceId: string) {
     return this.request(this.dataTreePath(workspaceId), treeLoadDtoSchema);
   }
@@ -178,6 +182,13 @@ function parseDeletedResource(value: unknown) {
     throw new Error("Invalid delete response");
   }
   return { id: (value as { id: string }).id };
+}
+
+function parseReadiness(value: unknown) {
+  if (!value || typeof value !== "object" || (value as { status?: unknown }).status !== "ready") {
+    throw new Error("Invalid server readiness response");
+  }
+  return { status: "ready" as const };
 }
 
 export const v2Api = new V2ApiClient();

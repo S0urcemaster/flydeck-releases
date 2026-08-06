@@ -9,24 +9,37 @@
 .manual h1,
 .manual h2,
 .manual h3,
+.manual h4,
+.manual blockquote,
 .manual p {
   margin: 0;
 }
 
 .manual h1 {
-  font-size: var(--font-size-manual-title);
+  font-size: var(--font-size-manual-hero);
 }
 
 .manual h2 {
-  font-size: var(--font-size-manual-section);
+  font-size: var(--font-size-manual-title);
 }
 
 .manual h3 {
+  font-size: var(--font-size-manual-section);
+}
+
+.manual h4 {
   font-size: var(--font-size-manual-body);
 }
 
-.manual p {
+.manual p,
+.manual blockquote {
   white-space: pre-wrap;
+}
+
+.manual blockquote {
+  padding-left: var(--space-sm);
+  border-left: var(--border-standard);
+  font-style: italic;
 }
 
 .gap {

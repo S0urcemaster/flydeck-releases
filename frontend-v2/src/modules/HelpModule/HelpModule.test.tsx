@@ -2,7 +2,11 @@ import { isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { HelpModule, renderBold, renderManual } from "./HelpModule";
+import {
+  HelpModule,
+  renderInlineMarkdown,
+  renderManual,
+} from "./HelpModule";
 
 describe("HelpModule", () => {
   it("renders the bundled manual inside the shared Module surface", () => {
@@ -14,19 +18,28 @@ describe("HelpModule", () => {
   });
 
   it("renders headings, gaps, and text without parsing HTML", () => {
-    const rendered = renderManual("# One\n## Two\n### Three\n\nText");
+    const rendered = renderManual(
+      "# One\n## Two\n### Three\n#### Four\n\n> Quote\nText",
+    );
 
-    expect(rendered).toHaveLength(5);
+    expect(rendered).toHaveLength(7);
     expect(rendered.every(isValidElement)).toBe(true);
     expect(rendered.map((entry) => (
       isValidElement(entry) ? entry.type : null
-    ))).toEqual(["h1", "h2", "h3", "div", "p"]);
+    ))).toEqual(["h1", "h2", "h3", "h4", "div", "blockquote", "p"]);
   });
 
-  it("renders paired asterisks as bold", () => {
-    const bold = renderBold("A *bold* word");
+  it("renders standard Markdown bold and italic markers", () => {
+    const inline = renderInlineMarkdown(
+      "A **bold** and *italic* or __bold__ and _italic_ word",
+    );
 
-    expect(bold).toHaveLength(3);
-    expect(isValidElement(bold[1]) && bold[1].type).toBe("strong");
+    expect(inline.filter((part) => isValidElement(part) && part.type === "strong"))
+      .toHaveLength(2);
+    expect(inline.filter((part) => isValidElement(part) && part.type === "em"))
+      .toHaveLength(2);
+    expect(renderToStaticMarkup(<>{inline}</>)).toContain(
+      "A <strong>bold</strong> and <em>italic</em>",
+    );
   });
 });

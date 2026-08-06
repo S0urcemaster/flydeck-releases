@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import { AppShell } from "../components/AppShell";
+import { AppStatusLine } from "../components/AppStatusLine";
 import { AppTitle } from "../components/AppTitle";
 import {
   Base,
@@ -97,6 +98,7 @@ import {
 import {
   defaultColorValues,
   colorDefinitions,
+  flydeckV1ColorValues,
   greyscaleColorValues,
   themeColorMaps,
   parseThemeConfig,
@@ -106,6 +108,7 @@ import {
   type ThemeColorMapId,
 } from "../themes/colorDefinitions";
 import generatedThemes from "../themes/generated-themes.json";
+import { defaultThemeConfiguration } from "../themes/themeConfiguration";
 import styles from "./LabApp.module.css";
 import { clientStateStore, selectedLabComponentSlice } from "../state";
 
@@ -129,6 +132,7 @@ type LabComponentName =
   | ConcreteModuleButtonName
   | ModuleComponentName
   | "Textarea"
+  | "AppStatusLine"
   | "AppTitle"
   | "AppShell"
   | "ColorMapEditor"
@@ -212,6 +216,7 @@ const appComponentNames = [
   "AgentModule",
   "AgentModuleButton",
   "AppShell",
+  "AppStatusLine",
   "AppTitle",
   "Base",
   "BackgroundLogo",
@@ -266,6 +271,7 @@ const appComponentDepths: Record<
 > = {
   AgentModuleButton: 2,
   AppShell: 1,
+  AppStatusLine: 2,
   AppTitle: 1,
   Base: 0,
   BackgroundLogo: 1,
@@ -390,10 +396,12 @@ const initialThemeConfig: ThemeConfig = parseThemeConfig(generatedThemes) ?? {
   activeTheme: "flydeck",
   themes: {
     flydeck: { ...defaultColorValues },
+    "flydeck-v1": { ...flydeckV1ColorValues },
     greyscale: { ...greyscaleColorValues },
   },
   tokens: {
     flydeck: { ...defaultLabTokenValues },
+    "flydeck-v1": { ...defaultLabTokenValues },
     greyscale: { ...defaultLabTokenValues },
   },
 };
@@ -410,6 +418,18 @@ export function LabApp() {
     useState<ThemeColorMapId>(initialThemeConfig.activeTheme);
   const [showThemeColors, setShowThemeColors] = useState(true);
   const [title, setTitle] = useState(storedComponentProperties.AppTitle.title);
+  const [appStatusLineBaseValues, setAppStatusLineBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.AppStatusLine.base);
+  const [appStatusLineError, setAppStatusLineError] =
+    useState(storedComponentProperties.AppStatusLine.error);
+  const [appStatusLineFontSize, setAppStatusLineFontSize] =
+    useState(storedComponentProperties.AppStatusLine.fontSize);
+  const [appStatusLineFontWeight, setAppStatusLineFontWeight] =
+    useState(storedComponentProperties.AppStatusLine.fontWeight);
+  const [appStatusLineMessage, setAppStatusLineMessage] =
+    useState(storedComponentProperties.AppStatusLine.message);
+  const [titleSymbol, setTitleSymbol] =
+    useState(storedComponentProperties.AppTitle.symbol);
   const [basePreviewValues, setBasePreviewValues] =
     useState<BaseLabValues>(storedComponentProperties.Base);
   const [showComponentName, setShowComponentName] =
@@ -541,10 +561,10 @@ export function LabApp() {
     SettingsModule: storedComponentProperties.SettingsModule.base,
   });
   const [themeValues, setThemeValues] = useState<Record<ThemeColorMapId, ColorValues>>(
-    () => ({
-      flydeck: { ...initialThemeConfig.themes.flydeck },
-      greyscale: { ...initialThemeConfig.themes.greyscale },
-    }),
+    () => Object.fromEntries(themeColorMaps.map(({ id }) => [
+      id,
+      { ...initialThemeConfig.themes[id] },
+    ])) as Record<ThemeColorMapId, ColorValues>,
   );
   const [editorValues, setEditorValues] =
     useState<ColorValues>({ ...defaultColorValues });
@@ -569,10 +589,10 @@ export function LabApp() {
     useState(storedComponentProperties.AppTitle.flydeckTitleLeft);
   const [themeTokenValues, setThemeTokenValues] = useState<
     Record<ThemeColorMapId, LabTokenValues>
-  >(() => ({
-    flydeck: { ...initialThemeConfig.tokens.flydeck },
-    greyscale: { ...initialThemeConfig.tokens.greyscale },
-  }));
+  >(() => Object.fromEntries(themeColorMaps.map(({ id }) => [
+    id,
+    { ...initialThemeConfig.tokens[id] },
+  ])) as Record<ThemeColorMapId, LabTokenValues>);
   const [symbolFontSize, setSymbolFontSize] =
     useState(storedComponentProperties.AppTitle.symbolFontSize);
   const [symbolTop, setSymbolTop] =
@@ -802,6 +822,7 @@ export function LabApp() {
       },
       AppTitle: {
         title,
+        symbol: titleSymbol,
         subtitle,
         fontSize,
         titleTop,
@@ -815,6 +836,13 @@ export function LabApp() {
         subtitleTop,
         subtitleLeft,
         base: titleBaseValues,
+      },
+      AppStatusLine: {
+        error: appStatusLineError,
+        fontSize: appStatusLineFontSize,
+        fontWeight: appStatusLineFontWeight,
+        message: appStatusLineMessage,
+        base: appStatusLineBaseValues,
       },
       AppShell: {
         respectSafeArea,
@@ -876,20 +904,22 @@ export function LabApp() {
   }
 
   function resetTitlePreview() {
-    setTitle("Flydeck");
-    setSubtitle("Workspace Console · V2");
-    updateLabToken("appTitleFontSize", defaultLabTokenValues.appTitleFontSize);
-    setTitleTop(0);
-    setTitleLeft(0);
-    setFlydeckTitleTop(0);
-    setFlydeckTitleLeft(0);
-    setSymbolFontSize(30);
-    setSymbolTop(0);
-    setSymbolLeft(0);
-    setSubtitleFontSize(12);
-    setSubtitleTop(0);
-    setSubtitleLeft(0);
-    setTitleBaseValues({ ...componentBaseDefaults });
+    const defaults = storedComponentProperties.AppTitle;
+    setTitle(defaults.title);
+    setTitleSymbol(defaults.symbol);
+    setSubtitle(defaults.subtitle);
+    setFontSize(defaults.fontSize);
+    setTitleTop(defaults.titleTop);
+    setTitleLeft(defaults.titleLeft);
+    setFlydeckTitleTop(defaults.flydeckTitleTop);
+    setFlydeckTitleLeft(defaults.flydeckTitleLeft);
+    setSymbolFontSize(defaults.symbolFontSize);
+    setSymbolTop(defaults.symbolTop);
+    setSymbolLeft(defaults.symbolLeft);
+    setSubtitleFontSize(defaults.subtitleFontSize);
+    setSubtitleTop(defaults.subtitleTop);
+    setSubtitleLeft(defaults.subtitleLeft);
+    setTitleBaseValues({ ...defaults.base });
     setStatus({
       tone: "neutral",
       message: "Preview reset. APPLY persists the reset.",
@@ -927,9 +957,7 @@ export function LabApp() {
       },
     }));
 
-    if (name === "appTitleFontSize" && typeof value === "number") {
-      setFontSize(value);
-    } else if (
+    if (
       ["appMaxWidth", "appInset", "appSectionGap"].includes(name)
       && typeof value === "number"
     ) {
@@ -942,7 +970,6 @@ export function LabApp() {
       ...current,
       [selectedThemeId]: { ...defaultLabTokenValues },
     }));
-    setFontSize(defaultLabTokenValues.appTitleFontSize);
     setShellTokens({
       appMaxWidth: defaultLabTokenValues.appMaxWidth,
       appInset: defaultLabTokenValues.appInset,
@@ -958,6 +985,7 @@ export function LabApp() {
       | "deviceInfo"
       | "modulePanel"
       | "textarea"
+      | "appStatusLine"
       | "title"
       | "shell",
     name: BaseLabPropertyName,
@@ -976,6 +1004,8 @@ export function LabApp() {
       setModulePanelBaseValues(update);
     } else if (target === "textarea") {
       setTextareaBaseValues(update);
+    } else if (target === "appStatusLine") {
+      setAppStatusLineBaseValues(update);
     } else if (target === "title") {
       setTitleBaseValues(update);
     } else {
@@ -1459,7 +1489,13 @@ export function LabApp() {
       case "HelpModule":
         return <HelpModule {...props} />;
       case "SettingsModule":
-        return <SettingsModule {...props} />;
+        return (
+          <SettingsModule
+            {...props}
+            configuration={defaultThemeConfiguration}
+            onSave={() => undefined}
+          />
+        );
     }
   }
 
@@ -1556,7 +1592,6 @@ export function LabApp() {
                     setSelectedThemeId(selectionState.selectedThemeId);
                     setShowThemeColors(selectionState.showColors);
                     const selectedTokens = themeTokenValues[theme.id];
-                    setFontSize(selectedTokens.appTitleFontSize);
                     setShellTokens({
                       appMaxWidth: selectedTokens.appMaxWidth,
                       appInset: selectedTokens.appInset,
@@ -2793,9 +2828,9 @@ export function LabApp() {
             onClick={() => {
               setThemeValues((current) => ({
                 ...current,
-                [selectedThemeComponentId]: selectedThemeComponentId === "flydeck"
-                  ? { ...defaultColorValues }
-                  : { ...greyscaleColorValues },
+                [selectedThemeComponentId]: {
+                  ...initialThemeConfig.themes[selectedThemeComponentId],
+                },
               }));
               resetLabTokens();
             }}
@@ -2890,6 +2925,106 @@ export function LabApp() {
         </div>
       </section>}
 
+      {selectedComponent === "AppStatusLine" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>AppStatusLine</h2>
+              <p className={styles.description}>
+                Compact press control for opening application and server status.
+              </p>
+            </div>
+            <code className={styles.path}>components/AppStatusLine</code>
+          </div>
+
+          <div className={styles.preview}>
+            <AppStatusLine
+              {...toColorlessBaseStyleProps(resolveDerivedBaseProperties(
+                buttonBaseValues,
+                appStatusLineBaseValues,
+              ))}
+              activeColor={buttonActiveColor}
+              error={appStatusLineError}
+              fontSize={appStatusLineFontSize}
+              fontWeight={appStatusLineFontWeight}
+              message={appStatusLineMessage}
+              onClick={() => undefined}
+            />
+          </div>
+
+          <BasePropertyControls
+            componentName="AppStatusLine"
+            excludedBaseProperties={["color"]}
+            inheritedPropertySections={[{
+              componentName: "Button",
+              comments: {
+                activeColor:
+                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+              },
+              properties: { activeColor: buttonActiveColor },
+            }]}
+            ownPropertyComments={{
+              fontSize: "CSS font-size value, for example 0.84rem",
+              fontWeight: "CSS font-weight value, for example 400",
+              message: "preview text; the app supplies its current runtime status",
+            }}
+            ownProperties={{
+              error: appStatusLineError,
+              fontSize: appStatusLineFontSize,
+              fontWeight: appStatusLineFontWeight,
+              message: appStatusLineMessage,
+            }}
+            values={appStatusLineBaseValues}
+            onChange={(name, value) => (
+              updateBaseValue("appStatusLine", name, value)
+            )}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (
+                componentName === "Button"
+                && name === "activeColor"
+                && typeof value === "string"
+              ) {
+                setButtonActiveColor(value);
+              }
+            }}
+            onOwnPropertyChange={(name, value) => {
+              if (name === "error" && typeof value === "boolean") {
+                setAppStatusLineError(value);
+              } else if (name === "fontSize" && typeof value === "string") {
+                setAppStatusLineFontSize(value);
+              } else if (name === "fontWeight" && typeof value === "string") {
+                setAppStatusLineFontWeight(value);
+              } else if (name === "message" && typeof value === "string") {
+                setAppStatusLineMessage(value);
+              }
+            }}
+          />
+
+          <div className={styles.actions}>
+            <Button
+              type="button"
+              onClick={() => {
+                const defaults = storedComponentProperties.AppStatusLine;
+                setAppStatusLineBaseValues({ ...defaults.base });
+                setAppStatusLineError(defaults.error);
+                setAppStatusLineFontSize(defaults.fontSize);
+                setAppStatusLineFontWeight(defaults.fontWeight);
+                setAppStatusLineMessage(defaults.message);
+              }}
+            >
+              RESET
+            </Button>
+            <Button
+              type="button"
+              onClick={applyComponentProperties}
+              disabled={isApplying}
+            >
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
       {selectedComponent === "AppTitle" && <section className={styles.component}>
         <div className={styles.componentHeader}>
           <div>
@@ -2902,6 +3037,7 @@ export function LabApp() {
         <div className={styles.preview}>
           <AppTitle
             title={title}
+            symbol={titleSymbol}
             subtitle={subtitle || undefined}
             fontSize={fontSize}
             titleTop={titleTop}
@@ -2934,6 +3070,7 @@ export function LabApp() {
           }}
           ownProperties={{
             title,
+            symbol: titleSymbol,
             subtitle,
             fontSize,
             titleTop,
@@ -2952,10 +3089,12 @@ export function LabApp() {
           onOwnPropertyChange={(name, value) => {
             if (name === "title" && typeof value === "string") {
               setTitle(value);
+            } else if (name === "symbol" && typeof value === "string") {
+              setTitleSymbol(value);
             } else if (name === "subtitle" && typeof value === "string") {
               setSubtitle(value);
             } else if (name === "fontSize" && typeof value === "number") {
-              updateLabToken("appTitleFontSize", value);
+              setFontSize(value);
             } else if (name === "titleTop" && typeof value === "number") {
               setTitleTop(value);
             } else if (name === "titleLeft" && typeof value === "number") {
@@ -3126,6 +3265,18 @@ function createColorPreviewStyle(values: ColorValues): ColorPreviewStyle {
     (Object.keys(colorDefinitions) as ColorName[])
       .map((name) => [colorDefinitions[name].cssName, values[name]]),
   ) as ColorPreviewStyle;
+}
+
+function toColorlessBaseStyleProps(values: BaseLabValues) {
+  const props = toBaseStyleProps(values);
+  return {
+    background: props.background,
+    border: props.border,
+    padding: props.padding,
+    margin: props.margin,
+    width: props.width,
+    height: props.height,
+  };
 }
 
 function createTokenPreviewStyle(values: LabTokenValues): CSSProperties {

@@ -37,4 +37,21 @@ describe("Dialer", () => {
       angle: 0,
     });
   });
+
+  it("can hide its four corner buttons", () => {
+    const markup = renderToStaticMarkup(
+      <Dialer
+        topLeftLabel="A"
+        topRightLabel="B"
+        bottomLeftLabel="C"
+        bottomRightLabel="D"
+        centerLabel="E"
+        showCornerButtons={false}
+      />,
+    );
+
+    expect(markup.match(/<button/g)).toHaveLength(3);
+    expect(markup).not.toContain('data-component-name="DialerButton"');
+    expect(markup).toContain('data-component-name="DialerCenterButton"');
+  });
 });

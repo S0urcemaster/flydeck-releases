@@ -27,6 +27,7 @@ describe("BrowserItem", () => {
       'data-component-name="BrowserItemLabelButton"',
     );
     expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toContain("background:var(--item-color)");
     expect(
       markup.match(/background:var\(--color-accent-two\)/g),
     ).toHaveLength(2);

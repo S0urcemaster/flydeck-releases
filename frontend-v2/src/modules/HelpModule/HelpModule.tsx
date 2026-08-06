@@ -22,29 +22,45 @@ export function HelpModule({ className, ...props }: HelpModuleProps) {
 
 export function renderManual(markdown: string): ReactNode[] {
   return markdown.split("\n").map((line, index) => {
+    if (line.startsWith("#### ")) {
+      return <h4 key={index}>{renderInlineMarkdown(line.slice(5))}</h4>;
+    }
     if (line.startsWith("### ")) {
-      return <h3 key={index}>{renderBold(line.slice(4))}</h3>;
+      return <h3 key={index}>{renderInlineMarkdown(line.slice(4))}</h3>;
     }
     if (line.startsWith("## ")) {
-      return <h2 key={index}>{renderBold(line.slice(3))}</h2>;
+      return <h2 key={index}>{renderInlineMarkdown(line.slice(3))}</h2>;
     }
     if (line.startsWith("# ")) {
-      return <h1 key={index}>{renderBold(line.slice(2))}</h1>;
+      return <h1 key={index}>{renderInlineMarkdown(line.slice(2))}</h1>;
+    }
+    if (line.startsWith("> ")) {
+      return <blockquote key={index}>{renderInlineMarkdown(line.slice(2))}</blockquote>;
     }
     if (!line.trim()) {
       return <div key={index} className={styles.gap} aria-hidden="true" />;
     }
-    return <p key={index}>{renderBold(line)}</p>;
+    return <p key={index}>{renderInlineMarkdown(line)}</p>;
   });
 }
 
-export function renderBold(text: string): ReactNode[] {
+export function renderInlineMarkdown(text: string): ReactNode[] {
   return text
-    .split(/(\*[^*\n]+\*)/g)
+    .split(/(\*\*[^*\n]+?\*\*|(?<!\w)__[^_\n]+?__(?!\w)|\*[^*\n]+?\*|(?<!\w)_[^_\n]+?_(?!\w))/g)
     .filter(Boolean)
-    .map((part, index) => (
-      part.startsWith("*") && part.endsWith("*")
-        ? <strong key={index}>{part.slice(1, -1)}</strong>
-        : part
-    ));
+    .map((part, index) => {
+      if (
+        (part.startsWith("**") && part.endsWith("**"))
+        || (part.startsWith("__") && part.endsWith("__"))
+      ) {
+        return <strong key={index}>{part.slice(2, -2)}</strong>;
+      }
+      if (
+        (part.startsWith("*") && part.endsWith("*"))
+        || (part.startsWith("_") && part.endsWith("_"))
+      ) {
+        return <em key={index}>{part.slice(1, -1)}</em>;
+      }
+      return part;
+    });
 }

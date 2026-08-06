@@ -10,6 +10,7 @@ describe("InputControl", () => {
     expect(markup).toContain('data-component-name="InputControl"');
     expect(markup).toContain('aria-label="Content input"');
     expect(markup).toContain('aria-label="Send content"');
+    expect(markup).toContain("border:none");
   });
 
   it("accepts a controlled value", () => {

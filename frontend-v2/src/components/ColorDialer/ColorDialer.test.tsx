@@ -3,25 +3,35 @@ import { describe, expect, it } from "vitest";
 
 import {
   ColorDialer,
-  colorFromDialAngles,
-  createDetailGradient,
+  createModeGradient,
+  hslaToHex,
+  parseHexColor,
 } from "./ColorDialer";
 
 describe("ColorDialer", () => {
-  it("specializes Dialer with two replaceable scale renderers", () => {
-    const markup = renderToStaticMarkup(<ColorDialer />);
+  it("uses hue on the inner dial and hides the corner buttons", () => {
+    const markup = renderToStaticMarkup(<ColorDialer value="#2468b280" />);
 
     expect(markup).toContain('aria-label="Color dialer"');
     expect(markup).toContain("conic-gradient");
-    expect(markup).toContain("background:hsl(330 80% 50%)");
-    expect(markup).toContain(">HUE</button>");
-    expect(markup).toContain(">DETAIL</button>");
+    expect(markup).not.toContain(">SAT</span>");
+    expect(markup).not.toContain('data-component-name="DialerButton"');
+    expect(markup).toContain('data-component-name="DialerCenterButton"');
   });
 
-  it("uses the inner angle as the center of the outer detail range", () => {
-    expect(colorFromDialAngles(120, 180)).toBe("hsl(120 80% 50%)");
-    expect(createDetailGradient(120)).toContain("hsl(90 80% 50%) 0deg");
-    expect(createDetailGradient(120)).toContain("hsl(150 80% 50%) 360deg");
-    expect(createDetailGradient(120)).not.toContain("from ");
+  it("round-trips opaque and transparent hex colors", () => {
+    const opaque = parseHexColor("#2468b2ff");
+    const transparent = parseHexColor("#a52b2b40");
+
+    expect(opaque && hslaToHex(opaque)).toBe("#2468b2ff");
+    expect(transparent && hslaToHex(transparent)).toBe("#a52b2b40");
+    expect(parseHexColor("not-a-color")).toBeNull();
+  });
+
+  it("shows transparency over a checkerboard", () => {
+    const color = parseHexColor("#2468b280");
+
+    expect(color && createModeGradient(color, "ALPHA"))
+      .toContain("conic-gradient(#b8b8b8");
   });
 });

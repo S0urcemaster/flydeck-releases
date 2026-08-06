@@ -193,7 +193,7 @@
   "BrowserItem": {
     "base": {
       "color": "COLOR_TEXT",
-      "background": "transparent",
+      "background": "ITEM_COLOR",
       "border": "0",
       "padding": "0",
       "margin": "0",
@@ -396,12 +396,28 @@
       "height": "inherit"
     }
   },
+  "AppStatusLine": {
+    "error": false,
+    "fontSize": "0.84rem",
+    "fontWeight": "400",
+    "message": "Flydeck server and PostgreSQL are ready.",
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "100%",
+      "height": "unset"
+    }
+  },
   "AppTitle": {
     "title": "Flydeck",
+    "symbol": "𐦍",
     "subtitle": "Workspace Console",
     "fontSize": 22,
-    "titleTop": -7,
-    "titleLeft": -5,
+    "titleTop": 0,
+    "titleLeft": 0,
     "flydeckTitleTop": 0,
     "flydeckTitleLeft": 0,
     "symbolFontSize": 20,
@@ -413,10 +429,10 @@
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",
-      "border": "BORDER_STANDARD",
-      "padding": "SPACE_SM",
+      "border": "0",
+      "padding": "0",
       "margin": "0",
-      "width": "400",
+      "width": "100%",
       "height": "unset"
     }
   },

@@ -9,7 +9,14 @@ import {
 
 describe("component properties config", () => {
   it("validates the generated config", () => {
-    expect(parseComponentPropertiesConfig(generatedProperties)).not.toBeNull();
+    const properties = parseComponentPropertiesConfig(generatedProperties);
+
+    expect(properties).not.toBeNull();
+    expect(properties?.AppStatusLine).toMatchObject({
+      error: false,
+      fontSize: "0.84rem",
+      base: { color: "inherit" },
+    });
   });
 
   it("rejects non-zero dimensions without a CSS unit", () => {

@@ -13,7 +13,8 @@ describe("AppTitle lab", () => {
   it("shows the selected theme colors below the theme buttons", () => {
     const markup = renderToStaticMarkup(<LabApp />);
 
-    expect(markup).toContain('aria-label="Flydeck colors"');
+    expect(markup).toContain('aria-label="Flydeck V2 colors"');
+    expect(markup).toContain(">Flydeck V1</button>");
     expect(markup).toContain("Page");
     expect(markup).toContain("#b9b9b9ff");
   });
@@ -22,6 +23,7 @@ describe("AppTitle lab", () => {
     const markup = renderToStaticMarkup(<LabApp />);
 
     expect(markup).toContain("symbolFontSize = ");
+    expect(markup).toContain("symbol = ");
     expect(markup).toContain("titleTop = ");
     expect(markup).toContain("titleLeft = ");
     expect(markup).toContain("flydeckTitleTop = ");
@@ -40,6 +42,7 @@ describe("AppTitle lab", () => {
       "AgentModule",
       "AgentModuleButton",
       "AppShell",
+      "AppStatusLine",
       "AppTitle",
       "Base",
       "BrowserItem",

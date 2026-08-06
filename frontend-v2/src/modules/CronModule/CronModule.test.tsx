@@ -9,6 +9,6 @@ describe("CronModule", () => {
 
     expect(markup).toContain('aria-label="Cron module"');
     expect(markup).toContain('aria-label="Cron dialer"');
-    expect(markup).toContain('aria-label="Color dialer"');
+    expect(markup).not.toContain('aria-label="Color dialer"');
   });
 });

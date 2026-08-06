@@ -51,6 +51,8 @@ export type TreeBrowserContentRenderProps<TContent> = {
 export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   componentName?: string;
   browserLabel?: string;
+  defaultPageSize?: ListControlListSize;
+  rootPageSize?: ListControlListSize;
   model: TreeBrowserModel<TContent>;
   rootListEditable?: boolean;
   rootListItemLimit?: number;
@@ -122,12 +124,13 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   >;
 };
 
-const defaultPageSize: ListControlListSize = 5;
 const rootId = "__tree_root__";
 
 export function TreeBrowser<TContent = unknown>({
   componentName = "TreeBrowser",
   browserLabel = "Tree browser",
+  defaultPageSize = 5,
+  rootPageSize = defaultPageSize,
   model,
   rootListEditable = true,
   rootListItemLimit,
@@ -205,13 +208,26 @@ export function TreeBrowser<TContent = unknown>({
       selectionPending.current = true;
       try {
         const confirmed = await onSelectedPathChange(nextPath);
-        if (confirmed !== false) setSelectedPath(nextPath);
+        if (confirmed !== false) {
+          setSelectedPath(nextPath);
+          setDefaultMode(id);
+        }
       } finally {
         selectionPending.current = false;
       }
       return;
     }
     setSelectedPath(nextPath);
+    setDefaultMode(id);
+  }
+
+  function setDefaultMode(id: string) {
+    const node = findTreeNode(tree, id);
+    if (!node) return;
+    setContentVisibleByNodeId((current) => ({
+      ...current,
+      [id]: node.children.length === 0,
+    }));
   }
 
   async function removeNode(id: string) {
@@ -220,10 +236,19 @@ export function TreeBrowser<TContent = unknown>({
       if (confirmed === false) return;
     }
     const removedIds = findSubtreeIds(tree, id);
+    const removedPath = findTreePath(tree, id) ?? [];
+    const parentId = removedPath.at(-2);
+    const parentBecomesEmpty = parentId
+      ? findTreeNode(tree, parentId)?.children.length === 1
+      : false;
     setTree((current) => removeFromTree(current, id));
     setRevision((current) => current + 1);
     setEnabledByNodeId((current) => omitRecordKeys(current, removedIds));
-    setContentVisibleByNodeId((current) => omitRecordKeys(current, removedIds));
+    setContentVisibleByNodeId((current) => {
+      const next = omitRecordKeys(current, removedIds);
+      if (parentId && parentBecomesEmpty) next[parentId] = true;
+      return next;
+    });
     setSelectedPath((current) => {
       const removedDepth = current.indexOf(id);
       return removedDepth < 0 ? current : current.slice(0, removedDepth);
@@ -235,23 +260,32 @@ export function TreeBrowser<TContent = unknown>({
     const confirmed = await onReparentNode(nodeId, parentId);
     if (confirmed === false) return false;
     const target = parentId ? findTreeNode(tree, parentId) : null;
+    const sourcePath = findTreePath(tree, nodeId) ?? [];
+    const sourceParentId = sourcePath.at(-2);
+    const sourceBecomesEmpty = sourceParentId && sourceParentId !== parentId
+      ? findTreeNode(tree, sourceParentId)?.children.length === 1
+      : false;
     const nextPath = parentId
       ? [...(findTreePath(tree, parentId) ?? []), nodeId]
       : [nodeId];
     const targetItemCount = target ? target.children.length : tree.length;
     setTree((current) => reparentInTree(current, nodeId, parentId));
     setRevision((current) => current + 1);
-    if (parentId) {
+    if (parentId || sourceBecomesEmpty) {
       setContentVisibleByNodeId((current) => ({
         ...current,
-        [parentId]: false,
+        ...(parentId ? { [parentId]: false } : {}),
+        ...(sourceParentId && sourceBecomesEmpty
+          ? { [sourceParentId]: true }
+          : {}),
       }));
     }
     const targetListId = parentId ?? rootId;
     setPages((current) => ({
       ...current,
       [targetListId]: Math.floor(
-        targetItemCount / (pageSizes[targetListId] ?? defaultPageSize),
+        targetItemCount / (pageSizes[targetListId]
+          ?? (targetListId === rootId ? rootPageSize : defaultPageSize)),
       ),
     }));
     if (onSelectedPathChange) {
@@ -269,7 +303,8 @@ export function TreeBrowser<TContent = unknown>({
     listEditable: boolean,
     listItemLimit?: number,
   ) {
-    const pageSize = pageSizes[parentId] ?? defaultPageSize;
+    const pageSize = pageSizes[parentId]
+      ?? (parentId === rootId ? rootPageSize : defaultPageSize);
     const pageCount = Math.max(1, Math.ceil(nodes.length / pageSize));
     const page = Math.min(pages[parentId] ?? 0, pageCount - 1);
     const visibleNodes = nodes.slice(
@@ -333,7 +368,8 @@ export function TreeBrowser<TContent = unknown>({
       }));
       setContentVisibleByNodeId((current) => ({
         ...current,
-        [node.id]: node.contentVisible,
+        [node.id]: documentNode.children.length === 0,
+        ...(parentId === rootId ? {} : { [parentId]: false }),
       }));
       setPages((current) => ({
         ...current,

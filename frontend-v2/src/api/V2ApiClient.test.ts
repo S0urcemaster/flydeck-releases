@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { V2ApiClient, V2ApiError } from "./V2ApiClient";
 
 describe("V2ApiClient", () => {
+  it("reads the compact server readiness status", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "ready",
+    }), { status: 200 }));
+    const client = new V2ApiClient("/flydeck/api/v2", fetcher);
+
+    await expect(client.readiness()).resolves.toEqual({ status: "ready" });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/flydeck/api/v2/health/ready",
+      expect.objectContaining({ credentials: "include", method: "GET" }),
+    );
+  });
+
   it("loads the compact tree with the session cookie", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       document: {

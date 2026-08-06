@@ -66,7 +66,7 @@ export function BrowserItem({
   labelButtonProps,
   modeButtonProps,
   color = "COLOR_TEXT",
-  background = "transparent",
+  background = "ITEM_COLOR",
   border = "BORDER_STANDARD",
   ...baseProps
 }: BrowserItemProps) {
@@ -91,6 +91,7 @@ export function BrowserItem({
             <Checkbox
               {...checkboxProps}
               activeColor={activeColor}
+              background={background}
               checked={enabled}
               label={`${enabled ? "Disable" : "Enable"} ${label}`}
               onChange={onEnabledChange}
@@ -100,6 +101,7 @@ export function BrowserItem({
             {...buttonProps}
             {...labelButtonProps}
             activeColor={activeColor}
+            background={background}
             selected={selected}
             onClick={(event) => {
               stopRowClick(event);
@@ -114,6 +116,7 @@ export function BrowserItem({
                 {...buttonProps}
                 {...modeButtonProps}
                 activeColor={activeColor}
+                background={background}
                 disabled={!onModeChange}
                 mode={mode}
                 onModeChange={onModeChange ?? (() => undefined)}
@@ -121,6 +124,7 @@ export function BrowserItem({
               <DeleteButton
                 {...buttonProps}
                 {...deleteButtonProps}
+                background={background}
                 className={styles.action}
                 disabled={!editable}
                 label={label}

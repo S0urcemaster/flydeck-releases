@@ -74,7 +74,9 @@ type StoredTreeBrowserModel = {
     revision: number;
   };
   semanticState: TreeBrowserSemanticState;
-  viewState: TreeBrowserViewState;
+  viewState: Omit<TreeBrowserViewState, "contentVisibleByNodeId"> & {
+    contentVisibleByNodeId?: Record<string, boolean>;
+  };
 };
 
 type LegacyStoredNode = {
@@ -97,6 +99,7 @@ type LegacyStoredTreeBrowserModel = {
 };
 
 export type TreeBrowserModelOptions<TData> = {
+  definitionAuthority?: boolean;
   initialTree: TreeBrowserModelInitialNode<TData>[];
   storageKey: string;
   store?: ClientStateStore;
@@ -105,15 +108,18 @@ export type TreeBrowserModelOptions<TData> = {
 export class TreeBrowserModel<TData = unknown> {
   readonly storageKey: string;
   readonly initialTree: TreeBrowserModelInitialNode<TData>[];
+  private readonly definitionAuthority: boolean;
   private readonly store: ClientStateStore;
   private readonly slice: ClientStateSlice<StoredTreeBrowserModel>;
 
   constructor({
+    definitionAuthority = false,
     initialTree,
     storageKey,
     store = clientStateStore,
   }: TreeBrowserModelOptions<TData>) {
     this.initialTree = initialTree;
+    this.definitionAuthority = definitionAuthority;
     this.storageKey = storageKey;
     this.store = store;
     const initialized = initializeTree(initialTree);
@@ -130,25 +136,27 @@ export class TreeBrowserModel<TData = unknown> {
   load(): TreeBrowserModelState<TData> {
     const initialized = initializeTree(this.initialTree);
     const stored = this.store.get(this.slice);
-    const nodes = mergeNodes(initialized.document.nodes, stored.document.nodes);
+    const nodes = this.definitionAuthority
+      ? initialized.document.nodes
+      : mergeNodes(initialized.document.nodes, stored.document.nodes);
     const nodeIds = collectNodeIds(nodes);
-    const semanticState = {
+    const semanticState = this.definitionAuthority
+      ? initialized.semanticState
+      : {
       enabledByNodeId: mergeBooleanState(
         initialized.semanticState.enabledByNodeId,
         stored.semanticState.enabledByNodeId,
         nodeIds,
       ),
     };
-    const contentVisibleByNodeId = mergeBooleanState(
-      initialized.viewState.contentVisibleByNodeId,
-      stored.viewState.contentVisibleByNodeId,
-      nodeIds,
-    );
+    const contentVisibleByNodeId = createDefaultContentVisibility(nodes);
 
     return {
       document: {
         nodes,
-        revision: stored.document.revision,
+        revision: this.definitionAuthority
+          ? initialized.document.revision
+          : stored.document.revision,
       },
       semanticState,
       viewState: {
@@ -176,8 +184,7 @@ function initializeTree<TData>(
   ): TreeBrowserModelNode<TData>[] {
     return initialNodes.map((node) => {
       enabledByNodeId[node.id] = node.enabled;
-      contentVisibleByNodeId[node.id] = node.contentVisible
-        ?? node.children.length === 0;
+      contentVisibleByNodeId[node.id] = node.children.length === 0;
       return {
         id: node.id,
         kind: node.kind,
@@ -272,18 +279,20 @@ function createStoredModel<TData>(
       revision: state.document.revision,
     },
     semanticState: state.semanticState,
-    viewState: state.viewState,
+    viewState: {
+      pages: state.viewState.pages,
+      pageSizes: state.viewState.pageSizes,
+      selectedPath: state.viewState.selectedPath,
+    },
   };
 }
 
 function migrateLegacyModel(value: unknown): StoredTreeBrowserModel | null {
   if (!isLegacyStoredModel(value)) return null;
   const enabledByNodeId: Record<string, boolean> = {};
-  const contentVisibleByNodeId: Record<string, boolean> = {};
   function migrateNodes(nodes: LegacyStoredNode[]): StoredTreeBrowserNode[] {
     return nodes.map((node) => {
       enabledByNodeId[node.id] = node.enabled;
-      contentVisibleByNodeId[node.id] = node.contentVisible;
       return {
         id: node.id,
         label: node.label,
@@ -299,7 +308,6 @@ function migrateLegacyModel(value: unknown): StoredTreeBrowserModel | null {
     document: { nodes: migrateNodes(value.nodes), revision: 0 },
     semanticState: { enabledByNodeId },
     viewState: {
-      contentVisibleByNodeId,
       pages: value.pages,
       pageSizes: value.pageSizes,
       selectedPath: value.selectedPath,
@@ -401,14 +409,31 @@ function isSemanticState(value: unknown): value is TreeBrowserSemanticState {
   return isBooleanRecord((value as TreeBrowserSemanticState).enabledByNodeId);
 }
 
-function isViewState(value: unknown): value is TreeBrowserViewState {
+function isViewState(
+  value: unknown,
+): value is StoredTreeBrowserModel["viewState"] {
   if (!value || typeof value !== "object") return false;
-  const view = value as TreeBrowserViewState;
-  return isBooleanRecord(view.contentVisibleByNodeId)
+  const view = value as StoredTreeBrowserModel["viewState"];
+  return (view.contentVisibleByNodeId === undefined
+      || isBooleanRecord(view.contentVisibleByNodeId))
     && isPageRecord(view.pages)
     && isPageSizeRecord(view.pageSizes)
     && Array.isArray(view.selectedPath)
     && view.selectedPath.every((id) => typeof id === "string");
+}
+
+function createDefaultContentVisibility<TData>(
+  nodes: TreeBrowserModelNode<TData>[],
+) {
+  const visibility: Record<string, boolean> = {};
+  function visit(currentNodes: TreeBrowserModelNode<TData>[]) {
+    for (const node of currentNodes) {
+      visibility[node.id] = node.children.length === 0;
+      visit(node.children);
+    }
+  }
+  visit(nodes);
+  return visibility;
 }
 
 function isLegacyStoredModel(

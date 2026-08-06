@@ -22,9 +22,9 @@ export function InputControl({
   onSend,
   textareaProps,
   color = "COLOR_TEXT",
-  background = "COLOR_SURFACE",
-  border = "BORDER_STANDARD",
-  padding = "SPACE_XS",
+  background = "transparent",
+  border = "none",
+  padding = "0",
   ...baseProps
 }: InputControlProps) {
   const [uncontrolledValue, setUncontrolledValue] = useState(initialValue);

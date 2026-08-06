@@ -1,6 +1,6 @@
 export {
   HelpModule,
   type HelpModuleProps,
-  renderBold,
+  renderInlineMarkdown,
   renderManual,
 } from "./HelpModule";

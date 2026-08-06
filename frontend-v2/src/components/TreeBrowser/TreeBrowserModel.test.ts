@@ -16,6 +16,36 @@ function createStore(values = new Map<string, string>()) {
 }
 
 describe("TreeBrowserModel", () => {
+  it("defaults empty item lists to content and populated lists to list mode", () => {
+    const { store } = createStore();
+    const model = new TreeBrowserModel({
+      store,
+      storageKey: "tree-default-mode",
+      initialTree: [{
+        id: "parent",
+        label: "Parent",
+        enabled: true,
+        contentVisible: true,
+        children: [{
+          id: "leaf",
+          label: "Leaf",
+          enabled: true,
+          contentVisible: false,
+          children: [],
+        }],
+      }],
+    });
+
+    const state = model.load();
+    expect(state.viewState.contentVisibleByNodeId).toMatchObject({
+      parent: false,
+      leaf: true,
+    });
+    state.viewState.contentVisibleByNodeId.leaf = false;
+    model.save(state);
+    expect(model.load().viewState.contentVisibleByNodeId.leaf).toBe(true);
+  });
+
   it("persists separated state without serializing attached foreign data", () => {
     const { store, values } = createStore();
     const model = new TreeBrowserModel({
@@ -36,6 +66,7 @@ describe("TreeBrowserModel", () => {
     const stored = values.get(store.getKey("tree.tree"));
     expect(stored).not.toContain("server-data");
     expect(stored).not.toContain("not persisted");
+    expect(stored).not.toContain("contentVisibleByNodeId");
     expect(model.load()).toMatchObject({
       document: {
         nodes: [{
@@ -125,5 +156,42 @@ describe("TreeBrowserModel", () => {
       "compass",
       "device-info",
     ]);
+  });
+
+  it("keeps page sizes per branch while definitions remain authoritative", () => {
+    const { store } = createStore();
+    const firstModel = new TreeBrowserModel({
+      definitionAuthority: true,
+      store,
+      storageKey: "authoritative-tree",
+      initialTree: [{
+        id: "theme",
+        label: "Old definition",
+        enabled: false,
+        children: [],
+      }],
+    });
+    const firstState = firstModel.load();
+    firstState.document.nodes[0].label = "Stored edit";
+    firstState.semanticState.enabledByNodeId.theme = true;
+    firstState.viewState.pageSizes.theme = 10;
+    firstModel.save(firstState);
+
+    const refreshedModel = new TreeBrowserModel({
+      definitionAuthority: true,
+      store,
+      storageKey: "authoritative-tree",
+      initialTree: [{
+        id: "theme",
+        label: "Current definition",
+        enabled: false,
+        children: [],
+      }],
+    });
+    const refreshed = refreshedModel.load();
+
+    expect(refreshed.document.nodes[0].label).toBe("Current definition");
+    expect(refreshed.semanticState.enabledByNodeId.theme).toBe(false);
+    expect(refreshed.viewState.pageSizes.theme).toBe(10);
   });
 });

@@ -18,4 +18,15 @@ describe("DeleteButton", () => {
     expect(markup).toContain('aria-label="Arm delete for Rose"');
     expect(markup).toContain(">×</button>");
   });
+
+  it("can expose the same confirmation behavior for reset actions", () => {
+    const markup = renderToStaticMarkup(
+      <DeleteButton action="reset" label="Page color" onDelete={() => undefined}>
+        RESET
+      </DeleteButton>,
+    );
+
+    expect(markup).toContain('aria-label="Arm reset for Page color"');
+    expect(markup).toContain(">RESET</button>");
+  });
 });

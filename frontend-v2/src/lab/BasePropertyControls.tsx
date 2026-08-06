@@ -35,6 +35,7 @@ export type BaseLabValues = Record<
 
 export type BasePropertyControlsProps = {
   componentName?: string;
+  excludedBaseProperties?: readonly BaseLabPropertyName[];
   inheritedPropertySections?: Array<{
     componentName: string;
     comments?: Record<string, string>;
@@ -54,6 +55,7 @@ export type BasePropertyControlsProps = {
 
 export function BasePropertyControls({
   componentName,
+  excludedBaseProperties = [],
   inheritedPropertySections = [],
   ownPropertyComments = {},
   ownProperties = {},
@@ -68,6 +70,7 @@ export function BasePropertyControls({
     values,
     ownPropertyComments,
     inheritedPropertySections,
+    excludedBaseProperties,
   );
   const emittedValues = useRef<string | null>(null);
   const [text, setText] = useState(serializedValues);
@@ -94,6 +97,7 @@ export function BasePropertyControls({
       parsed,
       ownPropertyComments,
       parsedInheritedSections,
+      excludedBaseProperties,
     );
     emittedValues.current = nextSerializedValues;
 
@@ -119,7 +123,10 @@ export function BasePropertyControls({
     }
 
     for (const definition of baseLabPropertyDefinitions) {
-      if (parsed[definition.name] !== values[definition.name]) {
+      if (
+        !excludedBaseProperties.includes(definition.name)
+        && parsed[definition.name] !== values[definition.name]
+      ) {
         onChange(definition.name, parsed[definition.name]);
       }
     }
@@ -145,20 +152,30 @@ export function BasePropertyControls({
   );
 }
 
-export function renderBasePropertyText(values: BaseLabValues): string {
+export function renderBasePropertyText(
+  values: BaseLabValues,
+  excludedProperties: readonly BaseLabPropertyName[] = [],
+): string {
+  const includes = (name: BaseLabPropertyName) => (
+    !excludedProperties.includes(name)
+  );
   return [
     "# inherited: Base",
-    `# color: ${baseColors.join(" | ")} | custom CSS value`,
-    `# background: ${baseBackgrounds.join(" | ")} | custom CSS value`,
-    `# border: ${baseBorders.join(" | ")} | custom CSS value`,
-    `# padding, margin: ${baseSpaces.join(" | ")} | custom CSS value`,
-    `color = ${values.color}`,
-    `background = ${values.background}`,
-    `border = ${values.border}`,
-    `padding = ${values.padding}`,
-    `margin = ${values.margin}`,
-    `width = ${values.width}`,
-    `height = ${values.height}`,
+    ...(includes("color")
+      ? [`# color: ${baseColors.join(" | ")} | custom CSS value`]
+      : []),
+    ...(includes("background")
+      ? [`# background: ${baseBackgrounds.join(" | ")} | custom CSS value`]
+      : []),
+    ...(includes("border")
+      ? [`# border: ${baseBorders.join(" | ")} | custom CSS value`]
+      : []),
+    ...(includes("padding") || includes("margin")
+      ? [`# padding, margin: ${baseSpaces.join(" | ")} | custom CSS value`]
+      : []),
+    ...baseLabPropertyDefinitions
+      .filter(({ name }) => includes(name))
+      .map(({ name }) => `${name} = ${values[name]}`),
   ].join("\n");
 }
 
@@ -168,6 +185,7 @@ export function renderPropertyText(
   baseValues: BaseLabValues,
   ownPropertyComments: Record<string, string> = {},
   inheritedPropertySections: BasePropertyControlsProps["inheritedPropertySections"] = [],
+  excludedBaseProperties: readonly BaseLabPropertyName[] = [],
 ): string {
   const ownLines = componentName
     ? [
@@ -194,7 +212,7 @@ export function renderPropertyText(
   return [
     ...ownLines,
     ...inheritedLines,
-    renderBasePropertyText(baseValues),
+    renderBasePropertyText(baseValues, excludedBaseProperties),
   ].join("\n");
 }
 

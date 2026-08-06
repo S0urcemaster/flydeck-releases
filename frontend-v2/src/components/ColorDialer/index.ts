@@ -1,6 +1,7 @@
 export {
   ColorDialer,
-  colorFromDialAngles,
-  createDetailGradient,
+  createModeGradient,
+  hslaToHex,
+  parseHexColor,
   type ColorDialerProps,
 } from "./ColorDialer";

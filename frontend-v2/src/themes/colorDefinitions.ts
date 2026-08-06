@@ -9,6 +9,7 @@ export const colorDefinitions = {
   },
   border: { cssName: "--color-border", label: "Border", defaultValue: "#888888ff" },
   surface: { cssName: "--color-surface", label: "Surface", defaultValue: "#ffffffff" },
+  item: { cssName: "--item-color", label: "Item", defaultValue: "#d3ceb3ff" },
   accentOne: {
     cssName: "--color-accent-one",
     label: "Accent one",
@@ -30,14 +31,30 @@ export const greyscaleColorValues: ColorValues = {
   textMuted: "#626262ff",
   border: "#888888ff",
   surface: "#ffffffff",
+  item: "#dddddaff",
   accentOne: "#555555ff",
   accentTwo: "#777777ff",
   success: "#707070ff",
   error: "#303030ff",
 };
 
+export const flydeckV1ColorValues: ColorValues = {
+  page: "#beb7c4ff",
+  app: "#fff1caff",
+  text: "#182026ff",
+  textMuted: "#6d7a7aff",
+  border: "#8c9a9aff",
+  surface: "#ffd151ff",
+  item: "#d9e1dfff",
+  accentOne: "#4da5dbff",
+  accentTwo: "#58b957ff",
+  success: "#58b957ff",
+  error: "#fc512bff",
+};
+
 export const themeColorMaps = [
-  { id: "flydeck", label: "Flydeck" },
+  { id: "flydeck", label: "Flydeck V2" },
+  { id: "flydeck-v1", label: "Flydeck V1" },
   { id: "greyscale", label: "Greyscale" },
 ] as const;
 

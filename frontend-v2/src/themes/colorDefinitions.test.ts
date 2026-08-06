@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   defaultColorValues,
+  flydeckV1ColorValues,
   greyscaleColorValues,
   parseColorValues,
   parseThemeConfig,
@@ -33,10 +34,12 @@ describe("theme color definitions", () => {
       activeTheme: "greyscale",
       themes: {
         flydeck: defaultColorValues,
+        "flydeck-v1": flydeckV1ColorValues,
         greyscale: greyscaleColorValues,
       },
       tokens: {
         flydeck: defaultLabTokenValues,
+        "flydeck-v1": defaultLabTokenValues,
         greyscale: defaultLabTokenValues,
       },
     })?.activeTheme).toBe("greyscale");

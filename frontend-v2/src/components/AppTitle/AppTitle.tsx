@@ -4,7 +4,9 @@ import styles from "./AppTitle.module.css";
 
 export type AppTitleProps = BaseStyleProps & {
   title: string;
+  symbol?: string;
   subtitle?: string;
+  status?: ReactNode;
   action?: ReactNode;
   fontSize?: number;
   titleTop?: number;
@@ -35,7 +37,9 @@ type AppTitleStyle = CSSProperties & {
 
 export function AppTitle({
   title,
+  symbol = "𐦍",
   subtitle,
+  status,
   action,
   fontSize,
   titleTop,
@@ -86,10 +90,11 @@ export function AppTitle({
     >
       <div className={styles.identity}>
         <h1 className={styles.title}>
-          <span className={styles.mark} aria-hidden="true">𐦍</span>
+          <span className={styles.mark} aria-hidden="true">{symbol}</span>
           <span className={styles.titleText}>{title}</span>
         </h1>
         {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+        {status && <div className={styles.status}>{status}</div>}
       </div>
       {action && <div className={styles.actions}>{action}</div>}
     </Base>

@@ -55,13 +55,19 @@ export type DialerProps<TValue = number> = Omit<BaseProps<"div">, "as"> & {
     | ((state: DialerState<TValue>) => DialerCenterButtonProps);
   getValue?: (state: Omit<DialerState<TValue>, "selectedValue">) => TValue;
   getInnerAngle?: (angle: number) => number;
+  innerAngle?: number;
   initialInnerAngle?: number;
+  initialOuterAngle?: number;
   innerScale?: (state: DialerState<TValue>) => ReactNode;
   innerMarker?: (state: DialerState<TValue>) => ReactNode;
+  onInnerInput?: (input: DialTangentialInput) => void;
+  onOuterInput?: (input: DialTangentialInput) => void;
   onValue?: (value: TValue) => void;
+  outerAngle?: number;
   outerScale?: (state: DialerState<TValue>) => ReactNode;
   outerMarker?: (state: DialerState<TValue>) => ReactNode;
   selectionPhase?: DialerSelectionPhase;
+  showCornerButtons?: boolean;
   topLeftLabel: string;
   topRightLabel: string;
 };
@@ -75,23 +81,31 @@ export function Dialer<TValue = number>({
   className,
   getValue,
   getInnerAngle,
+  innerAngle: controlledInnerAngle,
   initialInnerAngle = 0,
+  initialOuterAngle = 0,
   innerScale,
   innerMarker,
+  onInnerInput,
+  onOuterInput,
   onValue,
+  outerAngle: controlledOuterAngle,
   outerScale,
   outerMarker,
   selectionPhase = "release",
+  showCornerButtons = true,
   topLeftLabel,
   topRightLabel,
   ...props
 }: DialerProps<TValue>) {
-  const [innerAngle, setInnerAngle] = useState(initialInnerAngle);
+  const [uncontrolledInnerAngle, setInnerAngle] = useState(initialInnerAngle);
   const [innerPhase, setInnerPhase] = useState<DialInputPhase | null>(null);
-  const [outerAngle, setOuterAngle] = useState(0);
+  const [uncontrolledOuterAngle, setOuterAngle] = useState(initialOuterAngle);
   const [outerPhase, setOuterPhase] = useState<DialInputPhase | null>(null);
   const [selectedValue, setSelectedValue] = useState<TValue | null>(null);
   const classes = className ? `${styles.root} ${className}` : styles.root;
+  const innerAngle = controlledInnerAngle ?? uncontrolledInnerAngle;
+  const outerAngle = controlledOuterAngle ?? uncontrolledOuterAngle;
   const state: DialerState<TValue> = {
     innerAngle,
     innerPhase,
@@ -107,13 +121,19 @@ export function Dialer<TValue = number>({
     : centerButtonProps;
 
   function handleInnerInput(input: DialTangentialInput) {
-    setInnerAngle(getInnerAngle?.(input.angle) ?? input.angle);
+    const nextInput = {
+      ...input,
+      angle: getInnerAngle?.(input.angle) ?? input.angle,
+    };
+    setInnerAngle(nextInput.angle);
     setInnerPhase(input.phase);
+    onInnerInput?.(nextInput);
   }
 
   function handleOuterInput(input: DialTangentialInput) {
     setOuterAngle(input.angle);
     setOuterPhase(input.phase);
+    onOuterInput?.(input);
 
     if (input.phase !== selectionPhase) {
       return;
@@ -133,20 +153,22 @@ export function Dialer<TValue = number>({
 
   return (
     <Base {...props} className={classes}>
-      <div className={styles.cornerButtons}>
-        <DialerButton {...buttonProps} className={styles.topLeft}>
-          {topLeftLabel}
-        </DialerButton>
-        <DialerButton {...buttonProps} className={styles.topRight}>
-          {topRightLabel}
-        </DialerButton>
-        <DialerButton {...buttonProps} className={styles.bottomLeft}>
-          {bottomLeftLabel}
-        </DialerButton>
-        <DialerButton {...buttonProps} className={styles.bottomRight}>
-          {bottomRightLabel}
-        </DialerButton>
-      </div>
+      {showCornerButtons && (
+        <div className={styles.cornerButtons}>
+          <DialerButton {...buttonProps} className={styles.topLeft}>
+            {topLeftLabel}
+          </DialerButton>
+          <DialerButton {...buttonProps} className={styles.topRight}>
+            {topRightLabel}
+          </DialerButton>
+          <DialerButton {...buttonProps} className={styles.bottomLeft}>
+            {bottomLeftLabel}
+          </DialerButton>
+          <DialerButton {...buttonProps} className={styles.bottomRight}>
+            {bottomRightLabel}
+          </DialerButton>
+        </div>
+      )}
 
       <DialSurface
         layer="outer"

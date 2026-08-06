@@ -10,15 +10,15 @@ describe("lab token definitions", () => {
   it("accepts and renders a declared value", () => {
     const values = parseLabTokenValues({
       ...defaultLabTokenValues,
-      appTitleFontSize: 22,
+      space: 5,
     });
 
     expect(values).toEqual({
       ...defaultLabTokenValues,
-      appTitleFontSize: 22,
+      space: 5,
     });
-    expect(renderLabTokens(values!)).toContain("--app-title-font-size: 22px;");
-    expect(renderLabTokens(values!)).toContain("--space-xs: 3px;");
+    expect(renderLabTokens(values!)).toContain("--space: 5px;");
+    expect(renderLabTokens(values!)).toContain("--space-sm: calc(var(--space) * 2);");
     expect(renderLabTokens(values!)).toContain(
       "--border-standard: 1px solid var(--color-border);",
     );
@@ -27,7 +27,7 @@ describe("lab token definitions", () => {
   it("rejects unknown, incomplete, and out-of-range values", () => {
     expect(parseLabTokenValues({ ...defaultLabTokenValues, unknown: 1 })).toBeNull();
     expect(parseLabTokenValues({})).toBeNull();
-    expect(parseLabTokenValues({ appTitleFontSize: 41 })).toBeNull();
+    expect(parseLabTokenValues({ ...defaultLabTokenValues, space: 13 })).toBeNull();
     expect(parseLabTokenValues({
       ...defaultLabTokenValues,
       borderStandard: "1 px solid COLOR_BORDER",

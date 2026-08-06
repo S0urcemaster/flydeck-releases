@@ -10,15 +10,15 @@
 .root[data-placement="app-edge"] {
   position: fixed;
   z-index: 1;
-  top: max(var(--space-unit), env(safe-area-inset-top));
-  left: calc(50% + (var(--app-max-width) / 2) + var(--space-unit));
+  top: max(var(--space), env(safe-area-inset-top));
+  left: calc(50% + (var(--app-max-width) / 2) + var(--space));
 }
 
 .root[data-placement="viewport-edge"] {
   position: fixed;
   z-index: 2;
-  top: max(var(--space-unit), env(safe-area-inset-top));
-  right: max(var(--space-unit), env(safe-area-inset-right));
+  top: max(var(--space), env(safe-area-inset-top));
+  right: max(var(--space), env(safe-area-inset-right));
 }
 
 @media (max-width: 620px) {
