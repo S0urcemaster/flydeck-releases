@@ -2,10 +2,13 @@ import type { KeyboardEvent, PointerEvent } from "react";
 
 import { Button, type ButtonProps } from "../Button";
 
-export type PressButtonProps = ButtonProps;
+export type PressButtonProps = ButtonProps & {
+  preserveFocus?: boolean;
+};
 
 export function PressButton({
   componentName = "PressButton",
+  preserveFocus = false,
   onClick,
   onKeyDown,
   onPointerDown,
@@ -35,6 +38,7 @@ export function PressButton({
         onPointerDown?.(event);
         if (!event.defaultPrevented && event.isPrimary && event.button === 0) {
           activate(event);
+          if (preserveFocus) event.preventDefault();
         }
       }}
     />

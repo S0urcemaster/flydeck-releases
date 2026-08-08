@@ -35,6 +35,9 @@ export type ComponentPropertiesConfig = {
     fontWeight: string;
     base: StoredBaseProperties;
   };
+  LongPressButton: { base: StoredBaseProperties };
+  CycleButton: { base: StoredBaseProperties };
+  InputAids: { base: StoredBaseProperties };
   ModuleButton: {
     symbol: string;
     base: StoredBaseProperties;
@@ -72,7 +75,11 @@ export type ComponentPropertiesConfig = {
   TreeBrowser: { rowGap: string; base: StoredBaseProperties };
   DataBrowser: { base: StoredBaseProperties };
   FunctionBrowser: { base: StoredBaseProperties };
-  Input: { fontSize: string; base: StoredBaseProperties };
+  Input: {
+    fontSize: string;
+    inputAids: boolean;
+    base: StoredBaseProperties;
+  };
   InputControl: { base: StoredBaseProperties };
   ListControl: { base: StoredBaseProperties };
   ListControlButton: { base: StoredBaseProperties };
@@ -125,7 +132,11 @@ export type ComponentPropertiesConfig = {
   SettingsModule: { base: StoredBaseProperties };
   SubmoduleButton: { base: StoredBaseProperties };
   SubmodulePanel: { base: StoredBaseProperties };
-  Textarea: { base: StoredBaseProperties };
+  Textarea: {
+    fontSize: string;
+    inputAids: boolean;
+    base: StoredBaseProperties;
+  };
 };
 
 export function parseComponentPropertiesConfig(
@@ -138,6 +149,9 @@ export function parseComponentPropertiesConfig(
   const baseInput = input.Base;
   const backgroundLogo = input.BackgroundLogo;
   const button = input.Button;
+  const longPressButton = input.LongPressButton;
+  const cycleButton = input.CycleButton;
+  const inputAids = input.InputAids;
   const moduleButton = input.ModuleButton;
   const sideModuleButton = input.SideModuleButton;
   const agentModuleButton = input.AgentModuleButton;
@@ -191,6 +205,9 @@ export function parseComponentPropertiesConfig(
     || typeof baseInput.showComponentName !== "boolean"
     || !isRecord(backgroundLogo)
     || !isRecord(button)
+    || !isRecord(longPressButton)
+    || !isRecord(cycleButton)
+    || !isRecord(inputAids)
     || !isRecord(moduleButton)
     || !isRecord(sideModuleButton)
     || !isRecord(agentModuleButton)
@@ -241,6 +258,9 @@ export function parseComponentPropertiesConfig(
   }
 
   const buttonBase = parseStoredBaseProperties(button.base);
+  const longPressButtonBase = parseStoredBaseProperties(longPressButton.base);
+  const cycleButtonBase = parseStoredBaseProperties(cycleButton.base);
+  const inputAidsBase = parseStoredBaseProperties(inputAids.base);
   const backgroundLogoBase = parseStoredBaseProperties(backgroundLogo.base);
   const moduleButtonBase = parseStoredBaseProperties(moduleButton.base);
   const sideModuleButtonBase = parseStoredBaseProperties(sideModuleButton.base);
@@ -301,6 +321,9 @@ export function parseComponentPropertiesConfig(
   if (
     !backgroundLogoBase
     || !buttonBase
+    || !longPressButtonBase
+    || !cycleButtonBase
+    || !inputAidsBase
     || !moduleButtonBase
     || !sideModuleButtonBase
     || !agentModuleButtonBase
@@ -363,6 +386,11 @@ export function parseComponentPropertiesConfig(
     || typeof inputComponent.fontSize !== "string"
     || inputComponent.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(inputComponent.fontSize)
+    || typeof inputComponent.inputAids !== "boolean"
+    || typeof textarea.fontSize !== "string"
+    || textarea.fontSize.trim() === ""
+    || isUnitlessNonZeroDimension(textarea.fontSize)
+    || typeof textarea.inputAids !== "boolean"
     || typeof deleteButton.armedColor !== "string"
     || deleteButton.armedColor.trim() === ""
     || typeof browserItemLabelButton.fontSize !== "string"
@@ -437,6 +465,9 @@ export function parseComponentPropertiesConfig(
       fontWeight: button.fontWeight,
       base: buttonBase,
     },
+    LongPressButton: { base: longPressButtonBase },
+    CycleButton: { base: cycleButtonBase },
+    InputAids: { base: inputAidsBase },
     ModuleButton: {
       symbol: moduleButton.symbol,
       base: moduleButtonBase,
@@ -503,6 +534,7 @@ export function parseComponentPropertiesConfig(
     FunctionBrowser: { base: functionBrowserBase },
     Input: {
       fontSize: inputComponent.fontSize,
+      inputAids: inputComponent.inputAids,
       base: inputBase,
     },
     InputControl: { base: inputControlBase },
@@ -557,7 +589,11 @@ export function parseComponentPropertiesConfig(
     SettingsModule: { base: settingsModuleBase },
     SubmoduleButton: { base: submoduleButtonBase },
     SubmodulePanel: { base: submodulePanelBase },
-    Textarea: { base: textareaBase },
+    Textarea: {
+      fontSize: textarea.fontSize,
+      inputAids: textarea.inputAids,
+      base: textareaBase,
+    },
   };
 }
 

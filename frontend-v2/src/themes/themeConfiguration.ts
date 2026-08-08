@@ -174,7 +174,9 @@ function isLegacyThemeConfigurationForIds(
   ]);
   const allowedVariables = new Set([...currentVariables, ...legacySpaces]);
   const requiredVariables = [...currentVariables].filter((name) => (
-    name !== "--item-color" && name !== "--space"
+    name !== "--item-color"
+    && name !== "--long-press-timeout"
+    && name !== "--space"
   ));
   const seenThemeIds = new Set<string>();
   for (const theme of value.themes) {

@@ -24,6 +24,7 @@ import { ButtonLink } from "../components/ButtonLink";
 import { BrowserItemLabelButton } from "../components/BrowserItemLabelButton";
 import { BrowserItemModeButton } from "../components/BrowserItemModeButton";
 import { Checkbox } from "../components/Checkbox";
+import { CycleButton } from "../components/CycleButton";
 import { AgentModuleButton } from "../components/AgentModuleButton";
 import { ConfigModuleButton } from "../components/ConfigModuleButton";
 import { CronModuleButton } from "../components/CronModuleButton";
@@ -37,8 +38,10 @@ import { DialerCenterButton } from "../components/DialerCenterButton";
 import { FuncModuleButton } from "../components/FuncModuleButton";
 import { FunctionBrowser } from "../components/FunctionBrowser";
 import { Input } from "../components/Input";
+import { InputAids } from "../components/InputAids";
 import { InputControl } from "../components/InputControl";
 import { LoginDialog } from "../components/LoginDialog";
+import { LongPressButton } from "../components/LongPressButton";
 import { HelpModuleButton } from "../components/HelpModuleButton";
 import type { ModuleMenuItem } from "../components/ModuleMenu";
 import { ModuleMenuActions } from "../components/ModuleMenuActions";
@@ -121,6 +124,9 @@ type LabComponentName =
   | "Base"
   | "Button"
   | "ButtonLink"
+  | "CycleButton"
+  | "InputAids"
+  | "LongPressButton"
   | BrowserLabComponentName
   | "DeviceInfo"
   | "ModuleMenuActions"
@@ -230,6 +236,7 @@ const appComponentNames = [
   "ConfigModuleButton",
   "CronModule",
   "CronModuleButton",
+  "CycleButton",
   "DataBrowser",
   "DataModule",
   "DataModuleButton",
@@ -244,11 +251,13 @@ const appComponentNames = [
   "HelpModule",
   "HelpModuleButton",
   "Input",
+  "InputAids",
   "InputControl",
   "ListControl",
   "ListControlButton",
   "ListControlListSizeButton",
   "LoginDialog",
+  "LongPressButton",
   "MemoryBrowser",
   "Module",
   "ModuleButton",
@@ -287,6 +296,7 @@ const appComponentDepths: Record<
   ConfigModuleButton: 2,
   CronModule: 2,
   CronModuleButton: 2,
+  CycleButton: 2,
   DataModule: 2,
   DataModuleButton: 2,
   DeviceInfo: 1,
@@ -296,11 +306,13 @@ const appComponentDepths: Record<
   DialerCenterButton: 2,
   FunctionBrowser: 2,
   Input: 1,
+  InputAids: 1,
   InputControl: 1,
   ListControl: 1,
   ListControlButton: 2,
   ListControlListSizeButton: 2,
   LoginDialog: 2,
+  LongPressButton: 2,
   FuncModuleButton: 2,
   FunctionsModule: 2,
   HelpModule: 2,
@@ -442,6 +454,13 @@ export function LabApp() {
     useState(storedComponentProperties.Button.fontSize);
   const [buttonFontWeight, setButtonFontWeight] =
     useState(storedComponentProperties.Button.fontWeight);
+  const [longPressButtonBaseValues, setLongPressButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.LongPressButton.base);
+  const [cycleButtonBaseValues, setCycleButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.CycleButton.base);
+  const [cycleButtonPreviewValue, setCycleButtonPreviewValue] = useState("S");
+  const [inputAidsBaseValues, setInputAidsBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.InputAids.base);
   const [moduleButtonBaseValues, setModuleButtonBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.ModuleButton.base);
   const [sideModuleButtonBaseValues, setSideModuleButtonBaseValues] =
@@ -472,6 +491,10 @@ export function LabApp() {
     });
   const [textareaBaseValues, setTextareaBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.Textarea.base);
+  const [textareaFontSize, setTextareaFontSize] =
+    useState(storedComponentProperties.Textarea.fontSize);
+  const [textareaInputAids, setTextareaInputAids] =
+    useState(storedComponentProperties.Textarea.inputAids);
   const [buttonLinkBaseValues, setButtonLinkBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.ButtonLink.base);
   const [deviceInfoBaseValues, setDeviceInfoBaseValues] =
@@ -513,6 +536,9 @@ export function LabApp() {
   );
   const [inputFontSize, setInputFontSize] = useState(
     storedComponentProperties.Input.fontSize,
+  );
+  const [inputInputAids, setInputInputAids] = useState(
+    storedComponentProperties.Input.inputAids,
   );
   const [browserItemLabelFontSize, setBrowserItemLabelFontSize] = useState(
     storedComponentProperties.BrowserItemLabelButton.fontSize,
@@ -618,6 +644,9 @@ export function LabApp() {
   const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const shellFrameRef = useRef<HTMLDivElement>(null);
+  const inputAidsPreviewRef = useRef<HTMLInputElement>(null);
+  const [inputAidsPreviewFontStage, setInputAidsPreviewFontStage] =
+    useState<"small" | "medium" | "large">("medium");
   const [status, setStatus] = useState<LabStatus>({
     tone: "neutral",
     message: "Changes are local until APPLY is pressed.",
@@ -733,6 +762,9 @@ export function LabApp() {
         fontWeight: buttonFontWeight,
         base: buttonBaseValues,
       },
+      LongPressButton: { base: longPressButtonBaseValues },
+      CycleButton: { base: cycleButtonBaseValues },
+      InputAids: { base: inputAidsBaseValues },
       ModuleButton: {
         symbol: moduleButtonSymbol,
         base: moduleButtonBaseValues,
@@ -765,7 +797,11 @@ export function LabApp() {
         base: concreteModuleButtonBaseValues.HelpModuleButton,
       },
       ModuleMenuActions: { base: moduleMenuActionsBaseValues },
-      Textarea: { base: textareaBaseValues },
+      Textarea: {
+        fontSize: textareaFontSize,
+        inputAids: textareaInputAids,
+        base: textareaBaseValues,
+      },
       ButtonLink: {
         href: buttonLinkHref,
         label: buttonLinkLabel,
@@ -792,6 +828,7 @@ export function LabApp() {
       MemoryBrowser: { base: browserComponentBaseValues.MemoryBrowser },
       Input: {
         fontSize: inputFontSize,
+        inputAids: inputInputAids,
         base: browserComponentBaseValues.Input,
       },
       ListControl: { base: browserComponentBaseValues.ListControl },
@@ -982,7 +1019,10 @@ export function LabApp() {
       | "base"
       | "button"
       | "buttonLink"
+      | "cycleButton"
       | "deviceInfo"
+      | "inputAids"
+      | "longPressButton"
       | "modulePanel"
       | "textarea"
       | "appStatusLine"
@@ -998,8 +1038,14 @@ export function LabApp() {
       setButtonBaseValues(update);
     } else if (target === "buttonLink") {
       setButtonLinkBaseValues(update);
+    } else if (target === "cycleButton") {
+      setCycleButtonBaseValues(update);
     } else if (target === "deviceInfo") {
       setDeviceInfoBaseValues(update);
+    } else if (target === "inputAids") {
+      setInputAidsBaseValues(update);
+    } else if (target === "longPressButton") {
+      setLongPressButtonBaseValues(update);
     } else if (target === "modulePanel") {
       setModulePanelBaseValues(update);
     } else if (target === "textarea") {
@@ -1205,6 +1251,7 @@ export function LabApp() {
             {...baseProps}
             aria-label="Input preview"
             fontSize={inputFontSize}
+            inputAids={inputInputAids}
           />
         );
       case "ListControl":
@@ -2058,6 +2105,212 @@ export function LabApp() {
         </div>
       </section>}
 
+      {selectedComponent === "CycleButton" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>CycleButton</h2>
+              <p className={styles.description}>
+                Button that advances through a dynamic ordered list of options.
+              </p>
+            </div>
+            <code className={styles.path}>components/CycleButton</code>
+          </div>
+          <div className={styles.preview}>
+            <CycleButton
+              {...resolveDerivedBaseProperties(
+                buttonBaseValues,
+                cycleButtonBaseValues,
+              )}
+              activeColor={buttonActiveColor}
+              options={["S", "M", "L"]}
+              value={cycleButtonPreviewValue}
+              onChange={setCycleButtonPreviewValue}
+            />
+          </div>
+          <BasePropertyControls
+            componentName="CycleButton"
+            inheritedPropertySections={[{
+              componentName: "Button",
+              properties: {
+                activeColor: buttonActiveColor,
+                fontSize: buttonFontSize,
+                fontWeight: buttonFontWeight,
+              },
+            }]}
+            values={cycleButtonBaseValues}
+            onChange={(name, value) => updateBaseValue("cycleButton", name, value)}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (componentName !== "Button") return;
+              if (name === "activeColor" && typeof value === "string") {
+                setButtonActiveColor(value);
+              } else if (name === "fontSize" && typeof value === "string") {
+                setButtonFontSize(value);
+              } else if (name === "fontWeight" && typeof value === "string") {
+                setButtonFontWeight(value);
+              }
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setCycleButtonBaseValues({
+              ...componentBaseDefaults,
+            })}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {selectedComponent === "LongPressButton" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>LongPressButton</h2>
+              <p className={styles.description}>
+                Button with separate short-press and configurable long-press actions.
+              </p>
+            </div>
+            <code className={styles.path}>components/LongPressButton</code>
+          </div>
+          <div className={styles.preview}>
+            <LongPressButton
+              {...resolveDerivedBaseProperties(
+                buttonBaseValues,
+                longPressButtonBaseValues,
+              )}
+              activeColor={buttonActiveColor}
+              onPress={() => setStatus({
+                tone: "neutral",
+                message: "Short press fired.",
+              })}
+              onLongPress={() => setStatus({
+                tone: "neutral",
+                message: "Long press fired.",
+              })}
+            >
+              HOLD
+            </LongPressButton>
+          </div>
+          <BasePropertyControls
+            componentName="LongPressButton"
+            inheritedPropertySections={[{
+              componentName: "Button",
+              properties: {
+                activeColor: buttonActiveColor,
+                fontSize: buttonFontSize,
+                fontWeight: buttonFontWeight,
+              },
+            }]}
+            values={longPressButtonBaseValues}
+            onChange={(name, value) => (
+              updateBaseValue("longPressButton", name, value)
+            )}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (componentName !== "Button") return;
+              if (name === "activeColor" && typeof value === "string") {
+                setButtonActiveColor(value);
+              } else if (name === "fontSize" && typeof value === "string") {
+                setButtonFontSize(value);
+              } else if (name === "fontWeight" && typeof value === "string") {
+                setButtonFontWeight(value);
+              }
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setLongPressButtonBaseValues({
+              ...componentBaseDefaults,
+            })}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {selectedComponent === "InputAids" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>InputAids</h2>
+              <p className={styles.description}>
+                Cursor, clipboard, word-selection, and select-all controls.
+              </p>
+            </div>
+            <code className={styles.path}>components/InputAids</code>
+          </div>
+          <div className={styles.preview}>
+            <input
+              ref={inputAidsPreviewRef}
+              aria-label="Input aids target preview"
+              defaultValue="Select a word in this preview"
+            />
+            <InputAids
+              {...toBaseStyleProps(inputAidsBaseValues)}
+              fontStage={inputAidsPreviewFontStage}
+              onFontStageChange={setInputAidsPreviewFontStage}
+              targetRef={inputAidsPreviewRef}
+              buttonProps={{
+                ...resolveDerivedBaseProperties(
+                  buttonBaseValues,
+                  longPressButtonBaseValues,
+                ),
+                activeColor: buttonActiveColor,
+              }}
+              cycleButtonProps={{
+                ...resolveDerivedBaseProperties(
+                  buttonBaseValues,
+                  cycleButtonBaseValues,
+                ),
+                activeColor: buttonActiveColor,
+              }}
+            />
+          </div>
+          <BasePropertyControls
+            componentName="InputAids"
+            inheritedPropertySections={[
+              {
+                componentName: "CycleButton",
+                properties: cycleButtonBaseValues,
+              },
+              {
+                componentName: "LongPressButton",
+                properties: longPressButtonBaseValues,
+              },
+            ]}
+            values={inputAidsBaseValues}
+            onChange={(name, value) => updateBaseValue("inputAids", name, value)}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (componentName === "LongPressButton" && typeof value === "string") {
+                setLongPressButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              } else if (componentName === "CycleButton" && typeof value === "string") {
+                setCycleButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              }
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setInputAidsBaseValues({
+              ...storedComponentProperties.InputAids.base,
+            })}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
       {selectedComponent === "Textarea" && <section className={styles.component}>
         <div className={styles.componentHeader}>
           <div>
@@ -2070,21 +2323,41 @@ export function LabApp() {
         <div className={styles.preview}>
           <Textarea
             aria-label="Textarea preview"
-            value="Textarea content"
-            readOnly
+            defaultValue="Textarea content"
+            fontSize={textareaFontSize}
+            inputAids={textareaInputAids}
             {...toBaseStyleProps(textareaBaseValues)}
           />
         </div>
 
         <BasePropertyControls
           componentName="Textarea"
+          ownPropertyComments={{
+            fontSize: "small-stage CSS font-size, for example 0.82rem",
+            inputAids: "show InputAids while the field is focused",
+          }}
+          ownProperties={{
+            fontSize: textareaFontSize,
+            inputAids: textareaInputAids,
+          }}
           values={textareaBaseValues}
           onChange={(name, value) => updateBaseValue("textarea", name, value)}
+          onOwnPropertyChange={(name, value) => {
+            if (name === "fontSize" && typeof value === "string") {
+              setTextareaFontSize(value);
+            } else if (name === "inputAids" && typeof value === "boolean") {
+              setTextareaInputAids(value);
+            }
+          }}
         />
 
         <div className={styles.actions}>
           <Button
-            onClick={() => setTextareaBaseValues({ ...componentBaseDefaults })}
+            onClick={() => {
+              setTextareaBaseValues({ ...componentBaseDefaults });
+              setTextareaFontSize(storedComponentProperties.Textarea.fontSize);
+              setTextareaInputAids(true);
+            }}
           >
             RESET
           </Button>
@@ -2128,7 +2401,10 @@ export function LabApp() {
                   fontWeight: "CSS font-weight; inherit uses Button.fontWeight",
                 }
               : componentName === "Input"
-              ? { fontSize: "CSS font-size value, for example 14px or 0.9rem" }
+              ? {
+                  fontSize: "CSS font-size value, for example 14px or 0.9rem",
+                  inputAids: "show InputAids while the field is focused",
+                }
               : componentName === "BackgroundLogo"
               ? {
                   symbol: "exactly one Unicode character",
@@ -2158,7 +2434,7 @@ export function LabApp() {
                   fontWeight: browserItemLabelFontWeight,
                 }
               : componentName === "Input"
-              ? { fontSize: inputFontSize }
+              ? { fontSize: inputFontSize, inputAids: inputInputAids }
               : componentName === "BackgroundLogo"
               ? {
                   symbol: backgroundLogoSymbol,
@@ -2270,6 +2546,13 @@ export function LabApp() {
               ) {
                 setInputFontSize(value);
               }
+              if (
+                componentName === "Input"
+                && name === "inputAids"
+                && typeof value === "boolean"
+              ) {
+                setInputInputAids(value);
+              }
               if (componentName === "BackgroundLogo") {
                 if (
                   name === "symbol"
@@ -2376,6 +2659,9 @@ export function LabApp() {
                 }
                 if (componentName === "Checkbox") {
                   setCheckboxActiveColor("COLOR_ACCENT_TWO");
+                }
+                if (componentName === "Input") {
+                  setInputInputAids(true);
                 }
               }}
             >

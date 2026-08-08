@@ -1,5 +1,18 @@
+.control {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.control[data-aids-visible] {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
 .root {
   box-sizing: border-box;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
   border-radius: var(--radius-control);

@@ -96,6 +96,20 @@ export function App() {
   const shellBase = resolveBaseProperties(properties.AppShell.base);
   const panelBase = resolveBaseProperties(properties.ModulePanel.base);
   const buttonBase = resolveBaseProperties(properties.Button.base);
+  const longPressButtonBase = resolveDerivedBaseProperties(
+    buttonBase,
+    properties.LongPressButton.base,
+  );
+  const cycleButtonBase = resolveDerivedBaseProperties(
+    buttonBase,
+    properties.CycleButton.base,
+  );
+  const inputAidsBase = resolveBaseProperties(properties.InputAids.base);
+  const inputAidsProps = {
+    ...inputAidsBase,
+    buttonProps: longPressButtonBase,
+    cycleButtonProps: cycleButtonBase,
+  };
   const resolvedAppStatusLineBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.AppStatusLine.base,
@@ -199,6 +213,12 @@ export function App() {
     properties.Checkbox.base,
   );
   const inputBase = resolveBaseProperties(properties.Input.base);
+  const configuredInputProps = {
+    ...inputBase,
+    fontSize: properties.Input.fontSize,
+    inputAids: properties.Input.inputAids,
+    inputAidsProps,
+  };
   const listControlBase = resolveBaseProperties(properties.ListControl.base);
   const listControlButtonBase = resolveDerivedBaseProperties(
     buttonBase,
@@ -219,13 +239,19 @@ export function App() {
   };
   const inputControlBase = resolveBaseProperties(properties.InputControl.base);
   const textareaBase = resolveBaseProperties(properties.Textarea.base);
+  const configuredTextareaProps = {
+    ...textareaBase,
+    fontSize: properties.Textarea.fontSize,
+    inputAids: properties.Textarea.inputAids,
+    inputAidsProps,
+  };
   const sharedInputControlProps = {
     ...inputControlBase,
     buttonProps: {
       ...buttonBase,
       activeColor: properties.Button.activeColor,
     },
-    textareaProps: textareaBase,
+    textareaProps: configuredTextareaProps,
   };
   const sharedTreeChildProps = {
     browserItemProps: {
@@ -253,8 +279,7 @@ export function App() {
         activeColor: properties.Button.activeColor,
       },
       inputProps: {
-        ...inputBase,
-        fontSize: properties.Input.fontSize,
+        ...configuredInputProps,
       },
       listSizeButtonProps: listControlListSizeButtonProps,
     },
@@ -592,7 +617,7 @@ export function App() {
         <SettingsModule
           {...settingsModuleBase}
           configuration={themeConfiguration}
-          inputProps={{ ...inputBase, fontSize: properties.Input.fontSize }}
+          inputProps={configuredInputProps}
           saveButtonProps={{
             ...buttonBase,
             activeColor: properties.Button.activeColor,
@@ -635,7 +660,7 @@ export function App() {
     <LoginDialog
       {...loginDialogBase}
       buttonProps={buttonBase}
-      inputProps={{ ...inputBase, fontSize: properties.Input.fontSize }}
+      inputProps={configuredInputProps}
       open={accessGate === "login"}
       pending={loginPending}
       error={accessReason || undefined}

@@ -38,6 +38,39 @@
       "height": "40px"
     }
   },
+  "LongPressButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "CycleButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "InputAids": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "100%",
+      "height": "unset"
+    }
+  },
   "ModuleButton": {
     "symbol": "◆",
     "base": {
@@ -340,6 +373,7 @@
   },
   "Input": {
     "fontSize": "24px",
+    "inputAids": true,
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",
@@ -354,8 +388,8 @@
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",
-      "border": "BORDER_STANDARD",
-      "padding": "SPACE_XS",
+      "border": "0",
+      "padding": "0",
       "margin": "0",
       "width": "unset",
       "height": "unset"
@@ -563,6 +597,8 @@
     }
   },
   "Textarea": {
+    "fontSize": "24px",
+    "inputAids": true,
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",

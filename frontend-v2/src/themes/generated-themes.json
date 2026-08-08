@@ -49,6 +49,7 @@
       "space": 3,
       "buttonWidth": 44,
       "itemFontSize": 24,
+      "longPressTimeout": 500,
       "unlockButtonTimeout": 800,
       "radiusControl": 13,
       "borderStandard": "1px solid COLOR_BORDER"
@@ -60,6 +61,7 @@
       "space": 3,
       "buttonWidth": 44,
       "itemFontSize": 24,
+      "longPressTimeout": 500,
       "unlockButtonTimeout": 800,
       "radiusControl": 3,
       "borderStandard": "1px solid COLOR_BORDER"
@@ -71,6 +73,7 @@
       "space": 3,
       "buttonWidth": 44,
       "itemFontSize": 20,
+      "longPressTimeout": 500,
       "unlockButtonTimeout": 500,
       "radiusControl": 3,
       "borderStandard": "1px solid COLOR_BORDER"

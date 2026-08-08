@@ -21,8 +21,8 @@ export function RootInputControl({
   onChange,
   inputProps,
   color = "COLOR_TEXT",
-  background = "COLOR_SURFACE",
-  border = "BORDER_STANDARD",
+  background = "transparent",
+  border = "0",
   ...baseProps
 }: RootInputControlProps) {
   const target = resolveRootTarget(current, targets, value);

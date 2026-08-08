@@ -5,6 +5,7 @@ export type LabTokenValues = {
   space: number;
   buttonWidth: number;
   itemFontSize: number;
+  longPressTimeout: number;
   unlockButtonTimeout: number;
   radiusControl: number;
   borderStandard: string;
@@ -40,6 +41,7 @@ export const labTokenDefinitions: {
   space: numberToken("--space", "Space", 0, 12, 1, "px", 3),
   buttonWidth: numberToken("--button-width", "Button width", 1, 320, 1, "px", 44),
   itemFontSize: numberToken("--item-fontsize", "Item font size", 1, 100, 1, "px", 20),
+  longPressTimeout: numberToken("--long-press-timeout", "Long press timeout", 100, 3000, 50, "ms", 500),
   unlockButtonTimeout: numberToken("--unlock-button-timeout", "Unlock button timeout", 100, 10000, 100, "ms", 500),
   radiusControl: numberToken("--radius-control", "Control radius", 0, 24, 1, "px", 3),
   borderStandard: {

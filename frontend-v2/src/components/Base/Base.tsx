@@ -4,7 +4,7 @@ import {
   useContext,
   useState,
   type CSSProperties,
-  type ComponentPropsWithoutRef,
+  type ComponentPropsWithRef,
   type ElementType,
   type ReactNode,
 } from "react";
@@ -60,7 +60,7 @@ type BaseOwnProps<TElement extends ElementType> = BaseStyleProps & {
 
 export type BaseProps<TElement extends ElementType = "div"> =
   BaseOwnProps<TElement>
-  & Omit<ComponentPropsWithoutRef<TElement>, keyof BaseOwnProps<TElement>>;
+  & Omit<ComponentPropsWithRef<TElement>, keyof BaseOwnProps<TElement>>;
 
 const BaseConfigurationContext = createContext({ showComponentName: false });
 
