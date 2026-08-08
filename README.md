@@ -8,6 +8,9 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 08.08.026 14:45 Pre-Release V2 (09c218df5e08)
+DATA pretty usable -release
+
 ### 06.08.26 18:30 Pre-Release V2 (1cd855ad11be)
 DATA/TreeBrowser improvements
 
