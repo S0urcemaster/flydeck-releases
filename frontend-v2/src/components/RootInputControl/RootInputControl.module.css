@@ -1,6 +1,17 @@
 .root {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
   min-width: 0;
   border-radius: var(--radius-control);
+}
+
+.action {
+  grid-column: 1;
+  grid-row: 2;
+  width: 100%;
+}
+
+.root:has([data-keyboard-visible]) .action {
+  grid-row: 3;
 }

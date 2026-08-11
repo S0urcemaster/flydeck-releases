@@ -1,7 +1,14 @@
 import { useState } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+} from "lucide-react";
 
 import { Base, type BaseStyleProps } from "../Base";
-import { Input, type InputProps } from "../Input";
+import type { InputProps } from "../Input";
+import { InputControl } from "../InputControl";
 import {
   ListControlButton,
   type ListControlButtonProps,
@@ -11,7 +18,6 @@ import {
   type ListControlListSize,
   type ListControlListSizeButtonProps,
 } from "../ListControlListSizeButton";
-import { PressButton } from "../PressButton";
 import styles from "./ListControl.module.css";
 
 export type ListControlProps = BaseStyleProps & {
@@ -32,7 +38,7 @@ export type ListControlProps = BaseStyleProps & {
   onMoveUp?: () => void;
   buttonProps?: Omit<
     ListControlButtonProps,
-    "aria-label" | "children" | "disabled" | "onClick"
+    "aria-label" | "symbol" | "disabled" | "onClick"
   >;
   inputProps?: Omit<
     InputProps,
@@ -53,7 +59,7 @@ export type ListControlProps = BaseStyleProps & {
   >;
   newButtonProps?: Omit<
     ListControlButtonProps,
-    "aria-label" | "children" | "disabled" | "onClick"
+    "aria-label" | "symbol" | "disabled" | "onClick"
   >;
 };
 
@@ -77,9 +83,9 @@ export function ListControl({
   inputProps,
   listSizeButtonProps,
   newButtonProps,
-  color = "COLOR_TEXT",
-  background = "transparent",
-  border = "BORDER_STANDARD",
+  color,
+  background,
+  border,
   ...baseProps
 }: ListControlProps) {
   const [draft, setDraft] = useState({
@@ -139,85 +145,87 @@ export function ListControl({
         totalPages={pageCount}
         onPageSizeChange={onPageSizeChange}
       />
-      <Input
-        {...inputProps}
-        aria-label="New item name"
-        className={styles.input}
-        type="text"
-        disabled={!editable}
+      <InputControl
+        control="input"
+        keyboardLayout="block"
         value={draftName}
-        onChange={(event) => setDraft({
+        onChange={(value) => setDraft({
           selectedName,
-          value: event.currentTarget.value,
+          value,
         })}
-        onFocus={() => setInputFocused(true)}
-        onBlur={() => setInputFocused(false)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            createItem();
-          }
+        onEditingChange={setInputFocused}
+        inputProps={{
+          ...inputProps,
+          "aria-label": "New item name",
+          className: styles.input,
+          type: "text",
+          disabled: !editable,
+          onKeyDown: (event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              createItem();
+            }
+          },
         }}
-      />
-      <div className={styles.actions}>
-        {inputFocused ? (
+        keyboardActions={(
           <>
             <ListControlButton
               {...buttonProps}
               {...newButtonProps}
               disabled={!canCreate}
               aria-label="Create new item"
+              width="100%"
               onPointerDown={(event) => event.preventDefault()}
               onClick={createItem}
             >
-              ＋
+              NEW
             </ListControlButton>
             <ListControlButton
               {...buttonProps}
               disabled={!canRename}
               aria-label="Rename selected item"
+              width="100%"
               onPointerDown={(event) => event.preventDefault()}
               onClick={renameItem}
             >
-              ✓
+              SAVE
             </ListControlButton>
           </>
-        ) : (
+        )}
+      />
+      <div className={styles.actions}>
+        {!inputFocused && (
           <>
             <ListControlButton
               {...buttonProps}
               disabled={moveUpDisabled}
               aria-label="Move selected item up"
               onClick={onMoveUp}
-            >
-              ↑
-            </ListControlButton>
+              symbol={<ChevronUp aria-hidden="true" />}
+            />
             <ListControlButton
               {...buttonProps}
               disabled={moveDownDisabled}
               aria-label="Move selected item down"
               onClick={onMoveDown}
-            >
-              ↓
-            </ListControlButton>
-            <PressButton
+              symbol={<ChevronDown aria-hidden="true" />}
+            />
+            <ListControlButton
               {...buttonProps}
               componentName="ListControlButton"
               disabled={safePage === 0}
               aria-label="Previous page"
               onClick={() => onPageChange(safePage - 1)}
-            >
-              ←
-            </PressButton>
-            <PressButton
+              symbol={<ChevronLeft aria-hidden="true" />}
+            />
+            <ListControlButton
               {...buttonProps}
               componentName="ListControlButton"
               disabled={safePage === pageCount - 1}
               aria-label="Next page"
               onClick={() => onPageChange(safePage + 1)}
-            >
-              →
-            </PressButton>
+              symbol={<ChevronRight aria-hidden="true" />}
+            />
           </>
         )}
       </div>

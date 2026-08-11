@@ -39,6 +39,7 @@ export type ButtonProps = Omit<BaseProps<"button">, "as"> & {
   activeColor?: string;
   fontSize?: string;
   fontWeight?: string;
+  pressed?: boolean;
   selected?: boolean;
   size?: "standard" | "compact";
 };
@@ -47,14 +48,15 @@ export function Button({
   activeColor,
   fontSize,
   fontWeight,
+  pressed: controlledPressed,
   selected,
   size = "standard",
   componentName = "Button",
   type = "button",
   className,
-  color = "COLOR_TEXT",
-  background = "COLOR_SURFACE",
-  border = "BORDER_STANDARD",
+  color,
+  background,
+  border,
   onClick,
   onPointerDown,
   onPointerUp,
@@ -73,7 +75,8 @@ export function Button({
     fontSize ?? configuredDefaults.fontSize ?? "inherit";
   const resolvedFontWeight =
     fontWeight ?? configuredDefaults.fontWeight ?? "inherit";
-  const [pressed, setPressed] = useState(false);
+  const [internalPressed, setInternalPressed] = useState(false);
+  const active = controlledPressed ?? Boolean(selected || internalPressed);
   const classes = className ? `${styles.root} ${className}` : styles.root;
 
   return (
@@ -83,8 +86,8 @@ export function Button({
       componentName={componentName}
       type={type}
       className={classes}
-      color={selected || pressed ? "COLOR_SURFACE" : color}
-      background={selected || pressed ? resolvedActiveColor : background}
+      color={active ? "COLOR_SURFACE" : color}
+      background={active ? resolvedActiveColor : background}
       border={border}
       style={{
         ...style,
@@ -98,38 +101,38 @@ export function Button({
       }}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
-        setPressed(true);
+        setInternalPressed(true);
         onPointerDown?.(event);
       }}
       onPointerUp={(event) => {
-        setPressed(false);
+        setInternalPressed(false);
         onPointerUp?.(event);
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.releasePointerCapture(event.pointerId);
         }
       }}
       onPointerCancel={(event) => {
-        setPressed(false);
+        setInternalPressed(false);
         onPointerCancel?.(event);
       }}
       onLostPointerCapture={(event) => {
-        setPressed(false);
+        setInternalPressed(false);
         onLostPointerCapture?.(event);
       }}
       onKeyDown={(event) => {
         if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
-          setPressed(true);
+          setInternalPressed(true);
         }
         onKeyDown?.(event);
       }}
       onKeyUp={(event) => {
         if (event.key === "Enter" || event.key === " ") {
-          setPressed(false);
+          setInternalPressed(false);
         }
         onKeyUp?.(event);
       }}
       onBlur={(event) => {
-        setPressed(false);
+        setInternalPressed(false);
         onBlur?.(event);
       }}
     />

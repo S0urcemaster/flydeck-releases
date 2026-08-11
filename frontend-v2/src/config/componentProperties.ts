@@ -35,18 +35,31 @@ export type ComponentPropertiesConfig = {
     fontWeight: string;
     base: StoredBaseProperties;
   };
+  CompactButton: {
+    fontSize: string;
+    fontWeight: string;
+    base: StoredBaseProperties;
+  };
+  Block: { base: StoredBaseProperties };
+  Breadcrumb: { base: StoredBaseProperties };
+  ItemList: { base: StoredBaseProperties };
+  PressButton: { base: StoredBaseProperties };
+  BackspaceButton: { base: StoredBaseProperties };
   LongPressButton: { base: StoredBaseProperties };
+  ShiftButton: { base: StoredBaseProperties };
   CycleButton: { base: StoredBaseProperties };
-  InputAids: { base: StoredBaseProperties };
+  DialButton: { base: StoredBaseProperties };
+  Keyboard: { base: StoredBaseProperties };
   ModuleButton: {
     symbol: string;
     base: StoredBaseProperties;
   };
+  SymbolButton: {
+    symbolTop: string;
+    symbolLeft: string;
+    base: StoredBaseProperties;
+  };
   SideModuleButton: { base: StoredBaseProperties };
-  AgentModuleButton: { symbol: string; base: StoredBaseProperties };
-  DataModuleButton: { symbol: string; base: StoredBaseProperties };
-  FuncModuleButton: { symbol: string; base: StoredBaseProperties };
-  CronModuleButton: { symbol: string; base: StoredBaseProperties };
   HelpModuleButton: { symbol: string; base: StoredBaseProperties };
   ConfigModuleButton: { symbol: string; base: StoredBaseProperties };
   ModuleMenuActions: { base: StoredBaseProperties };
@@ -57,7 +70,6 @@ export type ComponentPropertiesConfig = {
   };
   BlockingDialog: { base: StoredBaseProperties };
   LoginDialog: { base: StoredBaseProperties };
-  SynchronizationDialog: { base: StoredBaseProperties };
   BrowserItem: { base: StoredBaseProperties };
   BrowserItemLabelButton: {
     fontSize: string;
@@ -71,13 +83,40 @@ export type ComponentPropertiesConfig = {
   DeleteButton: { armedColor: string; base: StoredBaseProperties };
   DialerButton: { base: StoredBaseProperties };
   DialerCenterButton: { base: StoredBaseProperties };
+  DialSurface: { base: StoredBaseProperties };
+  Dialer: { base: StoredBaseProperties };
+  ColorDialer: { base: StoredBaseProperties };
+  CronDialer: {
+    base: StoredBaseProperties;
+    innerBackground: string;
+    innerTextColor: string;
+    innerPointerColor: string;
+    innerFontSize: string;
+    outerBackground: string;
+    outerTextColor: string;
+    outerPointerColor: string;
+    outerFontSize: string;
+  };
   MemoryBrowser: { base: StoredBaseProperties };
   TreeBrowser: { rowGap: string; base: StoredBaseProperties };
   DataBrowser: { base: StoredBaseProperties };
-  FunctionBrowser: { base: StoredBaseProperties };
+  AppBrowser: { base: StoredBaseProperties };
+  DataTree: { base: StoredBaseProperties };
+  RootInputControl: { base: StoredBaseProperties };
+  ParentInput: { base: StoredBaseProperties };
+  DataSourceInput: { base: StoredBaseProperties };
+  ContentEditor: { base: StoredBaseProperties };
+  AppView: { base: StoredBaseProperties };
+  CompassApp: { base: StoredBaseProperties };
+  ConfigEditor: { base: StoredBaseProperties };
+  DeviceInfoView: { base: StoredBaseProperties };
+  InventoryApp: { base: StoredBaseProperties };
+  ShoppingListView: { base: StoredBaseProperties };
+  Form: { actionWidth: string; base: StoredBaseProperties };
+  FormRow: { base: StoredBaseProperties };
   Input: {
     fontSize: string;
-    inputAids: boolean;
+    keyboard: boolean;
     base: StoredBaseProperties;
   };
   InputControl: { base: StoredBaseProperties };
@@ -134,7 +173,7 @@ export type ComponentPropertiesConfig = {
   SubmodulePanel: { base: StoredBaseProperties };
   Textarea: {
     fontSize: string;
-    inputAids: boolean;
+    keyboard: boolean;
     base: StoredBaseProperties;
   };
 };
@@ -149,22 +188,26 @@ export function parseComponentPropertiesConfig(
   const baseInput = input.Base;
   const backgroundLogo = input.BackgroundLogo;
   const button = input.Button;
+  const compactButton = input.CompactButton;
+  const block = input.Block;
+  const breadcrumb = input.Breadcrumb;
+  const itemList = input.ItemList;
+  const pressButton = input.PressButton;
+  const backspaceButton = input.BackspaceButton;
   const longPressButton = input.LongPressButton;
+  const shiftButton = input.ShiftButton;
   const cycleButton = input.CycleButton;
-  const inputAids = input.InputAids;
+  const dialButton = input.DialButton;
+  const keyboard = input.Keyboard;
   const moduleButton = input.ModuleButton;
+  const symbolButton = input.SymbolButton;
   const sideModuleButton = input.SideModuleButton;
-  const agentModuleButton = input.AgentModuleButton;
-  const dataModuleButton = input.DataModuleButton;
-  const funcModuleButton = input.FuncModuleButton;
-  const cronModuleButton = input.CronModuleButton;
   const helpModuleButton = input.HelpModuleButton;
   const configModuleButton = input.ConfigModuleButton;
   const moduleMenuActions = input.ModuleMenuActions;
   const buttonLink = input.ButtonLink;
   const blockingDialog = input.BlockingDialog;
   const loginDialog = input.LoginDialog;
-  const synchronizationDialog = input.SynchronizationDialog;
   const browserItem = input.BrowserItem;
   const browserItemLabelButton = input.BrowserItemLabelButton;
   const browserItemModeButton = input.BrowserItemModeButton;
@@ -174,10 +217,27 @@ export function parseComponentPropertiesConfig(
   const deleteButton = input.DeleteButton;
   const dialerButton = input.DialerButton;
   const dialerCenterButton = input.DialerCenterButton;
+  const dialSurface = input.DialSurface;
+  const dialer = input.Dialer;
+  const colorDialer = input.ColorDialer;
+  const cronDialer = input.CronDialer;
   const memoryBrowser = input.MemoryBrowser;
   const treeBrowser = input.TreeBrowser;
   const dataBrowser = input.DataBrowser;
-  const functionBrowser = input.FunctionBrowser;
+  const appBrowser = input.AppBrowser;
+  const dataTree = input.DataTree;
+  const rootInputControl = input.RootInputControl;
+  const parentInput = input.ParentInput;
+  const dataSourceInput = input.DataSourceInput;
+  const contentEditor = input.ContentEditor;
+  const appView = input.AppView;
+  const compassApp = input.CompassApp;
+  const configEditor = input.ConfigEditor;
+  const deviceInfoView = input.DeviceInfoView;
+  const inventoryApp = input.InventoryApp;
+  const shoppingListView = input.ShoppingListView;
+  const form = input.Form;
+  const formRow = input.FormRow;
   const inputComponent = input.Input;
   const inputControl = input.InputControl;
   const listControl = input.ListControl;
@@ -205,22 +265,26 @@ export function parseComponentPropertiesConfig(
     || typeof baseInput.showComponentName !== "boolean"
     || !isRecord(backgroundLogo)
     || !isRecord(button)
+    || !isRecord(compactButton)
+    || !isRecord(block)
+    || !isRecord(breadcrumb)
+    || !isRecord(itemList)
+    || !isRecord(pressButton)
+    || !isRecord(backspaceButton)
     || !isRecord(longPressButton)
+    || !isRecord(shiftButton)
     || !isRecord(cycleButton)
-    || !isRecord(inputAids)
+    || !isRecord(dialButton)
+    || !isRecord(keyboard)
     || !isRecord(moduleButton)
+    || !isRecord(symbolButton)
     || !isRecord(sideModuleButton)
-    || !isRecord(agentModuleButton)
-    || !isRecord(dataModuleButton)
-    || !isRecord(funcModuleButton)
-    || !isRecord(cronModuleButton)
     || !isRecord(helpModuleButton)
     || !isRecord(configModuleButton)
     || !isRecord(moduleMenuActions)
     || !isRecord(buttonLink)
     || !isRecord(blockingDialog)
     || !isRecord(loginDialog)
-    || !isRecord(synchronizationDialog)
     || !isRecord(browserItem)
     || !isRecord(browserItemLabelButton)
     || !isRecord(browserItemModeButton)
@@ -230,10 +294,27 @@ export function parseComponentPropertiesConfig(
     || !isRecord(deleteButton)
     || !isRecord(dialerButton)
     || !isRecord(dialerCenterButton)
+    || !isRecord(dialSurface)
+    || !isRecord(dialer)
+    || !isRecord(colorDialer)
+    || !isRecord(cronDialer)
     || !isRecord(memoryBrowser)
     || !isRecord(treeBrowser)
     || !isRecord(dataBrowser)
-    || !isRecord(functionBrowser)
+    || !isRecord(appBrowser)
+    || !isRecord(dataTree)
+    || !isRecord(rootInputControl)
+    || !isRecord(parentInput)
+    || !isRecord(dataSourceInput)
+    || !isRecord(contentEditor)
+    || !isRecord(appView)
+    || !isRecord(compassApp)
+    || !isRecord(configEditor)
+    || !isRecord(deviceInfoView)
+    || !isRecord(inventoryApp)
+    || !isRecord(shoppingListView)
+    || !isRecord(form)
+    || !isRecord(formRow)
     || !isRecord(inputComponent)
     || !isRecord(inputControl)
     || !isRecord(listControl)
@@ -258,25 +339,27 @@ export function parseComponentPropertiesConfig(
   }
 
   const buttonBase = parseStoredBaseProperties(button.base);
+  const compactButtonBase = parseStoredBaseProperties(compactButton.base);
+  const blockBase = parseStoredBaseProperties(block.base);
+  const breadcrumbBase = parseStoredBaseProperties(breadcrumb.base);
+  const itemListBase = parseStoredBaseProperties(itemList.base);
+  const pressButtonBase = parseStoredBaseProperties(pressButton.base);
+  const backspaceButtonBase = parseStoredBaseProperties(backspaceButton.base);
   const longPressButtonBase = parseStoredBaseProperties(longPressButton.base);
+  const shiftButtonBase = parseStoredBaseProperties(shiftButton.base);
   const cycleButtonBase = parseStoredBaseProperties(cycleButton.base);
-  const inputAidsBase = parseStoredBaseProperties(inputAids.base);
+  const dialButtonBase = parseStoredBaseProperties(dialButton.base);
+  const keyboardBase = parseStoredBaseProperties(keyboard.base);
   const backgroundLogoBase = parseStoredBaseProperties(backgroundLogo.base);
   const moduleButtonBase = parseStoredBaseProperties(moduleButton.base);
+  const symbolButtonBase = parseStoredBaseProperties(symbolButton.base);
   const sideModuleButtonBase = parseStoredBaseProperties(sideModuleButton.base);
-  const agentModuleButtonBase = parseStoredBaseProperties(agentModuleButton.base);
-  const dataModuleButtonBase = parseStoredBaseProperties(dataModuleButton.base);
-  const funcModuleButtonBase = parseStoredBaseProperties(funcModuleButton.base);
-  const cronModuleButtonBase = parseStoredBaseProperties(cronModuleButton.base);
   const helpModuleButtonBase = parseStoredBaseProperties(helpModuleButton.base);
   const configModuleButtonBase = parseStoredBaseProperties(configModuleButton.base);
   const moduleMenuActionsBase = parseStoredBaseProperties(moduleMenuActions.base);
   const buttonLinkBase = parseStoredBaseProperties(buttonLink.base);
   const blockingDialogBase = parseStoredBaseProperties(blockingDialog.base);
   const loginDialogBase = parseStoredBaseProperties(loginDialog.base);
-  const synchronizationDialogBase = parseStoredBaseProperties(
-    synchronizationDialog.base,
-  );
   const browserItemBase = parseStoredBaseProperties(browserItem.base);
   const browserItemLabelButtonBase = parseStoredBaseProperties(
     browserItemLabelButton.base,
@@ -292,10 +375,27 @@ export function parseComponentPropertiesConfig(
   const dialerCenterButtonBase = parseStoredBaseProperties(
     dialerCenterButton.base,
   );
+  const dialSurfaceBase = parseStoredBaseProperties(dialSurface.base);
+  const dialerBase = parseStoredBaseProperties(dialer.base);
+  const colorDialerBase = parseStoredBaseProperties(colorDialer.base);
+  const cronDialerBase = parseStoredBaseProperties(cronDialer.base);
   const memoryBrowserBase = parseStoredBaseProperties(memoryBrowser.base);
   const treeBrowserBase = parseStoredBaseProperties(treeBrowser.base);
   const dataBrowserBase = parseStoredBaseProperties(dataBrowser.base);
-  const functionBrowserBase = parseStoredBaseProperties(functionBrowser.base);
+  const appBrowserBase = parseStoredBaseProperties(appBrowser.base);
+  const dataTreeBase = parseStoredBaseProperties(dataTree.base);
+  const rootInputControlBase = parseStoredBaseProperties(rootInputControl.base);
+  const parentInputBase = parseStoredBaseProperties(parentInput.base);
+  const dataSourceInputBase = parseStoredBaseProperties(dataSourceInput.base);
+  const contentEditorBase = parseStoredBaseProperties(contentEditor.base);
+  const appViewBase = parseStoredBaseProperties(appView.base);
+  const compassAppBase = parseStoredBaseProperties(compassApp.base);
+  const configEditorBase = parseStoredBaseProperties(configEditor.base);
+  const deviceInfoViewBase = parseStoredBaseProperties(deviceInfoView.base);
+  const inventoryAppBase = parseStoredBaseProperties(inventoryApp.base);
+  const shoppingListViewBase = parseStoredBaseProperties(shoppingListView.base);
+  const formBase = parseStoredBaseProperties(form.base);
+  const formRowBase = parseStoredBaseProperties(formRow.base);
   const inputBase = parseStoredBaseProperties(inputComponent.base);
   const inputControlBase = parseStoredBaseProperties(inputControl.base);
   const listControlBase = parseStoredBaseProperties(listControl.base);
@@ -321,29 +421,35 @@ export function parseComponentPropertiesConfig(
   if (
     !backgroundLogoBase
     || !buttonBase
+    || !compactButtonBase
+    || !blockBase
+    || !breadcrumbBase
+    || !itemListBase
+    || !pressButtonBase
+    || !backspaceButtonBase
     || !longPressButtonBase
+    || !shiftButtonBase
     || !cycleButtonBase
-    || !inputAidsBase
+    || !dialButtonBase
+    || !keyboardBase
     || !moduleButtonBase
+    || !symbolButtonBase
     || !sideModuleButtonBase
-    || !agentModuleButtonBase
-    || !dataModuleButtonBase
-    || !funcModuleButtonBase
-    || !cronModuleButtonBase
     || !helpModuleButtonBase
     || !configModuleButtonBase
     || !moduleMenuActionsBase
     || !isSingleCharacter(moduleButton.symbol)
-    || !isSingleCharacter(agentModuleButton.symbol)
-    || !isSingleCharacter(dataModuleButton.symbol)
-    || !isSingleCharacter(funcModuleButton.symbol)
-    || !isSingleCharacter(cronModuleButton.symbol)
+    || typeof symbolButton.symbolTop !== "string"
+    || symbolButton.symbolTop.trim() === ""
+    || isUnitlessNonZeroDimension(symbolButton.symbolTop)
+    || typeof symbolButton.symbolLeft !== "string"
+    || symbolButton.symbolLeft.trim() === ""
+    || isUnitlessNonZeroDimension(symbolButton.symbolLeft)
     || !isSingleCharacter(helpModuleButton.symbol)
     || !isSingleCharacter(configModuleButton.symbol)
     || !buttonLinkBase
     || !blockingDialogBase
     || !loginDialogBase
-    || !synchronizationDialogBase
     || !browserItemBase
     || !browserItemLabelButtonBase
     || !browserItemModeButtonBase
@@ -353,10 +459,27 @@ export function parseComponentPropertiesConfig(
     || !deleteButtonBase
     || !dialerButtonBase
     || !dialerCenterButtonBase
+    || !dialSurfaceBase
+    || !dialerBase
+    || !colorDialerBase
+    || !cronDialerBase
     || !memoryBrowserBase
     || !treeBrowserBase
     || !dataBrowserBase
-    || !functionBrowserBase
+    || !appBrowserBase
+    || !dataTreeBase
+    || !rootInputControlBase
+    || !parentInputBase
+    || !dataSourceInputBase
+    || !contentEditorBase
+    || !appViewBase
+    || !compassAppBase
+    || !configEditorBase
+    || !deviceInfoViewBase
+    || !inventoryAppBase
+    || !shoppingListViewBase
+    || !formBase
+    || !formRowBase
     || !inputBase
     || !inputControlBase
     || !listControlBase
@@ -386,13 +509,17 @@ export function parseComponentPropertiesConfig(
     || typeof inputComponent.fontSize !== "string"
     || inputComponent.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(inputComponent.fontSize)
-    || typeof inputComponent.inputAids !== "boolean"
+    || typeof inputComponent.keyboard !== "boolean"
+    || typeof form.actionWidth !== "string"
+    || form.actionWidth.trim() === ""
+    || isUnitlessNonZeroDimension(form.actionWidth)
     || typeof textarea.fontSize !== "string"
     || textarea.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(textarea.fontSize)
-    || typeof textarea.inputAids !== "boolean"
+    || typeof textarea.keyboard !== "boolean"
     || typeof deleteButton.armedColor !== "string"
     || deleteButton.armedColor.trim() === ""
+    || !isCronDialerConfig(cronDialer)
     || typeof browserItemLabelButton.fontSize !== "string"
     || browserItemLabelButton.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(browserItemLabelButton.fontSize)
@@ -417,6 +544,11 @@ export function parseComponentPropertiesConfig(
     || typeof buttonLink.href !== "string"
     || typeof button.activeColor !== "string"
     || button.activeColor.trim() === ""
+    || typeof compactButton.fontSize !== "string"
+    || compactButton.fontSize.trim() === ""
+    || isUnitlessNonZeroDimension(compactButton.fontSize)
+    || typeof compactButton.fontWeight !== "string"
+    || compactButton.fontWeight.trim() === ""
     || typeof button.fontSize !== "string"
     || button.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(button.fontSize)
@@ -465,30 +597,31 @@ export function parseComponentPropertiesConfig(
       fontWeight: button.fontWeight,
       base: buttonBase,
     },
+    CompactButton: {
+      fontSize: compactButton.fontSize,
+      fontWeight: compactButton.fontWeight,
+      base: compactButtonBase,
+    },
+    Block: { base: blockBase },
+    Breadcrumb: { base: breadcrumbBase },
+    ItemList: { base: itemListBase },
+    PressButton: { base: pressButtonBase },
+    BackspaceButton: { base: backspaceButtonBase },
     LongPressButton: { base: longPressButtonBase },
+    ShiftButton: { base: shiftButtonBase },
     CycleButton: { base: cycleButtonBase },
-    InputAids: { base: inputAidsBase },
+    DialButton: { base: dialButtonBase },
+    Keyboard: { base: keyboardBase },
     ModuleButton: {
       symbol: moduleButton.symbol,
       base: moduleButtonBase,
     },
+    SymbolButton: {
+      symbolTop: symbolButton.symbolTop,
+      symbolLeft: symbolButton.symbolLeft,
+      base: symbolButtonBase,
+    },
     SideModuleButton: { base: sideModuleButtonBase },
-    AgentModuleButton: {
-      symbol: agentModuleButton.symbol,
-      base: agentModuleButtonBase,
-    },
-    DataModuleButton: {
-      symbol: dataModuleButton.symbol,
-      base: dataModuleButtonBase,
-    },
-    FuncModuleButton: {
-      symbol: funcModuleButton.symbol,
-      base: funcModuleButtonBase,
-    },
-    CronModuleButton: {
-      symbol: cronModuleButton.symbol,
-      base: cronModuleButtonBase,
-    },
     HelpModuleButton: {
       symbol: helpModuleButton.symbol,
       base: helpModuleButtonBase,
@@ -505,7 +638,6 @@ export function parseComponentPropertiesConfig(
     },
     BlockingDialog: { base: blockingDialogBase },
     LoginDialog: { base: loginDialogBase },
-    SynchronizationDialog: { base: synchronizationDialogBase },
     BrowserItem: { base: browserItemBase },
     BrowserItemLabelButton: {
       fontSize: browserItemLabelButton.fontSize,
@@ -525,16 +657,43 @@ export function parseComponentPropertiesConfig(
     },
     DialerButton: { base: dialerButtonBase },
     DialerCenterButton: { base: dialerCenterButtonBase },
+    DialSurface: { base: dialSurfaceBase },
+    Dialer: { base: dialerBase },
+    ColorDialer: { base: colorDialerBase },
+    CronDialer: {
+      base: cronDialerBase,
+      innerBackground: cronDialer.innerBackground,
+      innerTextColor: cronDialer.innerTextColor,
+      innerPointerColor: cronDialer.innerPointerColor,
+      innerFontSize: cronDialer.innerFontSize,
+      outerBackground: cronDialer.outerBackground,
+      outerTextColor: cronDialer.outerTextColor,
+      outerPointerColor: cronDialer.outerPointerColor,
+      outerFontSize: cronDialer.outerFontSize,
+    },
     MemoryBrowser: { base: memoryBrowserBase },
     TreeBrowser: {
       rowGap: treeBrowser.rowGap,
       base: treeBrowserBase,
     },
     DataBrowser: { base: dataBrowserBase },
-    FunctionBrowser: { base: functionBrowserBase },
+    AppBrowser: { base: appBrowserBase },
+    DataTree: { base: dataTreeBase },
+    RootInputControl: { base: rootInputControlBase },
+    ParentInput: { base: parentInputBase },
+    DataSourceInput: { base: dataSourceInputBase },
+    ContentEditor: { base: contentEditorBase },
+    AppView: { base: appViewBase },
+    CompassApp: { base: compassAppBase },
+    ConfigEditor: { base: configEditorBase },
+    DeviceInfoView: { base: deviceInfoViewBase },
+    InventoryApp: { base: inventoryAppBase },
+    ShoppingListView: { base: shoppingListViewBase },
+    Form: { actionWidth: form.actionWidth, base: formBase },
+    FormRow: { base: formRowBase },
     Input: {
       fontSize: inputComponent.fontSize,
-      inputAids: inputComponent.inputAids,
+      keyboard: inputComponent.keyboard,
       base: inputBase,
     },
     InputControl: { base: inputControlBase },
@@ -591,7 +750,7 @@ export function parseComponentPropertiesConfig(
     SubmodulePanel: { base: submodulePanelBase },
     Textarea: {
       fontSize: textarea.fontSize,
-      inputAids: textarea.inputAids,
+      keyboard: textarea.keyboard,
       base: textareaBase,
     },
   };
@@ -630,6 +789,28 @@ export function resolveDerivedBaseProperties(
 
 function inheritFromParent(value: string, parentValue: string): string {
   return value === "inherit" ? parentValue : value;
+}
+
+function isCronDialerConfig(
+  input: Record<string, unknown>,
+): input is Record<
+  "innerBackground" | "innerTextColor" | "innerPointerColor" | "innerFontSize"
+    | "outerBackground" | "outerTextColor" | "outerPointerColor" | "outerFontSize",
+  string
+> {
+  return [
+    "innerBackground",
+    "innerTextColor",
+    "innerPointerColor",
+    "outerBackground",
+    "outerTextColor",
+    "outerPointerColor",
+    "innerFontSize",
+    "outerFontSize",
+  ].every((name) => (
+    typeof input[name] === "string" && input[name].trim() !== ""
+  )) && !isUnitlessNonZeroDimension(input.innerFontSize as string)
+    && !isUnitlessNonZeroDimension(input.outerFontSize as string);
 }
 
 function parseStoredBaseProperties(input: unknown): StoredBaseProperties | null {

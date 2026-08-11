@@ -4,10 +4,13 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { ChevronRight } from "lucide-react";
+import { CircleHelp } from "lucide-react";
 
 import { AppShell } from "../components/AppShell";
 import { AppStatusLine } from "../components/AppStatusLine";
 import { AppTitle } from "../components/AppTitle";
+import { BackspaceButton } from "../components/BackspaceButton";
 import {
   Base,
   BaseConfigurationProvider,
@@ -16,30 +19,43 @@ import {
 import { BackgroundLogo } from "../components/BackgroundLogo";
 import { BrowserItem } from "../components/BrowserItem";
 import { BlockingDialog } from "../components/BlockingDialog";
+import { Breadcrumb } from "../components/Breadcrumb";
+import { Block } from "../components/Block";
 import {
   Button,
   ButtonConfigurationProvider,
+  type ButtonProps,
 } from "../components/Button";
 import { ButtonLink } from "../components/ButtonLink";
 import { BrowserItemLabelButton } from "../components/BrowserItemLabelButton";
 import { BrowserItemModeButton } from "../components/BrowserItemModeButton";
 import { Checkbox } from "../components/Checkbox";
+import { CompactButton } from "../components/CompactButton";
+import { ColorDialer } from "../components/ColorDialer";
+import { CompassApp } from "../components/CompassApp";
+import { CronDialer } from "../components/CronDialer";
 import { CycleButton } from "../components/CycleButton";
-import { AgentModuleButton } from "../components/AgentModuleButton";
 import { ConfigModuleButton } from "../components/ConfigModuleButton";
-import { CronModuleButton } from "../components/CronModuleButton";
-import { DataModuleButton } from "../components/DataModuleButton";
 import { DataBrowser } from "../components/DataBrowser";
+import { DataSourceInput } from "../components/DataSourceInput";
+import { DataTree } from "../components/DataTree";
+import { DialButton } from "../components/DialButton";
 import { DeviceInfo } from "../components/DeviceInfo";
 import { DeviceInfoButton } from "../components/DeviceInfoButton";
+import { DeviceInfoView } from "../components/DeviceInfoView";
 import { DeleteButton } from "../components/DeleteButton";
+import { Dialer } from "../components/Dialer";
+import { DialSurface } from "../components/DialSurface";
 import { DialerButton } from "../components/DialerButton";
 import { DialerCenterButton } from "../components/DialerCenterButton";
-import { FuncModuleButton } from "../components/FuncModuleButton";
-import { FunctionBrowser } from "../components/FunctionBrowser";
-import { Input } from "../components/Input";
-import { InputAids } from "../components/InputAids";
+import { Form } from "../components/Form";
+import { FormRow } from "../components/FormRow";
+import { AppBrowser } from "../components/AppBrowser";
+import { Input, type InputProps } from "../components/Input";
+import { Keyboard } from "../components/Keyboard";
 import { InputControl } from "../components/InputControl";
+import { InventoryApp } from "../components/InventoryApp";
+import { ItemList } from "../components/ItemList";
 import { LoginDialog } from "../components/LoginDialog";
 import { LongPressButton } from "../components/LongPressButton";
 import { HelpModuleButton } from "../components/HelpModuleButton";
@@ -51,19 +67,33 @@ import {
 import { ModuleButton } from "../components/ModuleButton";
 import { MemoryBrowser } from "../components/MemoryBrowser";
 import { Module } from "../components/Module";
+import { PressButton } from "../components/PressButton";
+import { ParentInput } from "../components/ParentInput";
+import { RootInputControl } from "../components/RootInputControl";
+import { ShoppingListView } from "../components/ShoppingListView";
+import { ShiftButton } from "../components/ShiftButton";
 import { ListControl } from "../components/ListControl";
 import { ListControlButton } from "../components/ListControlButton";
 import {
   ListControlListSizeButton,
   type ListControlListSize,
 } from "../components/ListControlListSizeButton";
-import { Textarea } from "../components/Textarea";
-import { SynchronizationDialog } from "../components/SynchronizationDialog";
+import { Textarea, type TextareaProps } from "../components/Textarea";
 import {
   TreeBrowser,
   TreeBrowserModel,
+  ContentEditor,
   type TreeBrowserInitialNode,
 } from "../components/TreeBrowser";
+import { AppView, ConfigEditor } from "../components/AppView";
+import {
+  appComponentNames,
+  componentNamesInLabGroup,
+  getComponentAncestors,
+  getComponentDepth,
+  type AppComponentName,
+  type ComponentNameInLabGroup,
+} from "../config/componentManifest";
 import {
   parseComponentPropertiesConfig,
   requireComponentPropertiesConfig,
@@ -78,6 +108,7 @@ import { FunctionsModule } from "../modules/FunctionsModule";
 import { HelpModule } from "../modules/HelpModule";
 import { SettingsModule } from "../modules/SettingsModule";
 import { SideModuleButton } from "../components/SideModuleButton";
+import { SymbolButton } from "../components/SymbolButton";
 import { SubmoduleButton } from "../components/SubmoduleButton";
 import { SubmodulePanel } from "../components/SubmodulePanel";
 import { ColorMapEditor } from "./components/ColorMapEditor";
@@ -121,26 +152,7 @@ type LabStatus = {
 };
 
 type LabComponentName =
-  | "Base"
-  | "Button"
-  | "ButtonLink"
-  | "CycleButton"
-  | "InputAids"
-  | "LongPressButton"
-  | BrowserLabComponentName
-  | "DeviceInfo"
-  | "ModuleMenuActions"
-  | "ModulePanel"
-  | "ModuleButton"
-  | "SideModuleButton"
-  | "SubmoduleButton"
-  | "SubmodulePanel"
-  | ConcreteModuleButtonName
-  | ModuleComponentName
-  | "Textarea"
-  | "AppStatusLine"
-  | "AppTitle"
-  | "AppShell"
+  | AppComponentName
   | "ColorMapEditor"
   | "CommentHighlightedTextarea"
   | "NumberInput"
@@ -148,45 +160,10 @@ type LabComponentName =
   | "TokenEditor"
   | `theme:${ThemeColorMapId}`;
 
-type ModuleComponentName =
-  | "Module"
-  | "AgentModule"
-  | "DataModule"
-  | "FunctionsModule"
-  | "CronModule"
-  | "HelpModule"
-  | "SettingsModule";
-
+type ModuleComponentName = ComponentNameInLabGroup<"module">;
 type ConcreteModuleButtonName =
-  | "AgentModuleButton"
-  | "ConfigModuleButton"
-  | "CronModuleButton"
-  | "DataModuleButton"
-  | "FuncModuleButton"
-  | "HelpModuleButton";
-
-type BrowserLabComponentName =
-  | "BackgroundLogo"
-  | "BlockingDialog"
-  | "BrowserItem"
-  | "BrowserItemLabelButton"
-  | "BrowserItemModeButton"
-  | "Checkbox"
-  | "DataBrowser"
-  | "FunctionBrowser"
-  | "Input"
-  | "InputControl"
-  | "ListControl"
-  | "ListControlButton"
-  | "ListControlListSizeButton"
-  | "LoginDialog"
-  | "MemoryBrowser"
-  | "TreeBrowser"
-  | "SynchronizationDialog"
-  | "DeleteButton"
-  | "DialerButton"
-  | "DialerCenterButton"
-  | "DeviceInfoButton";
+  ComponentNameInLabGroup<"concrete-module-button">;
+type BrowserLabComponentName = ComponentNameInLabGroup<"browser">;
 
 type ShellPreviewStyle = CSSProperties & {
   "--app-max-width": string;
@@ -218,158 +195,64 @@ const labMemoryBrowserModel = new TreeBrowserModel({
 
 type ShellTokenName = "appMaxWidth" | "appInset" | "appSectionGap";
 const viewportWidths = [320, 360, 390, 430, 480] as const;
-const appComponentNames = [
-  "AgentModule",
-  "AgentModuleButton",
-  "AppShell",
-  "AppStatusLine",
-  "AppTitle",
-  "Base",
-  "BackgroundLogo",
-  "BlockingDialog",
-  "BrowserItem",
-  "BrowserItemLabelButton",
-  "BrowserItemModeButton",
-  "Button",
-  "ButtonLink",
-  "Checkbox",
-  "ConfigModuleButton",
-  "CronModule",
-  "CronModuleButton",
-  "CycleButton",
-  "DataBrowser",
-  "DataModule",
-  "DataModuleButton",
-  "DeleteButton",
-  "DeviceInfo",
-  "DeviceInfoButton",
-  "DialerButton",
-  "DialerCenterButton",
-  "FuncModuleButton",
-  "FunctionBrowser",
-  "FunctionsModule",
-  "HelpModule",
-  "HelpModuleButton",
-  "Input",
-  "InputAids",
-  "InputControl",
-  "ListControl",
-  "ListControlButton",
-  "ListControlListSizeButton",
-  "LoginDialog",
-  "LongPressButton",
-  "MemoryBrowser",
-  "Module",
-  "ModuleButton",
-  "ModuleMenuActions",
-  "ModulePanel",
-  "SettingsModule",
-  "SideModuleButton",
-  "SubmoduleButton",
-  "SubmodulePanel",
-  "SynchronizationDialog",
-  "Textarea",
-  "TreeBrowser",
-] as const;
-type AppComponentName = typeof appComponentNames[number];
 const selectedAppComponentStorageKey =
   "flydeck.lab.selectedAppComponent";
-const appComponentDepths: Record<
-  typeof appComponentNames[number],
-  0 | 1 | 2
-> = {
-  AgentModuleButton: 2,
-  AppShell: 1,
-  AppStatusLine: 2,
-  AppTitle: 1,
-  Base: 0,
-  BackgroundLogo: 1,
-  BlockingDialog: 1,
-  Button: 1,
-  ButtonLink: 1,
-  BrowserItem: 1,
-  BrowserItemLabelButton: 2,
-  BrowserItemModeButton: 2,
-  Checkbox: 1,
-  DataBrowser: 2,
-  AgentModule: 2,
-  ConfigModuleButton: 2,
-  CronModule: 2,
-  CronModuleButton: 2,
-  CycleButton: 2,
-  DataModule: 2,
-  DataModuleButton: 2,
-  DeviceInfo: 1,
-  DeviceInfoButton: 2,
-  DeleteButton: 2,
-  DialerButton: 2,
-  DialerCenterButton: 2,
-  FunctionBrowser: 2,
-  Input: 1,
-  InputAids: 1,
-  InputControl: 1,
-  ListControl: 1,
-  ListControlButton: 2,
-  ListControlListSizeButton: 2,
-  LoginDialog: 2,
-  LongPressButton: 2,
-  FuncModuleButton: 2,
-  FunctionsModule: 2,
-  HelpModule: 2,
-  HelpModuleButton: 2,
-  ModulePanel: 1,
-  ModuleButton: 2,
-  ModuleMenuActions: 1,
-  Module: 1,
-  MemoryBrowser: 2,
-  SettingsModule: 2,
-  SideModuleButton: 2,
-  SubmoduleButton: 2,
-  SubmodulePanel: 1,
-  SynchronizationDialog: 2,
-  Textarea: 1,
-  TreeBrowser: 1,
-};
-const moduleComponentNames: readonly ModuleComponentName[] = [
-  "AgentModule",
-  "CronModule",
-  "DataModule",
-  "FunctionsModule",
-  "HelpModule",
-  "Module",
-  "SettingsModule",
-];
-const concreteModuleButtonNames: readonly ConcreteModuleButtonName[] = [
-  "AgentModuleButton",
-  "ConfigModuleButton",
-  "CronModuleButton",
-  "DataModuleButton",
-  "FuncModuleButton",
-  "HelpModuleButton",
-];
-const browserLabComponentNames: readonly BrowserLabComponentName[] = [
-  "BackgroundLogo",
-  "BlockingDialog",
-  "BrowserItem",
-  "BrowserItemLabelButton",
-  "BrowserItemModeButton",
-  "Checkbox",
-  "DataBrowser",
-  "DeleteButton",
-  "DeviceInfoButton",
-  "DialerButton",
-  "DialerCenterButton",
-  "FunctionBrowser",
-  "Input",
-  "InputControl",
-  "ListControl",
-  "ListControlButton",
-  "ListControlListSizeButton",
-  "LoginDialog",
-  "MemoryBrowser",
-  "SynchronizationDialog",
-  "TreeBrowser",
-];
+const moduleComponentNames = componentNamesInLabGroup("module");
+const concreteModuleButtonNames = componentNamesInLabGroup(
+  "concrete-module-button",
+);
+const browserLabComponentNames = componentNamesInLabGroup("browser");
+const manifestPreviewComponentNames = [
+  "AppView",
+  "Block",
+  "Breadcrumb",
+  "CompassApp",
+  "CompactButton",
+  "ConfigEditor",
+  "ContentEditor",
+  "DataSourceInput",
+  "DataTree",
+  "DeviceInfoView",
+  "DialSurface",
+  "Dialer",
+  "Form",
+  "FormRow",
+  "InventoryApp",
+  "ItemList",
+  "ParentInput",
+  "RootInputControl",
+  "ShoppingListView",
+] as const satisfies readonly AppComponentName[];
+const appViewFamilyComponentNames = [
+  "AppView",
+  "CompassApp",
+  "ConfigEditor",
+  "DeviceInfoView",
+  "InventoryApp",
+  "ShoppingListView",
+] as const;
+type AppViewFamilyComponentName =
+  typeof appViewFamilyComponentNames[number];
+const treeInputFamilyComponentNames = [
+  "ContentEditor",
+  "DataSourceInput",
+  "DataTree",
+  "ParentInput",
+  "RootInputControl",
+] as const;
+type TreeInputFamilyComponentName =
+  typeof treeInputFamilyComponentNames[number];
+const dialBaseComponentNames = ["DialSurface", "Dialer"] as const;
+type DialBaseComponentName = typeof dialBaseComponentNames[number];
+const formComponentNames = ["Block", "Form", "FormRow"] as const;
+type FormComponentName = typeof formComponentNames[number];
+const compactNavigationComponentNames = [
+  "Breadcrumb",
+  "CompactButton",
+  "ItemList",
+] as const;
+type CompactNavigationComponentName =
+  typeof compactNavigationComponentNames[number];
 const labComponentNames = [
   "ColorMapEditor",
   "CommentHighlightedTextarea",
@@ -454,15 +337,82 @@ export function LabApp() {
     useState(storedComponentProperties.Button.fontSize);
   const [buttonFontWeight, setButtonFontWeight] =
     useState(storedComponentProperties.Button.fontWeight);
+  const [pressButtonBaseValues, setPressButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.PressButton.base);
+  const [backspaceButtonBaseValues, setBackspaceButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.BackspaceButton.base);
+  const [appViewFamilyBaseValues, setAppViewFamilyBaseValues] = useState<
+    Record<AppViewFamilyComponentName, BaseLabValues>
+  >({
+    AppView: storedComponentProperties.AppView.base,
+    CompassApp: storedComponentProperties.CompassApp.base,
+    ConfigEditor: storedComponentProperties.ConfigEditor.base,
+    DeviceInfoView: storedComponentProperties.DeviceInfoView.base,
+    InventoryApp: storedComponentProperties.InventoryApp.base,
+    ShoppingListView: storedComponentProperties.ShoppingListView.base,
+  });
+  const [treeInputFamilyBaseValues, setTreeInputFamilyBaseValues] = useState<
+    Record<TreeInputFamilyComponentName, BaseLabValues>
+  >({
+    ContentEditor: storedComponentProperties.ContentEditor.base,
+    DataSourceInput: storedComponentProperties.DataSourceInput.base,
+    DataTree: storedComponentProperties.DataTree.base,
+    ParentInput: storedComponentProperties.ParentInput.base,
+    RootInputControl: storedComponentProperties.RootInputControl.base,
+  });
+  const [formBaseValues, setFormBaseValues] = useState<
+    Record<FormComponentName, BaseLabValues>
+  >({
+    Block: storedComponentProperties.Block.base,
+    Form: storedComponentProperties.Form.base,
+    FormRow: storedComponentProperties.FormRow.base,
+  });
+  const [formActionWidth, setFormActionWidth] = useState(
+    storedComponentProperties.Form.actionWidth,
+  );
+  const [compactNavigationBaseValues, setCompactNavigationBaseValues] = useState<
+    Record<CompactNavigationComponentName, BaseLabValues>
+  >({
+    Breadcrumb: storedComponentProperties.Breadcrumb.base,
+    CompactButton: storedComponentProperties.CompactButton.base,
+    ItemList: storedComponentProperties.ItemList.base,
+  });
+  const [compactButtonFontSize, setCompactButtonFontSize] = useState(
+    storedComponentProperties.CompactButton.fontSize,
+  );
+  const [compactButtonFontWeight, setCompactButtonFontWeight] = useState(
+    storedComponentProperties.CompactButton.fontWeight,
+  );
   const [longPressButtonBaseValues, setLongPressButtonBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.LongPressButton.base);
+  const [shiftButtonBaseValues, setShiftButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.ShiftButton.base);
   const [cycleButtonBaseValues, setCycleButtonBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.CycleButton.base);
+  const [dialButtonBaseValues, setDialButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.DialButton.base);
   const [cycleButtonPreviewValue, setCycleButtonPreviewValue] = useState("S");
-  const [inputAidsBaseValues, setInputAidsBaseValues] =
-    useState<BaseLabValues>(storedComponentProperties.InputAids.base);
+  const [colorDialerPreviewValue, setColorDialerPreviewValue] = useState("#2468b2ff");
+  const [dialBaseValues, setDialBaseValues] = useState<
+    Record<DialBaseComponentName | "ColorDialer", BaseLabValues>
+  >({
+    DialSurface: storedComponentProperties.DialSurface.base,
+    Dialer: storedComponentProperties.Dialer.base,
+    ColorDialer: storedComponentProperties.ColorDialer.base,
+  });
+  const [cronDialerValues, setCronDialerValues] = useState(
+    storedComponentProperties.CronDialer,
+  );
+  const [keyboardBaseValues, setKeyboardBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.Keyboard.base);
   const [moduleButtonBaseValues, setModuleButtonBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.ModuleButton.base);
+  const [symbolButtonBaseValues, setSymbolButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.SymbolButton.base);
+  const [symbolButtonTop, setSymbolButtonTop] =
+    useState(storedComponentProperties.SymbolButton.symbolTop);
+  const [symbolButtonLeft, setSymbolButtonLeft] =
+    useState(storedComponentProperties.SymbolButton.symbolLeft);
   const [sideModuleButtonBaseValues, setSideModuleButtonBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.SideModuleButton.base);
   const [moduleButtonSymbol, setModuleButtonSymbol] =
@@ -473,28 +423,20 @@ export function LabApp() {
     useState<BaseLabValues>(storedComponentProperties.SubmodulePanel.base);
   const [concreteModuleButtonBaseValues, setConcreteModuleButtonBaseValues] =
     useState<Record<ConcreteModuleButtonName, BaseLabValues>>({
-      AgentModuleButton: storedComponentProperties.AgentModuleButton.base,
       ConfigModuleButton: storedComponentProperties.ConfigModuleButton.base,
-      CronModuleButton: storedComponentProperties.CronModuleButton.base,
-      DataModuleButton: storedComponentProperties.DataModuleButton.base,
-      FuncModuleButton: storedComponentProperties.FuncModuleButton.base,
       HelpModuleButton: storedComponentProperties.HelpModuleButton.base,
     });
   const [concreteModuleButtonSymbols, setConcreteModuleButtonSymbols] =
     useState<Record<ConcreteModuleButtonName, string>>({
-      AgentModuleButton: storedComponentProperties.AgentModuleButton.symbol,
       ConfigModuleButton: storedComponentProperties.ConfigModuleButton.symbol,
-      CronModuleButton: storedComponentProperties.CronModuleButton.symbol,
-      DataModuleButton: storedComponentProperties.DataModuleButton.symbol,
-      FuncModuleButton: storedComponentProperties.FuncModuleButton.symbol,
       HelpModuleButton: storedComponentProperties.HelpModuleButton.symbol,
     });
   const [textareaBaseValues, setTextareaBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.Textarea.base);
   const [textareaFontSize, setTextareaFontSize] =
     useState(storedComponentProperties.Textarea.fontSize);
-  const [textareaInputAids, setTextareaInputAids] =
-    useState(storedComponentProperties.Textarea.inputAids);
+  const [textareaKeyboard, setTextareaKeyboard] =
+    useState(storedComponentProperties.Textarea.keyboard);
   const [buttonLinkBaseValues, setButtonLinkBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.ButtonLink.base);
   const [deviceInfoBaseValues, setDeviceInfoBaseValues] =
@@ -511,7 +453,7 @@ export function LabApp() {
       storedComponentProperties.BrowserItemModeButton.base,
     Checkbox: storedComponentProperties.Checkbox.base,
     DataBrowser: storedComponentProperties.DataBrowser.base,
-    FunctionBrowser: storedComponentProperties.FunctionBrowser.base,
+    AppBrowser: storedComponentProperties.AppBrowser.base,
     InputControl: storedComponentProperties.InputControl.base,
     MemoryBrowser: storedComponentProperties.MemoryBrowser.base,
     Input: storedComponentProperties.Input.base,
@@ -521,8 +463,6 @@ export function LabApp() {
       storedComponentProperties.ListControlListSizeButton.base,
     LoginDialog: storedComponentProperties.LoginDialog.base,
     TreeBrowser: storedComponentProperties.TreeBrowser.base,
-    SynchronizationDialog:
-      storedComponentProperties.SynchronizationDialog.base,
     DeleteButton: storedComponentProperties.DeleteButton.base,
     DialerButton: storedComponentProperties.DialerButton.base,
     DialerCenterButton: storedComponentProperties.DialerCenterButton.base,
@@ -537,8 +477,8 @@ export function LabApp() {
   const [inputFontSize, setInputFontSize] = useState(
     storedComponentProperties.Input.fontSize,
   );
-  const [inputInputAids, setInputInputAids] = useState(
-    storedComponentProperties.Input.inputAids,
+  const [inputKeyboard, setInputKeyboard] = useState(
+    storedComponentProperties.Input.keyboard,
   );
   const [browserItemLabelFontSize, setBrowserItemLabelFontSize] = useState(
     storedComponentProperties.BrowserItemLabelButton.fontSize,
@@ -598,6 +538,7 @@ export function LabApp() {
   const [panelPreviewItem, setPanelPreviewItem] = useState<ModuleMenuItem>(
     storedComponentProperties.ModulePanel.activeItem,
   );
+  const [offlineModePreview, setOfflineModePreview] = useState(false);
   const [submodulePreviewItem, setSubmodulePreviewItem] =
     useState<"CHAT" | "MEMO">("MEMO");
   const [rgbPreviewValue, setRgbPreviewValue] = useState("#2468b280");
@@ -644,8 +585,8 @@ export function LabApp() {
   const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const shellFrameRef = useRef<HTMLDivElement>(null);
-  const inputAidsPreviewRef = useRef<HTMLInputElement>(null);
-  const [inputAidsPreviewFontStage, setInputAidsPreviewFontStage] =
+  const keyboardPreviewRef = useRef<HTMLInputElement>(null);
+  const [keyboardPreviewFontStage, setKeyboardPreviewFontStage] =
     useState<"small" | "medium" | "large">("medium");
   const [status, setStatus] = useState<LabStatus>({
     tone: "neutral",
@@ -659,11 +600,15 @@ export function LabApp() {
   };
   const editableTokenValues = themeTokenValues[selectedThemeId];
   const resolvedModuleButtonBaseValues = resolveDerivedBaseProperties(
-    buttonBaseValues,
+    resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
     moduleButtonBaseValues,
   );
+  const resolvedSymbolButtonBaseValues = resolveDerivedBaseProperties(
+    buttonBaseValues,
+    symbolButtonBaseValues,
+  );
   const resolvedSideModuleButtonBaseValues = resolveDerivedBaseProperties(
-    resolvedModuleButtonBaseValues,
+    resolvedSymbolButtonBaseValues,
     sideModuleButtonBaseValues,
   );
   const selectedThemeComponentId = selectedComponent.startsWith("theme:")
@@ -762,35 +707,49 @@ export function LabApp() {
         fontWeight: buttonFontWeight,
         base: buttonBaseValues,
       },
+      PressButton: { base: pressButtonBaseValues },
+      BackspaceButton: { base: backspaceButtonBaseValues },
+      AppView: { base: appViewFamilyBaseValues.AppView },
+      CompassApp: { base: appViewFamilyBaseValues.CompassApp },
+      ConfigEditor: { base: appViewFamilyBaseValues.ConfigEditor },
+      DeviceInfoView: { base: appViewFamilyBaseValues.DeviceInfoView },
+      InventoryApp: { base: appViewFamilyBaseValues.InventoryApp },
+      ShoppingListView: { base: appViewFamilyBaseValues.ShoppingListView },
+      ContentEditor: { base: treeInputFamilyBaseValues.ContentEditor },
+      DataSourceInput: { base: treeInputFamilyBaseValues.DataSourceInput },
+      DataTree: { base: treeInputFamilyBaseValues.DataTree },
+      ParentInput: { base: treeInputFamilyBaseValues.ParentInput },
+      RootInputControl: { base: treeInputFamilyBaseValues.RootInputControl },
+      Form: { actionWidth: formActionWidth, base: formBaseValues.Form },
+      FormRow: { base: formBaseValues.FormRow },
+      Block: { base: formBaseValues.Block },
+      Breadcrumb: { base: compactNavigationBaseValues.Breadcrumb },
+      CompactButton: {
+        fontSize: compactButtonFontSize,
+        fontWeight: compactButtonFontWeight,
+        base: compactNavigationBaseValues.CompactButton,
+      },
+      ItemList: { base: compactNavigationBaseValues.ItemList },
       LongPressButton: { base: longPressButtonBaseValues },
+      ShiftButton: { base: shiftButtonBaseValues },
       CycleButton: { base: cycleButtonBaseValues },
-      InputAids: { base: inputAidsBaseValues },
+      DialButton: { base: dialButtonBaseValues },
+      Keyboard: { base: keyboardBaseValues },
       ModuleButton: {
         symbol: moduleButtonSymbol,
         base: moduleButtonBaseValues,
       },
+      SymbolButton: {
+        symbolTop: symbolButtonTop,
+        symbolLeft: symbolButtonLeft,
+        base: symbolButtonBaseValues,
+      },
       SideModuleButton: { base: sideModuleButtonBaseValues },
       SubmoduleButton: { base: submoduleButtonBaseValues },
       SubmodulePanel: { base: submodulePanelBaseValues },
-      AgentModuleButton: {
-        symbol: concreteModuleButtonSymbols.AgentModuleButton,
-        base: concreteModuleButtonBaseValues.AgentModuleButton,
-      },
       ConfigModuleButton: {
         symbol: concreteModuleButtonSymbols.ConfigModuleButton,
         base: concreteModuleButtonBaseValues.ConfigModuleButton,
-      },
-      CronModuleButton: {
-        symbol: concreteModuleButtonSymbols.CronModuleButton,
-        base: concreteModuleButtonBaseValues.CronModuleButton,
-      },
-      DataModuleButton: {
-        symbol: concreteModuleButtonSymbols.DataModuleButton,
-        base: concreteModuleButtonBaseValues.DataModuleButton,
-      },
-      FuncModuleButton: {
-        symbol: concreteModuleButtonSymbols.FuncModuleButton,
-        base: concreteModuleButtonBaseValues.FuncModuleButton,
       },
       HelpModuleButton: {
         symbol: concreteModuleButtonSymbols.HelpModuleButton,
@@ -799,7 +758,7 @@ export function LabApp() {
       ModuleMenuActions: { base: moduleMenuActionsBaseValues },
       Textarea: {
         fontSize: textareaFontSize,
-        inputAids: textareaInputAids,
+        keyboard: textareaKeyboard,
         base: textareaBaseValues,
       },
       ButtonLink: {
@@ -823,12 +782,12 @@ export function LabApp() {
       },
       DeviceInfo: { base: deviceInfoBaseValues },
       DataBrowser: { base: browserComponentBaseValues.DataBrowser },
-      FunctionBrowser: { base: browserComponentBaseValues.FunctionBrowser },
+      AppBrowser: { base: browserComponentBaseValues.AppBrowser },
       InputControl: { base: browserComponentBaseValues.InputControl },
       MemoryBrowser: { base: browserComponentBaseValues.MemoryBrowser },
       Input: {
         fontSize: inputFontSize,
-        inputAids: inputInputAids,
+        keyboard: inputKeyboard,
         base: browserComponentBaseValues.Input,
       },
       ListControl: { base: browserComponentBaseValues.ListControl },
@@ -843,9 +802,6 @@ export function LabApp() {
         rowGap: treeBrowserRowGap,
         base: browserComponentBaseValues.TreeBrowser,
       },
-      SynchronizationDialog: {
-        base: browserComponentBaseValues.SynchronizationDialog,
-      },
       DeleteButton: {
         armedColor: deleteButtonArmedColor,
         base: browserComponentBaseValues.DeleteButton,
@@ -854,6 +810,10 @@ export function LabApp() {
       DialerCenterButton: {
         base: browserComponentBaseValues.DialerCenterButton,
       },
+      DialSurface: { base: dialBaseValues.DialSurface },
+      Dialer: { base: dialBaseValues.Dialer },
+      ColorDialer: { base: dialBaseValues.ColorDialer },
+      CronDialer: cronDialerValues,
       DeviceInfoButton: {
         base: browserComponentBaseValues.DeviceInfoButton,
       },
@@ -1019,10 +979,14 @@ export function LabApp() {
       | "base"
       | "button"
       | "buttonLink"
+      | "backspaceButton"
       | "cycleButton"
       | "deviceInfo"
-      | "inputAids"
+      | "dialButton"
+      | "keyboard"
       | "longPressButton"
+      | "shiftButton"
+      | "pressButton"
       | "modulePanel"
       | "textarea"
       | "appStatusLine"
@@ -1038,14 +1002,22 @@ export function LabApp() {
       setButtonBaseValues(update);
     } else if (target === "buttonLink") {
       setButtonLinkBaseValues(update);
+    } else if (target === "backspaceButton") {
+      setBackspaceButtonBaseValues(update);
     } else if (target === "cycleButton") {
       setCycleButtonBaseValues(update);
     } else if (target === "deviceInfo") {
       setDeviceInfoBaseValues(update);
-    } else if (target === "inputAids") {
-      setInputAidsBaseValues(update);
+    } else if (target === "dialButton") {
+      setDialButtonBaseValues(update);
+    } else if (target === "keyboard") {
+      setKeyboardBaseValues(update);
     } else if (target === "longPressButton") {
       setLongPressButtonBaseValues(update);
+    } else if (target === "shiftButton") {
+      setShiftButtonBaseValues(update);
+    } else if (target === "pressButton") {
+      setPressButtonBaseValues(update);
     } else if (target === "modulePanel") {
       setModulePanelBaseValues(update);
     } else if (target === "textarea") {
@@ -1085,13 +1057,14 @@ export function LabApp() {
     componentName: BrowserLabComponentName,
   ) {
     const baseProps = toBaseStyleProps(
-      componentName === "DataBrowser" || componentName === "FunctionBrowser"
+      componentName === "DataBrowser"
+        || componentName === "AppBrowser"
+        || componentName === "MemoryBrowser"
         ? resolveDerivedBaseProperties(
             browserComponentBaseValues.TreeBrowser,
             browserComponentBaseValues[componentName],
           )
         : componentName === "LoginDialog"
-          || componentName === "SynchronizationDialog"
         ? resolveDerivedBaseProperties(
             browserComponentBaseValues.BlockingDialog,
             browserComponentBaseValues[componentName],
@@ -1102,6 +1075,13 @@ export function LabApp() {
       ...toBaseStyleProps(buttonBaseValues),
       activeColor: buttonActiveColor,
     };
+    const pressButtonProps = {
+      ...buttonProps,
+      ...toBaseStyleProps(resolveDerivedBaseProperties(
+        buttonBaseValues,
+        pressButtonBaseValues,
+      )),
+    };
     const listControlButtonProps = {
       ...buttonProps,
       ...toBaseStyleProps(resolveDerivedBaseProperties(
@@ -1110,12 +1090,9 @@ export function LabApp() {
       )),
     };
     const listControlListSizeButtonProps = {
-      ...listControlButtonProps,
+      ...pressButtonProps,
       ...toBaseStyleProps(resolveDerivedBaseProperties(
-        resolveDerivedBaseProperties(
-          buttonBaseValues,
-          browserComponentBaseValues.ListControlButton,
-        ),
+        resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
         browserComponentBaseValues.ListControlListSizeButton,
       )),
       fontSize: listSizeButtonFontSize === "inherit"
@@ -1214,18 +1191,6 @@ export function LabApp() {
             onLogin={() => undefined}
           />
         );
-      case "SynchronizationDialog":
-        return (
-          <SynchronizationDialog
-            {...baseProps}
-            buttonProps={buttonProps}
-            open
-            viewport="container"
-            operation="Saving DATA"
-            reason="The server has not confirmed the change yet."
-            onContinue={() => undefined}
-          />
-        );
       case "BackgroundLogo":
         return (
           <BackgroundLogo
@@ -1251,7 +1216,7 @@ export function LabApp() {
             {...baseProps}
             aria-label="Input preview"
             fontSize={inputFontSize}
-            inputAids={inputInputAids}
+            keyboard={inputKeyboard}
           />
         );
       case "ListControl":
@@ -1281,7 +1246,7 @@ export function LabApp() {
           />
         );
       case "ListControlButton":
-        return <ListControlButton {...listControlButtonProps}>→</ListControlButton>;
+        return <ListControlButton {...listControlButtonProps} symbol={<ChevronRight />} />;
       case "BrowserItem":
         return (
           <BrowserItem
@@ -1351,9 +1316,9 @@ export function LabApp() {
             rowGap={treeBrowserRowGap}
           />
         );
-      case "FunctionBrowser":
+      case "AppBrowser":
         return (
-          <FunctionBrowser
+          <AppBrowser
             {...baseProps}
             {...treeChildProps}
             userInputControlProps={inputControlProps}
@@ -1425,59 +1390,18 @@ export function LabApp() {
   function renderConcreteModuleButton(
     componentName: ConcreteModuleButtonName,
   ) {
-    const parentProps =
-      componentName === "HelpModuleButton"
-        || componentName === "ConfigModuleButton"
-        ? resolvedSideModuleButtonBaseValues
-        : resolvedModuleButtonBaseValues;
     const props = resolveDerivedBaseProperties(
-      parentProps,
+      resolvedSideModuleButtonBaseValues,
       concreteModuleButtonBaseValues[componentName],
     );
 
     switch (componentName) {
-      case "AgentModuleButton":
-        return (
-          <AgentModuleButton
-            {...props}
-            activeColor={buttonActiveColor}
-            symbol={concreteModuleButtonSymbols.AgentModuleButton}
-            selected
-          />
-        );
       case "ConfigModuleButton":
         return (
           <ConfigModuleButton
             {...props}
             activeColor={buttonActiveColor}
             symbol={concreteModuleButtonSymbols.ConfigModuleButton}
-            selected
-          />
-        );
-      case "CronModuleButton":
-        return (
-          <CronModuleButton
-            {...props}
-            activeColor={buttonActiveColor}
-            symbol={concreteModuleButtonSymbols.CronModuleButton}
-            selected
-          />
-        );
-      case "DataModuleButton":
-        return (
-          <DataModuleButton
-            {...props}
-            activeColor={buttonActiveColor}
-            symbol={concreteModuleButtonSymbols.DataModuleButton}
-            selected
-          />
-        );
-      case "FuncModuleButton":
-        return (
-          <FuncModuleButton
-            {...props}
-            activeColor={buttonActiveColor}
-            symbol={concreteModuleButtonSymbols.FuncModuleButton}
             selected
           />
         );
@@ -1512,7 +1436,7 @@ export function LabApp() {
               ...toBaseStyleProps(submodulePanelBaseValues),
               buttonProps: {
                 ...resolveDerivedBaseProperties(
-                  buttonBaseValues,
+                  resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
                   submoduleButtonBaseValues,
                 ),
                 activeColor: "COLOR_ACCENT_TWO",
@@ -1544,6 +1468,45 @@ export function LabApp() {
           />
         );
     }
+  }
+
+  function resolveAppViewFamilyBaseValues(
+    componentName: AppViewFamilyComponentName,
+  ) {
+    if (componentName === "AppView" || componentName === "ConfigEditor") {
+      return appViewFamilyBaseValues[componentName];
+    }
+    return resolveDerivedBaseProperties(
+      appViewFamilyBaseValues.AppView,
+      appViewFamilyBaseValues[componentName],
+    );
+  }
+
+  function resolveTreeInputFamilyBaseValues(
+    componentName: TreeInputFamilyComponentName,
+  ) {
+    if (componentName === "RootInputControl") {
+      return treeInputFamilyBaseValues.RootInputControl;
+    }
+    if (componentName === "DataSourceInput" || componentName === "ParentInput") {
+      return resolveDerivedBaseProperties(
+        treeInputFamilyBaseValues.RootInputControl,
+        treeInputFamilyBaseValues[componentName],
+      );
+    }
+    if (componentName === "ContentEditor") {
+      return resolveDerivedBaseProperties(
+        browserComponentBaseValues.InputControl,
+        treeInputFamilyBaseValues.ContentEditor,
+      );
+    }
+    return resolveDerivedBaseProperties(
+      resolveDerivedBaseProperties(
+        browserComponentBaseValues.TreeBrowser,
+        browserComponentBaseValues.DataBrowser,
+      ),
+      treeInputFamilyBaseValues.DataTree,
+    );
   }
 
   return (
@@ -1593,7 +1556,7 @@ export function LabApp() {
                 type="button"
                 selected={selectedComponent === name}
                 color="#000000"
-                background={`COLOR_COMPONENT_DEPTH_${appComponentDepths[name]}`}
+                background={`COLOR_COMPONENT_DEPTH_${getComponentDepth(name)}`}
                 key={name}
                 onClick={() => {
                   setSelectedComponent(name);
@@ -1672,6 +1635,448 @@ export function LabApp() {
           </ul>}
         </nav>
       </div>
+
+      {appComponentNames.includes(selectedComponent as AppComponentName) && (
+        <p className={styles.status} aria-label="Component inheritance chain">
+          {[selectedComponent, ...getComponentAncestors(
+            selectedComponent as AppComponentName,
+          )].join(" → ")}
+        </p>
+      )}
+
+      {manifestPreviewComponentNames.includes(
+        selectedComponent as typeof manifestPreviewComponentNames[number],
+      ) && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>{selectedComponent}</h2>
+              <p className={styles.description}>
+                Isolated preview from the authoritative component manifest.
+              </p>
+            </div>
+            <code className={styles.path}>
+              {`components/${selectedComponent}`}
+            </code>
+          </div>
+          <div className={styles.preview}>
+            {renderManifestComponentPreview(
+              selectedComponent as typeof manifestPreviewComponentNames[number],
+              appViewFamilyComponentNames.includes(
+                selectedComponent as AppViewFamilyComponentName,
+              )
+                ? resolveAppViewFamilyBaseValues(
+                    selectedComponent as AppViewFamilyComponentName,
+                  )
+                : treeInputFamilyComponentNames.includes(
+                    selectedComponent as TreeInputFamilyComponentName,
+                  )
+                  ? resolveTreeInputFamilyBaseValues(
+                      selectedComponent as TreeInputFamilyComponentName,
+                    )
+                  : dialBaseComponentNames.includes(
+                      selectedComponent as DialBaseComponentName,
+                    )
+                    ? dialBaseValues[selectedComponent as DialBaseComponentName]
+                    : formComponentNames.includes(
+                        selectedComponent as FormComponentName,
+                      )
+                      ? selectedComponent === "FormRow"
+                        ? resolveDerivedBaseProperties(
+                            formBaseValues.Block,
+                            formBaseValues.FormRow,
+                          )
+                        : formBaseValues[selectedComponent as FormComponentName]
+                      : compactNavigationComponentNames.includes(
+                          selectedComponent as CompactNavigationComponentName,
+                        )
+                        ? selectedComponent === "CompactButton"
+                          ? resolveDerivedBaseProperties(
+                              buttonBaseValues,
+                              compactNavigationBaseValues.CompactButton,
+                            )
+                          : compactNavigationBaseValues[
+                              selectedComponent as CompactNavigationComponentName
+                            ]
+                : undefined,
+              dialBaseValues.DialSurface,
+              formActionWidth,
+              resolveDerivedBaseProperties(
+                formBaseValues.Block,
+                formBaseValues.FormRow,
+              ),
+              formBaseValues.Form,
+              {
+                ...toBaseStyleProps(buttonBaseValues),
+                activeColor: buttonActiveColor,
+                fontSize: buttonFontSize,
+                fontWeight: buttonFontWeight,
+              },
+              {
+                ...toBaseStyleProps(resolveDerivedBaseProperties(
+                  buttonBaseValues,
+                  compactNavigationBaseValues.CompactButton,
+                )),
+                activeColor: buttonActiveColor,
+                fontSize: compactButtonFontSize === "inherit"
+                  ? buttonFontSize
+                  : compactButtonFontSize,
+                fontWeight: compactButtonFontWeight === "inherit"
+                  ? buttonFontWeight
+                  : compactButtonFontWeight,
+              },
+              compactNavigationBaseValues.Breadcrumb,
+              compactNavigationBaseValues.ItemList,
+              {
+                ...toBaseStyleProps(browserComponentBaseValues.Input),
+                fontSize: inputFontSize,
+                keyboard: inputKeyboard,
+                keyboardProps: {
+                  ...toBaseStyleProps(keyboardBaseValues),
+                  smartphoneButtonProps: toBaseStyleProps(buttonBaseValues),
+                },
+              },
+              {
+                ...toBaseStyleProps(textareaBaseValues),
+                fontSize: textareaFontSize,
+                keyboard: textareaKeyboard,
+                keyboardProps: {
+                  ...toBaseStyleProps(keyboardBaseValues),
+                  smartphoneButtonProps: toBaseStyleProps(buttonBaseValues),
+                },
+              },
+            )}
+          </div>
+          {appViewFamilyComponentNames.includes(
+            selectedComponent as AppViewFamilyComponentName,
+          ) && (() => {
+            const componentName = selectedComponent as AppViewFamilyComponentName;
+            return (
+              <BasePropertyControls
+                componentName={componentName}
+                inheritedPropertySections={componentName !== "AppView"
+                  && componentName !== "ConfigEditor"
+                  ? [{
+                      componentName: "AppView",
+                      properties: appViewFamilyBaseValues.AppView,
+                    }]
+                  : undefined}
+                values={appViewFamilyBaseValues[componentName]}
+                onChange={(name, value) => setAppViewFamilyBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...current[componentName],
+                    [name]: value,
+                  },
+                }))}
+                onInheritedPropertyChange={(parentName, name, value) => {
+                  if (parentName !== "AppView" || typeof value !== "string") return;
+                  setAppViewFamilyBaseValues((current) => ({
+                    ...current,
+                    AppView: { ...current.AppView, [name]: value },
+                  }));
+                }}
+              />
+            );
+          })()}
+          {appViewFamilyComponentNames.includes(
+            selectedComponent as AppViewFamilyComponentName,
+          ) && (
+            <div className={styles.actions}>
+              <Button onClick={() => {
+                const componentName = selectedComponent as AppViewFamilyComponentName;
+                setAppViewFamilyBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...storedComponentProperties[componentName].base,
+                  },
+                }));
+              }}>
+                RESET
+              </Button>
+              <Button onClick={applyComponentProperties} disabled={isApplying}>
+                {isApplying ? "APPLYING…" : "APPLY"}
+              </Button>
+            </div>
+          )}
+          {treeInputFamilyComponentNames.includes(
+            selectedComponent as TreeInputFamilyComponentName,
+          ) && (() => {
+            const componentName = selectedComponent as TreeInputFamilyComponentName;
+            const inheritedPropertySections = componentName === "DataSourceInput"
+              || componentName === "ParentInput"
+              ? [{
+                  componentName: "RootInputControl",
+                  properties: treeInputFamilyBaseValues.RootInputControl,
+                }]
+              : componentName === "ContentEditor"
+                ? [{
+                    componentName: "InputControl",
+                    properties: browserComponentBaseValues.InputControl,
+                  }]
+                : componentName === "DataTree"
+                  ? [{
+                      componentName: "DataBrowser",
+                      properties: browserComponentBaseValues.DataBrowser,
+                    }, {
+                      componentName: "TreeBrowser",
+                      properties: browserComponentBaseValues.TreeBrowser,
+                    }]
+                  : undefined;
+            return (
+              <BasePropertyControls
+                componentName={componentName}
+                inheritedPropertySections={inheritedPropertySections}
+                values={treeInputFamilyBaseValues[componentName]}
+                onChange={(name, value) => setTreeInputFamilyBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...current[componentName],
+                    [name]: value,
+                  },
+                }))}
+                onInheritedPropertyChange={(parentName, name, value) => {
+                  if (typeof value !== "string") return;
+                  if (parentName === "RootInputControl") {
+                    setTreeInputFamilyBaseValues((current) => ({
+                      ...current,
+                      RootInputControl: { ...current.RootInputControl, [name]: value },
+                    }));
+                  } else if (parentName === "InputControl") {
+                    updateBrowserComponentBaseValue(
+                      "InputControl",
+                      name as BaseLabPropertyName,
+                      value,
+                    );
+                  } else if (parentName === "DataBrowser" || parentName === "TreeBrowser") {
+                    updateBrowserComponentBaseValue(
+                      parentName,
+                      name as BaseLabPropertyName,
+                      value,
+                    );
+                  }
+                }}
+              />
+            );
+          })()}
+          {treeInputFamilyComponentNames.includes(
+            selectedComponent as TreeInputFamilyComponentName,
+          ) && (
+            <div className={styles.actions}>
+              <Button onClick={() => {
+                const componentName = selectedComponent as TreeInputFamilyComponentName;
+                setTreeInputFamilyBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...storedComponentProperties[componentName].base,
+                  },
+                }));
+              }}>
+                RESET
+              </Button>
+              <Button onClick={applyComponentProperties} disabled={isApplying}>
+                {isApplying ? "APPLYING…" : "APPLY"}
+              </Button>
+            </div>
+          )}
+          {dialBaseComponentNames.includes(
+            selectedComponent as DialBaseComponentName,
+          ) && (() => {
+            const componentName = selectedComponent as DialBaseComponentName;
+            return (
+              <BasePropertyControls
+                componentName={componentName}
+                values={dialBaseValues[componentName]}
+                onChange={(name, value) => setDialBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...current[componentName],
+                    [name]: value,
+                  },
+                }))}
+              />
+            );
+          })()}
+          {dialBaseComponentNames.includes(
+            selectedComponent as DialBaseComponentName,
+          ) && (
+            <div className={styles.actions}>
+              <Button onClick={() => {
+                const componentName = selectedComponent as DialBaseComponentName;
+                setDialBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...storedComponentProperties[componentName].base,
+                  },
+                }));
+              }}>
+                RESET
+              </Button>
+              <Button onClick={applyComponentProperties} disabled={isApplying}>
+                {isApplying ? "APPLYING…" : "APPLY"}
+              </Button>
+            </div>
+          )}
+          {formComponentNames.includes(
+            selectedComponent as FormComponentName,
+          ) && (() => {
+            const componentName = selectedComponent as FormComponentName;
+            return (
+              <BasePropertyControls
+                componentName={componentName}
+                ownPropertyComments={componentName === "Form"
+                  ? { actionWidth: "Shared width of every FormRow Set button" }
+                  : undefined}
+                ownProperties={componentName === "Form"
+                  ? { actionWidth: formActionWidth }
+                  : undefined}
+                inheritedPropertySections={componentName === "FormRow"
+                  ? [{
+                      componentName: "Block",
+                      properties: formBaseValues.Block,
+                    }]
+                  : undefined}
+                values={formBaseValues[componentName]}
+                onChange={(name, value) => setFormBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...current[componentName],
+                    [name]: value,
+                  },
+                }))}
+                onOwnPropertyChange={(name, value) => {
+                  if (
+                    componentName === "Form"
+                    && name === "actionWidth"
+                    && typeof value === "string"
+                  ) {
+                    setFormActionWidth(value);
+                  }
+                }}
+                onInheritedPropertyChange={(parentName, name, value) => {
+                  if (componentName !== "FormRow" || parentName !== "Block") return;
+                  setFormBaseValues((current) => ({
+                    ...current,
+                    Block: { ...current.Block, [name]: value },
+                  }));
+                }}
+              />
+            );
+          })()}
+          {formComponentNames.includes(
+            selectedComponent as FormComponentName,
+          ) && (
+            <div className={styles.actions}>
+              <Button onClick={() => {
+                const componentName = selectedComponent as FormComponentName;
+                setFormBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...storedComponentProperties[componentName].base,
+                  },
+                }));
+                if (componentName === "Form") {
+                  setFormActionWidth(storedComponentProperties.Form.actionWidth);
+                }
+              }}>
+                RESET
+              </Button>
+              <Button onClick={applyComponentProperties} disabled={isApplying}>
+                {isApplying ? "APPLYING…" : "APPLY"}
+              </Button>
+            </div>
+          )}
+          {compactNavigationComponentNames.includes(
+            selectedComponent as CompactNavigationComponentName,
+          ) && (() => {
+            const componentName = selectedComponent as CompactNavigationComponentName;
+            return (
+              <BasePropertyControls
+                componentName={componentName}
+                ownPropertyComments={componentName === "CompactButton"
+                  ? {
+                      fontSize: "Compact button font size; inherit uses Button",
+                      fontWeight: "Compact button font weight; inherit uses Button",
+                    }
+                  : undefined}
+                ownProperties={componentName === "CompactButton"
+                  ? {
+                      fontSize: compactButtonFontSize,
+                      fontWeight: compactButtonFontWeight,
+                    }
+                  : undefined}
+                inheritedPropertySections={componentName === "CompactButton"
+                  ? [{
+                      componentName: "Button",
+                      properties: {
+                        activeColor: buttonActiveColor,
+                        fontSize: buttonFontSize,
+                        fontWeight: buttonFontWeight,
+                      },
+                    }]
+                  : undefined}
+                values={compactNavigationBaseValues[componentName]}
+                onChange={(name, value) => setCompactNavigationBaseValues(
+                  (current) => ({
+                    ...current,
+                    [componentName]: {
+                      ...current[componentName],
+                      [name]: value,
+                    },
+                  }),
+                )}
+                onOwnPropertyChange={(name, value) => {
+                  if (componentName !== "CompactButton" || typeof value !== "string") {
+                    return;
+                  }
+                  if (name === "fontSize") setCompactButtonFontSize(value);
+                  if (name === "fontWeight") setCompactButtonFontWeight(value);
+                }}
+                onInheritedPropertyChange={(parentName, name, value) => {
+                  if (
+                    componentName !== "CompactButton"
+                    || parentName !== "Button"
+                    || typeof value !== "string"
+                  ) {
+                    return;
+                  }
+                  if (name === "activeColor") setButtonActiveColor(value);
+                  if (name === "fontSize") setButtonFontSize(value);
+                  if (name === "fontWeight") setButtonFontWeight(value);
+                }}
+              />
+            );
+          })()}
+          {compactNavigationComponentNames.includes(
+            selectedComponent as CompactNavigationComponentName,
+          ) && (
+            <div className={styles.actions}>
+              <Button onClick={() => {
+                const componentName = selectedComponent as CompactNavigationComponentName;
+                setCompactNavigationBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...storedComponentProperties[componentName].base,
+                  },
+                }));
+                if (componentName === "CompactButton") {
+                  setCompactButtonFontSize(
+                    storedComponentProperties.CompactButton.fontSize,
+                  );
+                  setCompactButtonFontWeight(
+                    storedComponentProperties.CompactButton.fontWeight,
+                  );
+                }
+              }}>
+                RESET
+              </Button>
+              <Button onClick={applyComponentProperties} disabled={isApplying}>
+                {isApplying ? "APPLYING…" : "APPLY"}
+              </Button>
+            </div>
+          )}
+        </section>
+      )}
 
       {selectedComponent === "Base" && <section className={styles.component}>
         <div className={styles.componentHeader}>
@@ -1824,14 +2229,20 @@ export function LabApp() {
           componentName="ModuleButton"
           ownPropertyComments={{ symbol: "exactly one Unicode character" }}
           ownProperties={{ symbol: moduleButtonSymbol }}
-          inheritedPropertySections={[{
-            componentName: "Button",
-            comments: {
-              activeColor:
-                "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+          inheritedPropertySections={[
+            {
+              componentName: "PressButton",
+              properties: pressButtonBaseValues,
             },
-            properties: { activeColor: buttonActiveColor },
-          }]}
+            {
+              componentName: "Button",
+              comments: {
+                activeColor:
+                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+              },
+              properties: { activeColor: buttonActiveColor },
+            },
+          ]}
           values={moduleButtonBaseValues}
           onChange={(name, value) => {
             setModuleButtonBaseValues((current) => ({
@@ -1849,7 +2260,12 @@ export function LabApp() {
             }
           }}
           onInheritedPropertyChange={(componentName, name, value) => {
-            if (
+            if (componentName === "PressButton" && typeof value === "string") {
+              setPressButtonBaseValues((current) => ({
+                ...current,
+                [name]: value,
+              }));
+            } else if (
               componentName === "Button"
               && name === "activeColor"
               && typeof value === "string"
@@ -1879,13 +2295,98 @@ export function LabApp() {
         </div>
       </section>}
 
+      {selectedComponent === "SymbolButton" && <section className={styles.component}>
+        <div className={styles.componentHeader}>
+          <div>
+            <h2 className={styles.componentName}>SymbolButton</h2>
+            <p className={styles.description}>
+              Icon-only button with an adjustable symbol position.
+            </p>
+          </div>
+          <code className={styles.path}>components/SymbolButton</code>
+        </div>
+
+        <div className={styles.preview}>
+          <SymbolButton
+            {...resolvedSymbolButtonBaseValues}
+            activeColor={buttonActiveColor}
+            selected
+            symbol={<CircleHelp />}
+            symbolTop={symbolButtonTop}
+            symbolLeft={symbolButtonLeft}
+          />
+        </div>
+
+        <BasePropertyControls
+          componentName="SymbolButton"
+          ownPropertyComments={{
+            symbolTop: "CSS offset for the icon, for example 2px",
+            symbolLeft: "CSS offset for the icon, for example -1px",
+          }}
+          ownProperties={{
+            symbolTop: symbolButtonTop,
+            symbolLeft: symbolButtonLeft,
+          }}
+          inheritedPropertySections={[{
+            componentName: "Button",
+            comments: {
+              activeColor:
+                "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+            },
+            properties: { activeColor: buttonActiveColor },
+          }]}
+          values={symbolButtonBaseValues}
+          onChange={(name, value) => setSymbolButtonBaseValues((current) => ({
+            ...current,
+            [name]: value,
+          }))}
+          onOwnPropertyChange={(name, value) => {
+            if (name === "symbolTop" && typeof value === "string") {
+              setSymbolButtonTop(value);
+            }
+            if (name === "symbolLeft" && typeof value === "string") {
+              setSymbolButtonLeft(value);
+            }
+          }}
+          onInheritedPropertyChange={(componentName, name, value) => {
+            if (
+              componentName === "Button"
+              && name === "activeColor"
+              && typeof value === "string"
+            ) {
+              setButtonActiveColor(value);
+            }
+          }}
+        />
+
+        <div className={styles.actions}>
+          <Button
+            type="button"
+            onClick={() => {
+              setSymbolButtonBaseValues({ ...componentBaseDefaults });
+              setSymbolButtonTop("2px");
+              setSymbolButtonLeft("-1px");
+            }}
+          >
+            RESET
+          </Button>
+          <Button
+            type="button"
+            onClick={applyComponentProperties}
+            disabled={isApplying}
+          >
+            {isApplying ? "APPLYING…" : "APPLY"}
+          </Button>
+        </div>
+      </section>}
+
       {selectedComponent === "SideModuleButton" && (
         <section className={styles.component}>
           <div className={styles.componentHeader}>
             <div>
               <h2 className={styles.componentName}>SideModuleButton</h2>
               <p className={styles.description}>
-                Symbol-only side action derived from ModuleButton.
+                Symbol-only side action derived from SymbolButton.
               </p>
             </div>
             <code className={styles.path}>components/SideModuleButton</code>
@@ -1904,8 +2405,11 @@ export function LabApp() {
             componentName="SideModuleButton"
             inheritedPropertySections={[
               {
-                componentName: "ModuleButton",
-                properties: { symbol: "?" },
+                componentName: "SymbolButton",
+                properties: {
+                  symbolLeft: symbolButtonLeft,
+                  symbolTop: symbolButtonTop,
+                },
               },
               {
                 componentName: "Button",
@@ -1964,7 +2468,7 @@ export function LabApp() {
         <div className={styles.preview}>
           <SubmoduleButton
             {...resolveDerivedBaseProperties(
-              buttonBaseValues,
+              resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
               submoduleButtonBaseValues,
             )}
             activeColor="COLOR_ACCENT_TWO"
@@ -1976,21 +2480,35 @@ export function LabApp() {
 
         <BasePropertyControls
           componentName="SubmoduleButton"
-          inheritedPropertySections={[{
-            componentName: "Button",
-            comments: {
-              activeColor:
-                "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+          inheritedPropertySections={[
+            {
+              componentName: "PressButton",
+              properties: pressButtonBaseValues,
             },
-            properties: {
-              activeColor: "COLOR_ACCENT_TWO",
+            {
+              componentName: "Button",
+              comments: {
+                activeColor:
+                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+              },
+              properties: {
+                activeColor: "COLOR_ACCENT_TWO",
+              },
             },
-          }]}
+          ]}
           values={submoduleButtonBaseValues}
           onChange={(name, value) => setSubmoduleButtonBaseValues((current) => ({
             ...current,
             [name]: value,
           }))}
+          onInheritedPropertyChange={(componentName, name, value) => {
+            if (componentName === "PressButton" && typeof value === "string") {
+              setPressButtonBaseValues((current) => ({
+                ...current,
+                [name]: value,
+              }));
+            }
+          }}
         />
 
         <div className={styles.actions}>
@@ -2022,7 +2540,7 @@ export function LabApp() {
             activeItem={submodulePreviewItem}
             buttonProps={{
               ...resolveDerivedBaseProperties(
-                buttonBaseValues,
+                resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
                 submoduleButtonBaseValues,
               ),
               activeColor: "COLOR_ACCENT_TWO",
@@ -2105,6 +2623,330 @@ export function LabApp() {
         </div>
       </section>}
 
+      {selectedComponent === "ColorDialer" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>ColorDialer</h2>
+              <p className={styles.description}>
+                Two-ring color control for hue, saturation, lightness, and alpha.
+              </p>
+            </div>
+            <code className={styles.path}>components/ColorDialer</code>
+          </div>
+          <div className={styles.preview}>
+            <ColorDialer
+              {...toBaseStyleProps(resolveDerivedBaseProperties(
+                dialBaseValues.Dialer,
+                dialBaseValues.ColorDialer,
+              ))}
+              value={colorDialerPreviewValue}
+              onValue={setColorDialerPreviewValue}
+              buttonProps={{ activeColor: buttonActiveColor }}
+              dialSurfaceProps={toBaseStyleProps(dialBaseValues.DialSurface)}
+            />
+          </div>
+          <RgbColorField
+            label="Preview color"
+            value={colorDialerPreviewValue}
+            onChange={setColorDialerPreviewValue}
+          />
+          <BasePropertyControls
+            componentName="ColorDialer"
+            inheritedPropertySections={[{
+              componentName: "Dialer",
+              properties: dialBaseValues.Dialer,
+            }]}
+            values={dialBaseValues.ColorDialer}
+            onChange={(name, value) => setDialBaseValues((current) => ({
+              ...current,
+              ColorDialer: { ...current.ColorDialer, [name]: value },
+            }))}
+            onInheritedPropertyChange={(parentName, name, value) => {
+              if (parentName !== "Dialer" || typeof value !== "string") return;
+              setDialBaseValues((current) => ({
+                ...current,
+                Dialer: { ...current.Dialer, [name]: value },
+              }));
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setDialBaseValues((current) => ({
+              ...current,
+              ColorDialer: { ...storedComponentProperties.ColorDialer.base },
+            }))}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {selectedComponent === "CronDialer" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>CronDialer</h2>
+              <p className={styles.description}>
+                Raw two-ring Dialer with a center value that switches between duration and date/time.
+              </p>
+            </div>
+            <code className={styles.path}>components/CronDialer</code>
+          </div>
+          <div className={styles.preview}>
+            <CronDialer
+              {...toBaseStyleProps(resolveDerivedBaseProperties(
+                dialBaseValues.Dialer,
+                cronDialerValues.base,
+              ))}
+              dialSurfaceProps={toBaseStyleProps(dialBaseValues.DialSurface)}
+              innerBackground={cronDialerValues.innerBackground}
+              innerTextColor={cronDialerValues.innerTextColor}
+              innerPointerColor={cronDialerValues.innerPointerColor}
+              innerFontSize={cronDialerValues.innerFontSize}
+              outerBackground={cronDialerValues.outerBackground}
+              outerTextColor={cronDialerValues.outerTextColor}
+              outerPointerColor={cronDialerValues.outerPointerColor}
+              outerFontSize={cronDialerValues.outerFontSize}
+              buttonProps={{ activeColor: buttonActiveColor }}
+            />
+          </div>
+          <BasePropertyControls
+            componentName="CronDialer"
+            inheritedPropertySections={[{
+              componentName: "Dialer",
+              properties: dialBaseValues.Dialer,
+            }]}
+            values={cronDialerValues.base}
+            onChange={(name, value) => setCronDialerValues((current) => ({
+              ...current,
+              base: { ...current.base, [name]: value },
+            }))}
+            onInheritedPropertyChange={(parentName, name, value) => {
+              if (parentName !== "Dialer" || typeof value !== "string") return;
+              setDialBaseValues((current) => ({
+                ...current,
+                Dialer: { ...current.Dialer, [name]: value },
+              }));
+            }}
+          />
+          <div className={styles.colorMapPreview}>
+            <RgbColorField
+              label="Inner ring background"
+              value={cronDialerValues.innerBackground}
+              onChange={(innerBackground) => setCronDialerValues((current) => ({
+                ...current,
+                innerBackground,
+              }))}
+            />
+            <RgbColorField
+              label="Inner scale text"
+              value={cronDialerValues.innerTextColor}
+              onChange={(innerTextColor) => setCronDialerValues((current) => ({
+                ...current,
+                innerTextColor,
+              }))}
+            />
+            <RgbColorField
+              label="Inner pointer"
+              value={cronDialerValues.innerPointerColor}
+              onChange={(innerPointerColor) => setCronDialerValues((current) => ({
+                ...current,
+                innerPointerColor,
+              }))}
+            />
+            <label>
+              Inner scale font size
+              <Input
+                aria-label="Inner scale font size"
+                value={cronDialerValues.innerFontSize}
+                onChange={(event) => {
+                  const innerFontSize = event.currentTarget.value;
+                  setCronDialerValues((current) => ({
+                    ...current,
+                    innerFontSize,
+                  }));
+                }}
+              />
+            </label>
+            <RgbColorField
+              label="Outer ring background"
+              value={cronDialerValues.outerBackground}
+              onChange={(outerBackground) => setCronDialerValues((current) => ({
+                ...current,
+                outerBackground,
+              }))}
+            />
+            <RgbColorField
+              label="Outer scale text"
+              value={cronDialerValues.outerTextColor}
+              onChange={(outerTextColor) => setCronDialerValues((current) => ({
+                ...current,
+                outerTextColor,
+              }))}
+            />
+            <RgbColorField
+              label="Outer pointer"
+              value={cronDialerValues.outerPointerColor}
+              onChange={(outerPointerColor) => setCronDialerValues((current) => ({
+                ...current,
+                outerPointerColor,
+              }))}
+            />
+            <label>
+              Outer scale font size
+              <Input
+                aria-label="Outer scale font size"
+                value={cronDialerValues.outerFontSize}
+                onChange={(event) => {
+                  const outerFontSize = event.currentTarget.value;
+                  setCronDialerValues((current) => ({
+                    ...current,
+                    outerFontSize,
+                  }));
+                }}
+              />
+            </label>
+          </div>
+          <div className={styles.actions}>
+            <Button onClick={() => setCronDialerValues(
+              storedComponentProperties.CronDialer,
+            )}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {selectedComponent === "PressButton" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>PressButton</h2>
+              <p className={styles.description}>
+                Button-derived control that activates once on pointer or key press.
+              </p>
+            </div>
+            <code className={styles.path}>components/PressButton</code>
+          </div>
+          <div className={styles.preview}>
+            <PressButton
+              {...resolveDerivedBaseProperties(
+                buttonBaseValues,
+                pressButtonBaseValues,
+              )}
+              activeColor={buttonActiveColor}
+            >
+              PRESS
+            </PressButton>
+          </div>
+          <BasePropertyControls
+            componentName="PressButton"
+            inheritedPropertySections={[
+              {
+                componentName: "PressButton",
+                properties: pressButtonBaseValues,
+              },
+              {
+                componentName: "Button",
+                properties: {
+                  activeColor: buttonActiveColor,
+                  fontSize: buttonFontSize,
+                  fontWeight: buttonFontWeight,
+                },
+              },
+            ]}
+            values={pressButtonBaseValues}
+            onChange={(name, value) => updateBaseValue("pressButton", name, value)}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (componentName === "PressButton" && typeof value === "string") {
+                setPressButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              } else if (name === "activeColor" && typeof value === "string") {
+                setButtonActiveColor(value);
+              } else if (name === "fontSize" && typeof value === "string") {
+                setButtonFontSize(value);
+              } else if (name === "fontWeight" && typeof value === "string") {
+                setButtonFontWeight(value);
+              }
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setPressButtonBaseValues({
+              ...componentBaseDefaults,
+            })}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {selectedComponent === "BackspaceButton" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>BackspaceButton</h2>
+              <p className={styles.description}>
+                PressButton specialization that deletes once and repeats while held.
+              </p>
+            </div>
+            <code className={styles.path}>components/BackspaceButton</code>
+          </div>
+          <div className={styles.preview}>
+            <BackspaceButton
+              {...resolveDerivedBaseProperties(
+                resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+                backspaceButtonBaseValues,
+              )}
+              activeColor={buttonActiveColor}
+              onPress={() => setStatus({
+                tone: "neutral",
+                message: "Backspace press fired.",
+              })}
+            />
+          </div>
+          <BasePropertyControls
+            componentName="BackspaceButton"
+            inheritedPropertySections={[{
+              componentName: "PressButton",
+              properties: pressButtonBaseValues,
+            }]}
+            values={backspaceButtonBaseValues}
+            onChange={(name, value) => (
+              updateBaseValue("backspaceButton", name, value)
+            )}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (componentName === "PressButton" && typeof value === "string") {
+                setPressButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              }
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setBackspaceButtonBaseValues({
+              ...storedComponentProperties.BackspaceButton.base,
+            })}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
       {selectedComponent === "CycleButton" && (
         <section className={styles.component}>
           <div className={styles.componentHeader}>
@@ -2119,7 +2961,7 @@ export function LabApp() {
           <div className={styles.preview}>
             <CycleButton
               {...resolveDerivedBaseProperties(
-                buttonBaseValues,
+                resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
                 cycleButtonBaseValues,
               )}
               activeColor={buttonActiveColor}
@@ -2154,6 +2996,61 @@ export function LabApp() {
           <div className={styles.actions}>
             <Button onClick={() => setCycleButtonBaseValues({
               ...componentBaseDefaults,
+            })}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {selectedComponent === "DialButton" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>DialButton</h2>
+              <p className={styles.description}>
+                Multi-tap key that inserts the first value and replaces it on rapid presses.
+              </p>
+            </div>
+            <code className={styles.path}>components/DialButton</code>
+          </div>
+          <div className={styles.preview}>
+            <DialButton
+              {...resolveDerivedBaseProperties(
+                resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+                dialButtonBaseValues,
+              )}
+              activeColor={buttonActiveColor}
+              options={["€", "$"]}
+              onDial={(value, replacePrevious) => setStatus({
+                tone: "neutral",
+                message: `${replacePrevious ? "Replace with" : "Insert"} ${value}.`,
+              })}
+            />
+          </div>
+          <BasePropertyControls
+            componentName="DialButton"
+            inheritedPropertySections={[{
+              componentName: "PressButton",
+              properties: pressButtonBaseValues,
+            }]}
+            values={dialButtonBaseValues}
+            onChange={(name, value) => updateBaseValue("dialButton", name, value)}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (componentName === "PressButton" && typeof value === "string") {
+                setPressButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              }
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setDialButtonBaseValues({
+              ...storedComponentProperties.DialButton.base,
             })}>
               RESET
             </Button>
@@ -2232,28 +3129,110 @@ export function LabApp() {
         </section>
       )}
 
-      {selectedComponent === "InputAids" && (
+      {selectedComponent === "ShiftButton" && (
         <section className={styles.component}>
           <div className={styles.componentHeader}>
             <div>
-              <h2 className={styles.componentName}>InputAids</h2>
+              <h2 className={styles.componentName}>ShiftButton</h2>
+              <p className={styles.description}>
+                Short-press layout switch with a separately handled long-press lock.
+              </p>
+            </div>
+            <code className={styles.path}>components/ShiftButton</code>
+          </div>
+          <div className={styles.preview}>
+            <ShiftButton
+              {...resolveDerivedBaseProperties(
+                resolveDerivedBaseProperties(
+                  buttonBaseValues,
+                  longPressButtonBaseValues,
+                ),
+                shiftButtonBaseValues,
+              )}
+              activeColor={buttonActiveColor}
+              locked={false}
+              mode="upper"
+              onCycle={() => undefined}
+              onLock={() => undefined}
+            />
+          </div>
+          <BasePropertyControls
+            componentName="ShiftButton"
+            inheritedPropertySections={[
+              {
+                componentName: "LongPressButton",
+                properties: longPressButtonBaseValues,
+              },
+              {
+                componentName: "Button",
+                properties: {
+                  activeColor: buttonActiveColor,
+                  fontSize: buttonFontSize,
+                  fontWeight: buttonFontWeight,
+                },
+              },
+            ]}
+            values={shiftButtonBaseValues}
+            onChange={(name, value) => updateBaseValue("shiftButton", name, value)}
+            onInheritedPropertyChange={(componentName, name, value) => {
+              if (componentName === "LongPressButton" && typeof value === "string") {
+                setLongPressButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              } else if (componentName === "Button") {
+                if (name === "activeColor" && typeof value === "string") {
+                  setButtonActiveColor(value);
+                } else if (name === "fontSize" && typeof value === "string") {
+                  setButtonFontSize(value);
+                } else if (name === "fontWeight" && typeof value === "string") {
+                  setButtonFontWeight(value);
+                }
+              }
+            }}
+          />
+          <div className={styles.actions}>
+            <Button onClick={() => setShiftButtonBaseValues({
+              ...componentBaseDefaults,
+            })}>
+              RESET
+            </Button>
+            <Button onClick={applyComponentProperties} disabled={isApplying}>
+              {isApplying ? "APPLYING…" : "APPLY"}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {selectedComponent === "Keyboard" && (
+        <section className={styles.component}>
+          <div className={styles.componentHeader}>
+            <div>
+              <h2 className={styles.componentName}>Keyboard</h2>
               <p className={styles.description}>
                 Cursor, clipboard, word-selection, and select-all controls.
               </p>
             </div>
-            <code className={styles.path}>components/InputAids</code>
+            <code className={styles.path}>components/Keyboard</code>
           </div>
           <div className={styles.preview}>
             <input
-              ref={inputAidsPreviewRef}
+              ref={keyboardPreviewRef}
               aria-label="Input aids target preview"
               defaultValue="Select a word in this preview"
             />
-            <InputAids
-              {...toBaseStyleProps(inputAidsBaseValues)}
-              fontStage={inputAidsPreviewFontStage}
-              onFontStageChange={setInputAidsPreviewFontStage}
-              targetRef={inputAidsPreviewRef}
+            <Keyboard
+              {...toBaseStyleProps(keyboardBaseValues)}
+              backspaceButtonProps={{
+                ...resolveDerivedBaseProperties(
+                  resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+                  backspaceButtonBaseValues,
+                ),
+                activeColor: buttonActiveColor,
+              }}
+              fontStage={keyboardPreviewFontStage}
+              onFontStageChange={setKeyboardPreviewFontStage}
+              targetRef={keyboardPreviewRef}
               buttonProps={{
                 ...resolveDerivedBaseProperties(
                   buttonBaseValues,
@@ -2263,30 +3242,70 @@ export function LabApp() {
               }}
               cycleButtonProps={{
                 ...resolveDerivedBaseProperties(
-                  buttonBaseValues,
+                  resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
                   cycleButtonBaseValues,
                 ),
                 activeColor: buttonActiveColor,
               }}
+              dialButtonProps={{
+                ...resolveDerivedBaseProperties(
+                  resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+                  dialButtonBaseValues,
+                ),
+                activeColor: buttonActiveColor,
+              }}
+              shiftButtonProps={{
+                ...resolveDerivedBaseProperties(
+                  resolveDerivedBaseProperties(
+                    buttonBaseValues,
+                    longPressButtonBaseValues,
+                  ),
+                  shiftButtonBaseValues,
+                ),
+                activeColor: buttonActiveColor,
+              }}
+              smartphoneButtonProps={toBaseStyleProps(buttonBaseValues)}
             />
           </div>
           <BasePropertyControls
-            componentName="InputAids"
+            componentName="Keyboard"
             inheritedPropertySections={[
+              {
+                componentName: "BackspaceButton",
+                properties: backspaceButtonBaseValues,
+              },
               {
                 componentName: "CycleButton",
                 properties: cycleButtonBaseValues,
               },
               {
+                componentName: "DialButton",
+                properties: dialButtonBaseValues,
+              },
+              {
                 componentName: "LongPressButton",
                 properties: longPressButtonBaseValues,
               },
+              {
+                componentName: "ShiftButton",
+                properties: shiftButtonBaseValues,
+              },
             ]}
-            values={inputAidsBaseValues}
-            onChange={(name, value) => updateBaseValue("inputAids", name, value)}
+            values={keyboardBaseValues}
+            onChange={(name, value) => updateBaseValue("keyboard", name, value)}
             onInheritedPropertyChange={(componentName, name, value) => {
-              if (componentName === "LongPressButton" && typeof value === "string") {
+              if (componentName === "BackspaceButton" && typeof value === "string") {
+                setBackspaceButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              } else if (componentName === "LongPressButton" && typeof value === "string") {
                 setLongPressButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              } else if (componentName === "ShiftButton" && typeof value === "string") {
+                setShiftButtonBaseValues((current) => ({
                   ...current,
                   [name]: value,
                 }));
@@ -2295,12 +3314,17 @@ export function LabApp() {
                   ...current,
                   [name]: value,
                 }));
+              } else if (componentName === "DialButton" && typeof value === "string") {
+                setDialButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
               }
             }}
           />
           <div className={styles.actions}>
-            <Button onClick={() => setInputAidsBaseValues({
-              ...storedComponentProperties.InputAids.base,
+            <Button onClick={() => setKeyboardBaseValues({
+              ...storedComponentProperties.Keyboard.base,
             })}>
               RESET
             </Button>
@@ -2325,7 +3349,7 @@ export function LabApp() {
             aria-label="Textarea preview"
             defaultValue="Textarea content"
             fontSize={textareaFontSize}
-            inputAids={textareaInputAids}
+            keyboard={textareaKeyboard}
             {...toBaseStyleProps(textareaBaseValues)}
           />
         </div>
@@ -2334,19 +3358,19 @@ export function LabApp() {
           componentName="Textarea"
           ownPropertyComments={{
             fontSize: "small-stage CSS font-size, for example 0.82rem",
-            inputAids: "show InputAids while the field is focused",
+            keyboard: "show Keyboard while the field is focused",
           }}
           ownProperties={{
             fontSize: textareaFontSize,
-            inputAids: textareaInputAids,
+            keyboard: textareaKeyboard,
           }}
           values={textareaBaseValues}
           onChange={(name, value) => updateBaseValue("textarea", name, value)}
           onOwnPropertyChange={(name, value) => {
             if (name === "fontSize" && typeof value === "string") {
               setTextareaFontSize(value);
-            } else if (name === "inputAids" && typeof value === "boolean") {
-              setTextareaInputAids(value);
+            } else if (name === "keyboard" && typeof value === "boolean") {
+              setTextareaKeyboard(value);
             }
           }}
         />
@@ -2356,7 +3380,7 @@ export function LabApp() {
             onClick={() => {
               setTextareaBaseValues({ ...componentBaseDefaults });
               setTextareaFontSize(storedComponentProperties.Textarea.fontSize);
-              setTextareaInputAids(true);
+              setTextareaKeyboard(true);
             }}
           >
             RESET
@@ -2403,7 +3427,7 @@ export function LabApp() {
               : componentName === "Input"
               ? {
                   fontSize: "CSS font-size value, for example 14px or 0.9rem",
-                  inputAids: "show InputAids while the field is focused",
+                  keyboard: "show Keyboard while the field is focused",
                 }
               : componentName === "BackgroundLogo"
               ? {
@@ -2434,7 +3458,7 @@ export function LabApp() {
                   fontWeight: browserItemLabelFontWeight,
                 }
               : componentName === "Input"
-              ? { fontSize: inputFontSize, inputAids: inputInputAids }
+              ? { fontSize: inputFontSize, keyboard: inputKeyboard }
               : componentName === "BackgroundLogo"
               ? {
                   symbol: backgroundLogoSymbol,
@@ -2457,7 +3481,14 @@ export function LabApp() {
                 || componentName === "ListControlListSizeButton"
                 || componentName === "BrowserItemLabelButton"
                 || componentName === "BrowserItemModeButton"
-              ? [{
+              ? [
+                ...(componentName === "ListControlListSizeButton"
+                  ? [{
+                      componentName: "PressButton",
+                      properties: pressButtonBaseValues,
+                    }]
+                  : []),
+                {
                   componentName: "Button",
                   comments: {
                     activeColor:
@@ -2484,7 +3515,8 @@ export function LabApp() {
                   },
                 }]
               : componentName === "DataBrowser"
-                || componentName === "FunctionBrowser"
+                || componentName === "AppBrowser"
+                || componentName === "MemoryBrowser"
               ? [{
                   componentName: "TreeBrowser",
                   comments: {
@@ -2494,7 +3526,6 @@ export function LabApp() {
                   properties: { rowGap: treeBrowserRowGap },
                 }]
               : componentName === "LoginDialog"
-                || componentName === "SynchronizationDialog"
               ? [{
                   componentName: "BlockingDialog",
                   properties: browserComponentBaseValues.BlockingDialog,
@@ -2548,10 +3579,10 @@ export function LabApp() {
               }
               if (
                 componentName === "Input"
-                && name === "inputAids"
+                && name === "keyboard"
                 && typeof value === "boolean"
               ) {
-                setInputInputAids(value);
+                setInputKeyboard(value);
               }
               if (componentName === "BackgroundLogo") {
                 if (
@@ -2601,6 +3632,16 @@ export function LabApp() {
             }}
             onInheritedPropertyChange={(parentName, name, value) => {
               if (
+                componentName === "ListControlListSizeButton"
+                && parentName === "PressButton"
+                && typeof value === "string"
+              ) {
+                setPressButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }));
+              }
+              if (
                 (
                   componentName === "Checkbox"
                   || componentName === "BrowserItemLabelButton"
@@ -2636,7 +3677,8 @@ export function LabApp() {
               if (
                 (
                   componentName === "DataBrowser"
-                  || componentName === "FunctionBrowser"
+                  || componentName === "AppBrowser"
+                  || componentName === "MemoryBrowser"
                 )
                 && parentName === "TreeBrowser"
                 && name === "rowGap"
@@ -2661,7 +3703,16 @@ export function LabApp() {
                   setCheckboxActiveColor("COLOR_ACCENT_TWO");
                 }
                 if (componentName === "Input") {
-                  setInputInputAids(true);
+                  setInputKeyboard(true);
+                }
+                if (componentName === "ListControlListSizeButton") {
+                  setBrowserComponentBaseValues((current) => ({
+                    ...current,
+                    ListControlListSizeButton: {
+                      ...componentBaseDefaults,
+                      width: "BUTTON_WIDTH",
+                    },
+                  }));
                 }
               }}
             >
@@ -2740,16 +3791,24 @@ export function LabApp() {
                   ? [{
                       componentName: "SideModuleButton",
                       properties: {},
+                    }, {
+                      componentName: "SymbolButton",
+                      properties: {
+                        symbolLeft: symbolButtonLeft,
+                        symbolTop: symbolButtonTop,
+                      },
                     }]
-                  : []
+                  : [{
+                      componentName: "ModuleButton",
+                      comments: { symbol: "exactly one Unicode character" },
+                      properties: {
+                        symbol: concreteModuleButtonSymbols[componentName],
+                      },
+                    }, {
+                      componentName: "PressButton",
+                      properties: {},
+                    }]
               ),
-              {
-                componentName: "ModuleButton",
-                comments: { symbol: "exactly one Unicode character" },
-                properties: {
-                  symbol: concreteModuleButtonSymbols[componentName],
-                },
-              },
               {
                 componentName: "Button",
                 comments: {
@@ -2818,6 +3877,12 @@ export function LabApp() {
             <ModuleMenuActions
               {...toBaseStyleProps(moduleMenuActionsBaseValues)}
               activeItem={panelPreviewItem}
+              offlineButtonProps={{
+                ...resolvedSideModuleButtonBaseValues,
+                activeColor: buttonActiveColor,
+              }}
+              offlineMode={offlineModePreview}
+              pendingTransactions={offlineModePreview ? 3 : 0}
               helpButtonProps={{
                 ...resolveDerivedBaseProperties(
                   resolvedSideModuleButtonBaseValues,
@@ -2835,6 +3900,7 @@ export function LabApp() {
                 symbol: concreteModuleButtonSymbols.ConfigModuleButton,
               }}
               onChange={setPanelPreviewItem}
+              onOfflineModeChange={setOfflineModePreview}
             />
           </div>
 
@@ -2874,38 +3940,8 @@ export function LabApp() {
           <ModulePanel
             activeItem={panelPreviewItem}
             moduleButtonProps={{
-              AGNT: {
-                ...resolveDerivedBaseProperties(
-                  resolvedModuleButtonBaseValues,
-                  concreteModuleButtonBaseValues.AgentModuleButton,
-                ),
-                activeColor: buttonActiveColor,
-                symbol: concreteModuleButtonSymbols.AgentModuleButton,
-              },
-              DATA: {
-                ...resolveDerivedBaseProperties(
-                  resolvedModuleButtonBaseValues,
-                  concreteModuleButtonBaseValues.DataModuleButton,
-                ),
-                activeColor: buttonActiveColor,
-                symbol: concreteModuleButtonSymbols.DataModuleButton,
-              },
-              FUNC: {
-                ...resolveDerivedBaseProperties(
-                  resolvedModuleButtonBaseValues,
-                  concreteModuleButtonBaseValues.FuncModuleButton,
-                ),
-                activeColor: buttonActiveColor,
-                symbol: concreteModuleButtonSymbols.FuncModuleButton,
-              },
-              CRON: {
-                ...resolveDerivedBaseProperties(
-                  resolvedModuleButtonBaseValues,
-                  concreteModuleButtonBaseValues.CronModuleButton,
-                ),
-                activeColor: buttonActiveColor,
-                symbol: concreteModuleButtonSymbols.CronModuleButton,
-              },
+              ...resolvedModuleButtonBaseValues,
+              activeColor: buttonActiveColor,
             }}
             onChange={setPanelPreviewItem}
             {...toBaseStyleProps(modulePanelBaseValues)}
@@ -3217,7 +4253,7 @@ export function LabApp() {
             <div>
               <h2 className={styles.componentName}>AppStatusLine</h2>
               <p className={styles.description}>
-                Compact press control for opening application and server status.
+                Compact, noninteractive application and server status.
               </p>
             </div>
             <code className={styles.path}>components/AppStatusLine</code>
@@ -3225,30 +4261,17 @@ export function LabApp() {
 
           <div className={styles.preview}>
             <AppStatusLine
-              {...toColorlessBaseStyleProps(resolveDerivedBaseProperties(
-                buttonBaseValues,
-                appStatusLineBaseValues,
-              ))}
-              activeColor={buttonActiveColor}
+              {...toColorlessBaseStyleProps(appStatusLineBaseValues)}
               error={appStatusLineError}
               fontSize={appStatusLineFontSize}
               fontWeight={appStatusLineFontWeight}
               message={appStatusLineMessage}
-              onClick={() => undefined}
             />
           </div>
 
           <BasePropertyControls
             componentName="AppStatusLine"
             excludedBaseProperties={["color"]}
-            inheritedPropertySections={[{
-              componentName: "Button",
-              comments: {
-                activeColor:
-                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
-              },
-              properties: { activeColor: buttonActiveColor },
-            }]}
             ownPropertyComments={{
               fontSize: "CSS font-size value, for example 0.84rem",
               fontWeight: "CSS font-weight value, for example 400",
@@ -3264,15 +4287,6 @@ export function LabApp() {
             onChange={(name, value) => (
               updateBaseValue("appStatusLine", name, value)
             )}
-            onInheritedPropertyChange={(componentName, name, value) => {
-              if (
-                componentName === "Button"
-                && name === "activeColor"
-                && typeof value === "string"
-              ) {
-                setButtonActiveColor(value);
-              }
-            }}
             onOwnPropertyChange={(name, value) => {
               if (name === "error" && typeof value === "boolean") {
                 setAppStatusLineError(value);
@@ -3551,6 +4565,192 @@ function createColorPreviewStyle(values: ColorValues): ColorPreviewStyle {
     (Object.keys(colorDefinitions) as ColorName[])
       .map((name) => [colorDefinitions[name].cssName, values[name]]),
   ) as ColorPreviewStyle;
+}
+
+function renderManifestComponentPreview(
+  name: typeof manifestPreviewComponentNames[number],
+  baseValues?: BaseLabValues,
+  dialSurfaceBaseValues?: BaseLabValues,
+  formActionWidth?: string,
+  formRowBaseValues?: BaseLabValues,
+  formBaseValues?: BaseLabValues,
+  formButtonProps?: ButtonProps,
+  compactButtonProps?: ButtonProps,
+  breadcrumbBaseValues?: BaseLabValues,
+  itemListBaseValues?: BaseLabValues,
+  inputProps?: InputProps,
+  textareaProps?: TextareaProps,
+) {
+  const baseProps = baseValues ? toBaseStyleProps(baseValues) : {};
+  const rootTarget = {
+    id: "identity",
+    label: "Identity",
+    path: "Identity",
+    eligible: true,
+  };
+
+  switch (name) {
+    case "AppView":
+      return <AppView {...baseProps} title="APP VIEW">Application content</AppView>;
+    case "Block":
+      return <Block {...baseProps}>Full-width block</Block>;
+    case "Breadcrumb":
+      return (
+        <Breadcrumb
+          {...baseProps}
+          buttonProps={compactButtonProps}
+          currentId="current"
+          items={[
+            { hasChildren: true, id: "root", label: "Root" },
+            { hasChildren: true, id: "parent", label: "Parent" },
+            { hasChildren: false, id: "current", label: "Current" },
+          ]}
+          onSelect={() => undefined}
+        />
+      );
+    case "CompassApp":
+      return <CompassApp {...baseProps} categories={[]} />;
+    case "CompactButton":
+      return <CompactButton {...compactButtonProps}>Compact</CompactButton>;
+    case "ConfigEditor":
+      return <ConfigEditor {...baseProps} dataSource="Identity" />;
+    case "ContentEditor":
+      return <ContentEditor {...baseProps} initialValue="Editable content" />;
+    case "DataSourceInput":
+      return (
+        <DataSourceInput
+          {...baseProps}
+          current={rootTarget}
+          targets={[rootTarget]}
+          value="Identity"
+          onChange={() => undefined}
+        />
+      );
+    case "DataTree":
+      return <DataTree {...baseProps} />;
+    case "DeviceInfoView":
+      return <DeviceInfoView {...baseProps} />;
+    case "DialSurface":
+      return (
+        <DialSurface
+          {...baseProps}
+          aria-label="Dial surface preview"
+          layer="outer"
+          position={{ angle: 0, radius: 0.8, x: 0.5, y: 0.1 }}
+        />
+      );
+    case "Dialer":
+      return (
+        <Dialer
+          {...baseProps}
+          bottomLeftLabel="BL"
+          bottomRightLabel="BR"
+          centerLabel="DIAL"
+          dialSurfaceProps={dialSurfaceBaseValues
+            ? toBaseStyleProps(dialSurfaceBaseValues)
+            : undefined}
+          topLeftLabel="TL"
+          topRightLabel="TR"
+        />
+      );
+    case "Form":
+      return (
+        <Form {...baseProps} actionWidth={formActionWidth}>
+          <FormRow
+            {...(formRowBaseValues
+              ? toBaseStyleProps(formRowBaseValues)
+              : {})}
+            label="Name"
+            buttonProps={formButtonProps}
+            onSet={() => undefined}
+          >
+            <Input aria-label="Form preview value" value="Example" readOnly />
+          </FormRow>
+          <FormRow
+            {...(formRowBaseValues
+              ? toBaseStyleProps(formRowBaseValues)
+              : {})}
+            label="Description"
+            buttonProps={formButtonProps}
+            onSet={() => undefined}
+          >
+            <Input aria-label="Form preview description" value="Details" readOnly />
+          </FormRow>
+        </Form>
+      );
+    case "FormRow":
+      return (
+        <FormRow
+          {...baseProps}
+          buttonProps={formButtonProps}
+          label="Value"
+          onSet={() => undefined}
+        >
+          <Input aria-label="Form row preview" value="Example" readOnly />
+        </FormRow>
+      );
+    case "InventoryApp":
+      return (
+        <InventoryApp
+          {...baseProps}
+          buttonProps={formButtonProps}
+          breadcrumbProps={breadcrumbBaseValues
+            ? toBaseStyleProps(breadcrumbBaseValues)
+            : undefined}
+          compactButtonProps={compactButtonProps}
+          formProps={{
+            ...(formBaseValues ? toBaseStyleProps(formBaseValues) : {}),
+            actionWidth: formActionWidth,
+          }}
+          formRowButtonProps={formButtonProps}
+          formRowProps={formRowBaseValues
+            ? toBaseStyleProps(formRowBaseValues)
+            : undefined}
+          itemListProps={itemListBaseValues
+            ? toBaseStyleProps(itemListBaseValues)
+            : undefined}
+          inputProps={inputProps}
+          textareaProps={textareaProps}
+        />
+      );
+    case "ItemList":
+      return (
+        <ItemList
+          {...baseProps}
+          buttonProps={compactButtonProps}
+          items={[
+            { hasChildren: true, id: "one", label: "One" },
+            { hasChildren: false, id: "two", label: "Two" },
+            { hasChildren: true, id: "three", label: "Three" },
+          ]}
+          selectedId="two"
+          onSelect={() => undefined}
+        />
+      );
+    case "RootInputControl":
+      return (
+        <RootInputControl
+          {...baseProps}
+          current={rootTarget}
+          targets={[rootTarget]}
+          value="Identity"
+          onChange={() => undefined}
+        />
+      );
+    case "ParentInput":
+      return (
+        <ParentInput
+          {...baseProps}
+          current={rootTarget}
+          targets={[rootTarget]}
+          value=""
+          onChange={() => undefined}
+          onSetParent={() => undefined}
+        />
+      );
+    case "ShoppingListView":
+      return <ShoppingListView {...baseProps} categories={[]} />;
+  }
 }
 
 function toColorlessBaseStyleProps(values: BaseLabValues) {

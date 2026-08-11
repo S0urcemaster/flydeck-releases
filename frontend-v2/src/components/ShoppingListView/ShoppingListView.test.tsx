@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { ShoppingListView } from "./ShoppingListView";
 
 describe("ShoppingListView", () => {
-  it("composes FunctionView and groups items by supermarket category", () => {
+  it("composes AppView and groups items by supermarket category", () => {
     const markup = renderToStaticMarkup(
       <ShoppingListView categories={[{
         id: "bakery",

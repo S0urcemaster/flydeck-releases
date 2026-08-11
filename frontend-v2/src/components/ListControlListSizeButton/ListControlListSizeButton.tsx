@@ -1,10 +1,9 @@
-import { type ListControlButtonProps } from "../ListControlButton";
-import { PressButton } from "../PressButton";
+import { PressButton, type PressButtonProps } from "../PressButton";
 
 export type ListControlListSize = 3 | 5 | 10;
 
 export type ListControlListSizeButtonProps = Omit<
-  ListControlButtonProps,
+  PressButtonProps,
   "aria-label" | "children" | "onClick"
 > & {
   currentPage: number;

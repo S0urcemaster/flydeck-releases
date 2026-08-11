@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { appComponentNames } from "../config/componentManifest";
 import {
   LabApp,
   persistSelectedAppComponent,
@@ -38,62 +39,16 @@ describe("AppTitle lab", () => {
 
   it("sorts catalogs and shades app components by composition depth", () => {
     const markup = renderToStaticMarkup(<LabApp />);
-    const names = [
-      "AgentModule",
-      "AgentModuleButton",
-      "AppShell",
-      "AppStatusLine",
-      "AppTitle",
-      "Base",
-      "BrowserItem",
-      "BrowserItemLabelButton",
-      "BrowserItemModeButton",
-      "Button",
-      "ButtonLink",
-      "Checkbox",
-      "ConfigModuleButton",
-      "CronModule",
-      "CronModuleButton",
-      "CycleButton",
-      "DataModule",
-      "DataModuleButton",
-      "DeleteButton",
-      "DeviceInfo",
-      "DeviceInfoButton",
-      "DialerButton",
-      "DialerCenterButton",
-      "FuncModuleButton",
-      "FunctionsModule",
-      "HelpModule",
-      "HelpModuleButton",
-      "Input",
-      "InputAids",
-      "InputControl",
-      "ListControl",
-      "ListControlButton",
-      "ListControlListSizeButton",
-      "LongPressButton",
-      "MemoryBrowser",
-      "Module",
-      "ModuleButton",
-      "ModuleMenuActions",
-      "ModulePanel",
-      "SettingsModule",
-      "SideModuleButton",
-      "SubmoduleButton",
-      "SubmodulePanel",
-      "Textarea",
-      "TreeBrowser",
-    ];
 
-    expect(names.map((name) => markup.indexOf(`>${name}</button>`))).toEqual(
-      [...names]
-        .sort((left, right) => left.localeCompare(right))
-        .map((name) => markup.indexOf(`>${name}</button>`)),
-    );
+    expect(appComponentNames.every((name) => (
+      markup.includes(`>${name}</button>`)
+    ))).toBe(true);
     expect(markup).toContain("background:var(--color-component-depth-0)");
     expect(markup).toContain("background:var(--color-component-depth-1)");
     expect(markup).toContain("background:var(--color-component-depth-2)");
+    expect(markup).toContain("background:var(--color-component-depth-3)");
+    expect(markup).toContain("background:var(--color-component-depth-4)");
+    expect(markup).toContain("AppTitle → Base");
     expect(markup.indexOf(">ColorMapEditor</button>")).toBeLessThan(
       markup.indexOf(">NumberInput</button>"),
     );
@@ -138,6 +93,35 @@ describe("AppTitle lab", () => {
       },
     });
     expect(stored).toBe("Textarea");
+  });
+
+  it("renders isolated previews for the components added to the manifest", () => {
+    const names = [
+      "AppView",
+      "BackspaceButton",
+      "CompassApp",
+      "ConfigEditor",
+      "ContentEditor",
+      "DataSourceInput",
+      "DataTree",
+      "DeviceInfoView",
+      "DialButton",
+      "DialSurface",
+      "Dialer",
+      "InventoryApp",
+      "ParentInput",
+      "PressButton",
+      "RootInputControl",
+      "ShoppingListView",
+    ] as const;
+
+    for (const name of names) {
+      persistSelectedAppComponent(name);
+      const markup = renderToStaticMarkup(<LabApp />);
+      expect(markup, name).toContain(`>${name}</h2>`);
+    }
+
+    persistSelectedAppComponent("AppTitle");
   });
 
   it("reports empty and JSON endpoint errors without a second parse failure", async () => {

@@ -33,6 +33,7 @@ export type TreeBrowserInitialNode<TData = unknown> =
 export type TreeBrowserRootTarget = {
   id: string | null;
   label: string;
+  path: string;
   eligible: boolean;
 };
 
@@ -78,6 +79,15 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     nodes: readonly TreeBrowserModelSnapshotNode<TContent>[]
   ) => void;
   canCreateNode?: (parentId: string) => boolean;
+  canDeleteNode?: (
+    node: TreeBrowserModelNode<TContent>,
+    parent: TreeBrowserModelNode<TContent> | null,
+  ) => boolean;
+  canMoveNode?: (
+    node: TreeBrowserModelNode<TContent>,
+    direction: -1 | 1,
+    siblings: readonly TreeBrowserModelNode<TContent>[],
+  ) => boolean;
   createNode?: (
     name: string,
     parentId: string,
@@ -140,6 +150,8 @@ export function TreeBrowser<TContent = unknown>({
   renderContent,
   onTreeChange,
   canCreateNode = () => true,
+  canDeleteNode,
+  canMoveNode = () => true,
   createNode = createDefaultNode,
   onCreateNode,
   onRenameNode,
@@ -149,10 +161,10 @@ export function TreeBrowser<TContent = unknown>({
   onEnabledNode,
   onSelectedPathChange,
   listControlProps,
-  color = "COLOR_TEXT",
-  background = "transparent",
-  border = "BORDER_STANDARD",
-  padding = "SPACE_XS",
+  color,
+  background,
+  border,
+  padding,
   ...baseProps
 }: TreeBrowserProps<TContent>) {
   const [initialState] = useState(() => model.load());
@@ -313,12 +325,16 @@ export function TreeBrowser<TContent = unknown>({
     );
     const selectedId = selectedPath[depth];
     const selectedNode = nodes.find(({ id }) => id === selectedId);
+    const parentNode = parentId === rootId ? null : findTreeNode(tree, parentId) ?? null;
     const selectedIndex = nodes.findIndex(({ id }) => id === selectedId);
+    const canMoveUp = selectedNode ? canMoveNode(selectedNode, -1, nodes) : false;
+    const canMoveDown = selectedNode ? canMoveNode(selectedNode, 1, nodes) : false;
 
     async function moveSelected(direction: -1 | 1) {
       if (!selectedNode) {
         return;
       }
+      if (!canMoveNode(selectedNode, direction, nodes)) return;
       const nextIndex = selectedIndex + direction;
       if (onMoveNode) {
         const afterNodeId = direction < 0
@@ -422,9 +438,14 @@ export function TreeBrowser<TContent = unknown>({
             setPages((current) => ({ ...current, [parentId]: 0 }));
           }}
           moveDownDisabled={
-            !listEditable || selectedIndex < 0 || selectedIndex === nodes.length - 1
+            !listEditable
+            || selectedIndex < 0
+            || selectedIndex === nodes.length - 1
+            || !canMoveDown
           }
-          moveUpDisabled={!listEditable || selectedIndex <= 0}
+          moveUpDisabled={
+            !listEditable || selectedIndex <= 0 || !canMoveUp
+          }
           onMoveDown={() => moveSelected(1)}
           onMoveUp={() => moveSelected(-1)}
           onPageChange={(nextPage) => {
@@ -442,7 +463,7 @@ export function TreeBrowser<TContent = unknown>({
               <BrowserItem
                 {...browserItemProps}
                 enabled={enabled}
-                editable={listEditable}
+                editable={canDeleteNode?.(node, parentNode) ?? listEditable}
                 key={node.id}
                 label={node.label}
                 selected={node.id === selectedId}
@@ -511,10 +532,11 @@ export function TreeBrowser<TContent = unknown>({
                 ),
                 root: onReparentNode ? {
                   current: parentId === rootId
-                    ? { id: null, label: "", eligible: true }
+                    ? { id: null, label: "", path: "", eligible: true }
                     : {
                         id: parentId,
                         label: findTreeNode(tree, parentId)?.label ?? "",
+                        path: findTreeLabelPath(tree, parentId)?.join("/") ?? "",
                         eligible: true,
                       },
                   targets: createRootTargets(
@@ -676,10 +698,12 @@ export function createRootTargets<
   return [{
     id: null,
     label: "",
+    path: "",
     eligible: nodes.length < (rootItemLimit ?? Infinity),
-  }, ...flattenTree(nodes).map((node) => ({
+  }, ...flattenTreeWithPaths(nodes).map(({ node, path }) => ({
     id: node.id,
     label: node.label,
+    path: path.join("/"),
     eligible: !forbidden.has(node.id)
       && node.listEditable !== false
       && node.children.length < (node.listItemLimit ?? Infinity),
@@ -709,8 +733,24 @@ function findTreePath<TNode extends { id: string; children: TNode[] }>(
   return null;
 }
 
-function flattenTree<TNode extends { children: TNode[] }>(nodes: TNode[]): TNode[] {
-  return nodes.flatMap((node) => [node, ...flattenTree(node.children)]);
+function findTreeLabelPath<
+  TNode extends { id: string; label: string; children: TNode[] },
+>(nodes: TNode[], id: string): string[] | null {
+  for (const node of nodes) {
+    if (node.id === id) return [node.label];
+    const nested = findTreeLabelPath(node.children, id);
+    if (nested) return [node.label, ...nested];
+  }
+  return null;
+}
+
+function flattenTreeWithPaths<
+  TNode extends { label: string; children: TNode[] },
+>(nodes: TNode[], parentPath: string[] = []): { node: TNode; path: string[] }[] {
+  return nodes.flatMap((node) => {
+    const path = [...parentPath, node.label];
+    return [{ node, path }, ...flattenTreeWithPaths(node.children, path)];
+  });
 }
 
 function collectTreeIds<TNode extends { id: string; children: TNode[] }>(

@@ -19,10 +19,10 @@ export function SubmodulePanel({
   items = ["CHAT", "MEMO"],
   onChange,
   buttonProps,
-  color = "inherit",
-  background = "transparent",
-  border = "0",
-  padding = "0",
+  color,
+  background,
+  border,
+  padding,
   ...baseProps
 }: SubmodulePanelProps) {
   return (

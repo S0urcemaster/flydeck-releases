@@ -12,6 +12,8 @@ describe("Dialer", () => {
         bottomLeftLabel="C"
         bottomRightLabel="D"
         centerLabel="E"
+        innerBackground="#112233"
+        outerBackground="#445566"
         buttonProps={{ width: "91px" }}
         centerButtonProps={{ width: "37px" }}
       />,
@@ -22,11 +24,30 @@ describe("Dialer", () => {
     expect(markup).toContain("width:37px");
     expect(markup.match(/data-component-name="DialerButton"/g)).toHaveLength(4);
     expect(markup).toContain('data-component-name="DialerCenterButton"');
+    expect(markup).toContain('aria-label="Dial center"');
     expect(markup).toContain('data-layer="outer"');
     expect(markup).toContain('data-layer="inner"');
     expect(markup).toContain('data-dial-reference="range-boundary"');
     expect(markup).toContain('data-dial-reference="zero-point"');
+    expect(markup).toContain("background:#112233");
+    expect(markup).toContain("background:#445566");
     expect(markup.match(/data-angle-origin="north"/g)).toHaveLength(2);
+  });
+
+  it("allows a specialization to describe the center action", () => {
+    const markup = renderToStaticMarkup(
+      <Dialer
+        topLeftLabel="A"
+        topRightLabel="B"
+        bottomLeftLabel="C"
+        bottomRightLabel="D"
+        centerLabel="E"
+        centerButtonProps={{ "aria-label": "Show date" }}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Show date"');
+    expect(markup).not.toContain('aria-label="Dial center"');
   });
 
   it("keeps its visual marker just inside the selected tangent", () => {

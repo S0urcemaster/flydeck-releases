@@ -14,4 +14,13 @@ describe("Input", () => {
     expect(markup).toContain("width:100%");
     expect(markup).toContain("font-size:15px");
   });
+
+  it("exposes a layout-transparent field for a block-wide Keyboard", () => {
+    const markup = renderToStaticMarkup(
+      <Input aria-label="Name" keyboard keyboardLayout="block" />,
+    );
+
+    expect(markup).toContain('data-keyboard-layout="block"');
+    expect(markup).toContain('inputMode="none"');
+  });
 });

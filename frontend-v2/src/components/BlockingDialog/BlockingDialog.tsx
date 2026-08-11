@@ -23,10 +23,10 @@ export function BlockingDialog({
   onClose,
   title,
   viewport = "screen",
-  color = "COLOR_TEXT",
-  background = "COLOR_SURFACE",
-  border = "BORDER_STANDARD",
-  padding = "SPACE_MD",
+  color,
+  background,
+  border,
+  padding,
   ...baseProps
 }: BlockingDialogProps) {
   useEffect(() => {

@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import { HelpModuleButton } from "./HelpModuleButton";
 
 describe("HelpModuleButton", () => {
-  it("renders only its configured symbol", () => {
+  it("renders its icon without a text label", () => {
     const markup = renderToStaticMarkup(<HelpModuleButton symbol="?" />);
-    expect(markup).toContain("?");
+    expect(markup).toContain("<svg");
     expect(markup).not.toContain(">HELP<");
   });
 });

@@ -15,9 +15,9 @@ export function BackgroundLogo({
   fontSizeFactor = 1,
   opacity = 0.06,
   top = "0",
-  color = "COLOR_TEXT",
-  background = "transparent",
-  border = "0",
+  color,
+  background,
+  border,
   ...baseProps
 }: BackgroundLogoProps) {
   const style = {

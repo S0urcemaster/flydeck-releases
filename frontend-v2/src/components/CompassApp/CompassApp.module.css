@@ -1,0 +1,39 @@
+.list {
+  display: grid;
+  gap: var(--app-section-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-xs);
+  align-items: stretch;
+}
+
+.position,
+.saying {
+  display: flex;
+  align-items: center;
+  padding: var(--space-xs);
+  border: var(--border-standard);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.position {
+  justify-content: flex-end;
+  min-width: calc(var(--space-lg) * 1.5);
+}
+
+.saying {
+  min-width: 0;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: var(--space-xs);
+}

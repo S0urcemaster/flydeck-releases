@@ -28,6 +28,7 @@ describe("Checkbox", () => {
     const markup = renderToStaticMarkup(
       <Checkbox
         checked={false}
+        color="COLOR_TEXT"
         label="Enable USER"
         onChange={() => undefined}
       />,

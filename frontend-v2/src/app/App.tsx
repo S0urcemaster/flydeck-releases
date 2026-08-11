@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
 import { AppStatusLine } from "../components/AppStatusLine";
 import { AppTitle } from "../components/AppTitle";
 import { BaseConfigurationProvider } from "../components/Base";
 import { ButtonLink } from "../components/ButtonLink";
 import { ButtonConfigurationProvider } from "../components/Button";
+import { SymbolButtonConfigurationProvider } from "../components/SymbolButton";
 import { BlockingDialog } from "../components/BlockingDialog";
 import { LoginDialog } from "../components/LoginDialog";
-import { SynchronizationDialog } from "../components/SynchronizationDialog";
 import {
   ModulePanel,
 } from "../components/ModulePanel";
@@ -40,8 +40,23 @@ import {
   type ModuleActionItem,
   type PrimaryModuleItem,
 } from "./moduleNavigation";
-import { useClientStateSlice, type ClientStateSlice } from "../state";
+import {
+  ClientStateScopeProvider,
+  getClientDeviceId,
+  getLastClientIdentity,
+  setLastClientIdentity,
+  useClientStateSlice,
+  type ClientStateScope,
+  type ClientStateSlice,
+} from "../state";
 import { V2ApiError, v2Api } from "../api/V2ApiClient";
+import {
+  useForcedOfflineMode,
+  usePendingWorkspaceTransactions,
+  useWorkspaceSyncStatus,
+  workspaceSyncEngine,
+  workspaceSyncStatusStore,
+} from "../replica";
 
 const properties = requireComponentPropertiesConfig(generatedProperties);
 const generatedActiveThemeTokens = generatedThemes.tokens[
@@ -50,37 +65,42 @@ const generatedActiveThemeTokens = generatedThemes.tokens[
 const initialMenuItem = properties.ModulePanel.activeItem;
 const initialPrimaryMenuItem: PrimaryModuleItem =
   isPrimaryModuleItem(initialMenuItem) ? initialMenuItem : "FUNC";
-const synchronizationIgnoreKey = "flydeck:v2:synchronization-ignore-until";
-const synchronizationIgnoreDuration = 10 * 60 * 1_000;
-
-type ServerReadiness = {
-  state: "checking" | "ready" | "unavailable";
-  message: string;
-};
-
-const checkingServer: ServerReadiness = {
-  state: "checking",
-  message: "Checking Flydeck server and PostgreSQL …",
-};
+const clientDeviceId = getClientDeviceId();
+const cachedClientIdentity = getLastClientIdentity();
 
 export function App() {
+  const workspaceSyncStatus = useWorkspaceSyncStatus();
+  const forcedOfflineMode = useForcedOfflineMode();
+  const pendingWorkspaceTransactions = usePendingWorkspaceTransactions();
+  const offline = workspaceSyncStatus.state === "offline";
+  const replicaError = workspaceSyncStatus.state === "error"
+    ? workspaceSyncStatus.reason
+    : "";
   const [accessGate, setAccessGate] = useState<
-    "checking" | "ready" | "login" | "synchronization" | "bypassed"
+    "checking" | "ready" | "login" | "bypassed"
   >("checking");
   const [accessReason, setAccessReason] = useState("");
   const [loginPending, setLoginPending] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState<string>();
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [serverReadiness, setServerReadiness] =
-    useState<ServerReadiness>(checkingServer);
-  const synchronizationIgnoredUntil = useRef(readSynchronizationIgnoredUntil());
+  const [userId, setUserId] = useState<string | undefined>(
+    cachedClientIdentity?.userId,
+  );
+  const [workspaceId, setWorkspaceId] = useState<string | undefined>(
+    cachedClientIdentity?.workspaceId,
+  );
+  const clientStateScope = useMemo<ClientStateScope>(() => ({
+    userId: userId ?? "anonymous",
+    workspaceId: workspaceId ?? "default",
+    deviceId: clientDeviceId,
+  }), [userId, workspaceId]);
   const [activeMenuItem, setActiveMenuItem] = useClientStateSlice(
     activeMenuItemSlice,
+    clientStateScope,
   );
   const [previousPrimaryMenuItem, setPreviousPrimaryMenuItem] =
-    useClientStateSlice(previousPrimaryMenuItemSlice);
+    useClientStateSlice(previousPrimaryMenuItemSlice, clientStateScope);
   const [persistedThemeConfiguration, setThemeConfiguration] = useClientStateSlice(
     themeConfigurationSlice,
+    clientStateScope,
   );
   const themeConfiguration = normalizeThemeConfiguration(
     persistedThemeConfiguration,
@@ -96,54 +116,75 @@ export function App() {
   const shellBase = resolveBaseProperties(properties.AppShell.base);
   const panelBase = resolveBaseProperties(properties.ModulePanel.base);
   const buttonBase = resolveBaseProperties(properties.Button.base);
+  const compactButtonBase = resolveDerivedBaseProperties(
+    buttonBase,
+    properties.CompactButton.base,
+  );
+  const compactButtonProps = {
+    ...compactButtonBase,
+    activeColor: properties.Button.activeColor,
+    fontSize: properties.CompactButton.fontSize === "inherit"
+      ? properties.Button.fontSize
+      : properties.CompactButton.fontSize,
+    fontWeight: properties.CompactButton.fontWeight === "inherit"
+      ? properties.Button.fontWeight
+      : properties.CompactButton.fontWeight,
+  };
+  const pressButtonBase = resolveDerivedBaseProperties(
+    buttonBase,
+    properties.PressButton.base,
+  );
+  const backspaceButtonBase = resolveDerivedBaseProperties(
+    pressButtonBase,
+    properties.BackspaceButton.base,
+  );
   const longPressButtonBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.LongPressButton.base,
   );
+  const shiftButtonBase = resolveDerivedBaseProperties(
+    longPressButtonBase,
+    properties.ShiftButton.base,
+  );
   const cycleButtonBase = resolveDerivedBaseProperties(
-    buttonBase,
+    pressButtonBase,
     properties.CycleButton.base,
   );
-  const inputAidsBase = resolveBaseProperties(properties.InputAids.base);
-  const inputAidsProps = {
-    ...inputAidsBase,
+  const dialButtonBase = resolveDerivedBaseProperties(
+    pressButtonBase,
+    properties.DialButton.base,
+  );
+  const keyboardBase = resolveBaseProperties(properties.Keyboard.base);
+  const keyboardProps = {
+    ...keyboardBase,
+    backspaceButtonProps: backspaceButtonBase,
     buttonProps: longPressButtonBase,
     cycleButtonProps: cycleButtonBase,
+    dialButtonProps: dialButtonBase,
+    shiftButtonProps: shiftButtonBase,
+    smartphoneButtonProps: buttonBase,
   };
-  const resolvedAppStatusLineBase = resolveDerivedBaseProperties(
-    buttonBase,
+  const resolvedAppStatusLineBase = resolveBaseProperties(
     properties.AppStatusLine.base,
   );
   const appStatusLineBase = withoutColor(resolvedAppStatusLineBase);
   const moduleButtonBase = resolveDerivedBaseProperties(
-    buttonBase,
+    pressButtonBase,
     properties.ModuleButton.base,
   );
-  const submoduleButtonBase = resolveDerivedBaseProperties(
+  const symbolButtonBase = resolveDerivedBaseProperties(
     buttonBase,
+    properties.SymbolButton.base,
+  );
+  const submoduleButtonBase = resolveDerivedBaseProperties(
+    pressButtonBase,
     properties.SubmoduleButton.base,
   );
   const submodulePanelBase = resolveBaseProperties(
     properties.SubmodulePanel.base,
   );
-  const chatModuleButtonBase = resolveDerivedBaseProperties(
-    moduleButtonBase,
-    properties.AgentModuleButton.base,
-  );
-  const dataModuleButtonBase = resolveDerivedBaseProperties(
-    moduleButtonBase,
-    properties.DataModuleButton.base,
-  );
-  const funcModuleButtonBase = resolveDerivedBaseProperties(
-    moduleButtonBase,
-    properties.FuncModuleButton.base,
-  );
-  const cronModuleButtonBase = resolveDerivedBaseProperties(
-    moduleButtonBase,
-    properties.CronModuleButton.base,
-  );
   const sideModuleButtonBase = resolveDerivedBaseProperties(
-    moduleButtonBase,
+    symbolButtonBase,
     properties.SideModuleButton.base,
   );
   const helpModuleButtonBase = resolveDerivedBaseProperties(
@@ -181,15 +222,67 @@ export function App() {
     dialerButtonBase,
     properties.DialerCenterButton.base,
   );
+  const dialSurfaceBase = resolveBaseProperties(properties.DialSurface.base);
+  const dialerBase = resolveBaseProperties(properties.Dialer.base);
+  const cronDialerBase = resolveDerivedBaseProperties(
+    dialerBase,
+    properties.CronDialer.base,
+  );
+  const cronDialerProps = {
+    ...cronDialerBase,
+    dialSurfaceProps: dialSurfaceBase,
+    innerBackground: properties.CronDialer.innerBackground,
+    innerTextColor: properties.CronDialer.innerTextColor,
+    innerPointerColor: properties.CronDialer.innerPointerColor,
+    innerFontSize: properties.CronDialer.innerFontSize,
+    outerBackground: properties.CronDialer.outerBackground,
+    outerTextColor: properties.CronDialer.outerTextColor,
+    outerPointerColor: properties.CronDialer.outerPointerColor,
+    outerFontSize: properties.CronDialer.outerFontSize,
+  };
   const treeBrowserBase = resolveBaseProperties(properties.TreeBrowser.base);
   const dataBrowserBase = resolveDerivedBaseProperties(
     treeBrowserBase,
     properties.DataBrowser.base,
   );
-  const functionBrowserBase = resolveDerivedBaseProperties(
+  const appBrowserBase = resolveDerivedBaseProperties(
     treeBrowserBase,
-    properties.FunctionBrowser.base,
+    properties.AppBrowser.base,
   );
+  const memoryBrowserBase = resolveDerivedBaseProperties(
+    treeBrowserBase,
+    properties.MemoryBrowser.base,
+  );
+  const dataTreeBase = resolveDerivedBaseProperties(
+    dataBrowserBase,
+    properties.DataTree.base,
+  );
+  const appViewBase = resolveBaseProperties(properties.AppView.base);
+  const compassAppBase = resolveDerivedBaseProperties(
+    appViewBase,
+    properties.CompassApp.base,
+  );
+  const deviceInfoViewBase = resolveDerivedBaseProperties(
+    appViewBase,
+    properties.DeviceInfoView.base,
+  );
+  const inventoryAppBase = resolveDerivedBaseProperties(
+    appViewBase,
+    properties.InventoryApp.base,
+  );
+  const shoppingListViewBase = resolveDerivedBaseProperties(
+    appViewBase,
+    properties.ShoppingListView.base,
+  );
+  const configEditorBase = resolveBaseProperties(properties.ConfigEditor.base);
+  const formBase = resolveBaseProperties(properties.Form.base);
+  const blockBase = resolveBaseProperties(properties.Block.base);
+  const formRowBase = resolveDerivedBaseProperties(
+    blockBase,
+    properties.FormRow.base,
+  );
+  const breadcrumbBase = resolveBaseProperties(properties.Breadcrumb.base);
+  const itemListBase = resolveBaseProperties(properties.ItemList.base);
   const browserItemBase = resolveBaseProperties(properties.BrowserItem.base);
   const browserItemLabelButtonBase = resolveDerivedBaseProperties(
     buttonBase,
@@ -216,8 +309,8 @@ export function App() {
   const configuredInputProps = {
     ...inputBase,
     fontSize: properties.Input.fontSize,
-    inputAids: properties.Input.inputAids,
-    inputAidsProps,
+    keyboard: properties.Input.keyboard,
+    keyboardProps,
   };
   const listControlBase = resolveBaseProperties(properties.ListControl.base);
   const listControlButtonBase = resolveDerivedBaseProperties(
@@ -225,7 +318,7 @@ export function App() {
     properties.ListControlButton.base,
   );
   const listControlListSizeButtonBase = resolveDerivedBaseProperties(
-    listControlButtonBase,
+    pressButtonBase,
     properties.ListControlListSizeButton.base,
   );
   const listControlListSizeButtonProps = {
@@ -238,12 +331,28 @@ export function App() {
       : properties.ListControlListSizeButton.fontWeight,
   };
   const inputControlBase = resolveBaseProperties(properties.InputControl.base);
+  const contentEditorBase = resolveDerivedBaseProperties(
+    inputControlBase,
+    properties.ContentEditor.base,
+  );
+  const rootInputControlBase = resolveBaseProperties(
+    properties.RootInputControl.base,
+  );
+  const parentInputBase = resolveDerivedBaseProperties(
+    rootInputControlBase,
+    properties.ParentInput.base,
+  );
+  const dataSourceInputBase = resolveDerivedBaseProperties(
+    rootInputControlBase,
+    properties.DataSourceInput.base,
+  );
   const textareaBase = resolveBaseProperties(properties.Textarea.base);
+  const deviceInfoBase = resolveBaseProperties(properties.DeviceInfo.base);
   const configuredTextareaProps = {
     ...textareaBase,
     fontSize: properties.Textarea.fontSize,
-    inputAids: properties.Textarea.inputAids,
-    inputAidsProps,
+    keyboard: properties.Textarea.keyboard,
+    keyboardProps,
   };
   const sharedInputControlProps = {
     ...inputControlBase,
@@ -304,82 +413,63 @@ export function App() {
     blockingDialogBase,
     properties.LoginDialog.base,
   );
-  const synchronizationDialogBase = resolveDerivedBaseProperties(
-    blockingDialogBase,
-    properties.SynchronizationDialog.base,
-  );
-
-  const showSynchronizationError = useCallback((reason: string) => {
-    if (Date.now() < synchronizationIgnoredUntil.current) return;
-    setStatusDialogOpen(false);
+  const reportSynchronizationError = useCallback((reason: string) => {
     setAccessReason(reason);
-    setAccessGate("synchronization");
   }, []);
 
   useEffect(() => {
     applyThemeConfiguration(themeConfiguration, document.documentElement.style);
   }, [themeConfiguration]);
 
-  const ignoreSynchronization = useCallback(() => {
-    const ignoredUntil = Date.now() + synchronizationIgnoreDuration;
-    synchronizationIgnoredUntil.current = ignoredUntil;
-    try {
-      window.localStorage.setItem(synchronizationIgnoreKey, String(ignoredUntil));
-    } catch {
-      // The in-memory deadline still applies when storage is unavailable.
-    }
-    setAccessGate("bypassed");
-  }, []);
+  useEffect(() => {
+    if (!userId || !workspaceId) return;
+    workspaceSyncEngine.register({ userId, workspaceId });
+  }, [userId, workspaceId]);
 
   useEffect(() => {
     let active = true;
     const waitingTimer = window.setTimeout(() => {
       if (!active) return;
-      if (Date.now() < synchronizationIgnoredUntil.current) {
-        setAccessGate("bypassed");
-      } else {
+      if (!cachedClientIdentity) {
         setAccessReason(
           "The server has not confirmed the session and workspace within one second.",
         );
-        setAccessGate("synchronization");
       }
+      setAccessGate("bypassed");
     }, 1_000);
     void v2Api.session().then((session) => {
       if (!active) return;
       window.clearTimeout(waitingTimer);
-      setServerReadiness({
-        state: "ready",
-        message: "Flydeck server and PostgreSQL are ready.",
-      });
       if (session.authenticated && session.workspaces[0]) {
         setAccessReason("");
+        setUserId(session.user.id);
         setWorkspaceId(session.workspaces[0].id);
+        setLastClientIdentity({
+          userId: session.user.id,
+          workspaceId: session.workspaces[0].id,
+        });
         setAccessGate("ready");
       }
       else if (session.loginRequired) setAccessGate("login");
       else {
-        showSynchronizationError("No local default user is configured on the server.");
+        reportSynchronizationError(
+          "No local default user is configured on the server.",
+        );
+        setAccessGate("bypassed");
       }
     }).catch((error: unknown) => {
       if (!active) return;
       window.clearTimeout(waitingTimer);
-      setServerReadiness({
-        state: "unavailable",
-        message: "The Flydeck server is not reachable.",
-      });
-      if (Date.now() < synchronizationIgnoredUntil.current) {
-        setAccessGate("bypassed");
-      } else {
-        showSynchronizationError(
-          error instanceof Error ? error.message : "The server is not reachable.",
-        );
-      }
+      reportSynchronizationError(
+        error instanceof Error ? error.message : "The server is not reachable.",
+      );
+      setAccessGate("bypassed");
     });
     return () => {
       active = false;
       window.clearTimeout(waitingTimer);
     };
-  }, [showSynchronizationError]);
+  }, [reportSynchronizationError]);
 
   async function login(loginName: string, password: string) {
     setLoginPending(true);
@@ -388,11 +478,12 @@ export function App() {
       const session = await v2Api.login({ loginName, password });
       if (session.authenticated && session.workspaces[0]) {
         setAccessReason("");
-        setServerReadiness({
-          state: "ready",
-          message: "Flydeck server and PostgreSQL are ready.",
-        });
+        setUserId(session.user.id);
         setWorkspaceId(session.workspaces[0].id);
+        setLastClientIdentity({
+          userId: session.user.id,
+          workspaceId: session.workspaces[0].id,
+        });
         setAccessGate("ready");
       } else {
         setAccessGate("login");
@@ -408,27 +499,10 @@ export function App() {
     }
   }
 
-  function openStatusDialog() {
-    setStatusDialogOpen(true);
-    setServerReadiness(checkingServer);
-    void v2Api.readiness().then(() => {
-      setServerReadiness({
-        state: "ready",
-        message: "Flydeck server and PostgreSQL are ready.",
-      });
-    }).catch((error: unknown) => {
-      setServerReadiness({
-        state: "unavailable",
-        message: error instanceof Error
-          ? error.message
-          : "The Flydeck server is not reachable.",
-      });
-    });
-  }
-
-  const statusMessage = accessReason || serverReadiness.message;
-  const statusIsError = Boolean(accessReason)
-    || serverReadiness.state === "unavailable";
+  const statusMessage = offline
+    ? "Offline"
+    : replicaError || accessReason || "Online";
+  const statusIsError = !offline && Boolean(replicaError || accessReason);
 
   function selectPrimaryModule(item: ModuleMenuItem) {
     if (!isPrimaryModuleItem(item)) {
@@ -452,6 +526,7 @@ export function App() {
   }
 
   return (
+    <ClientStateScopeProvider scope={clientStateScope}>
     <BaseConfigurationProvider
       showComponentName={properties.Base.showComponentName}
     >
@@ -459,6 +534,10 @@ export function App() {
       activeColor={properties.Button.activeColor}
       fontSize={properties.Button.fontSize}
       fontWeight={properties.Button.fontWeight}
+    >
+    <SymbolButtonConfigurationProvider
+      symbolTop={properties.SymbolButton.symbolTop}
+      symbolLeft={properties.SymbolButton.symbolLeft}
     >
     {import.meta.env.DEV && (
       <ButtonLink
@@ -482,12 +561,11 @@ export function App() {
       interactionBlocked={
         accessGate === "checking"
         || accessGate === "login"
-        || accessGate === "synchronization"
-        || statusDialogOpen
       }
       title={(
         <AppTitle
           {...titleBase}
+          offline={offline}
           title={properties.AppTitle.title}
           symbol={properties.AppTitle.symbol}
           subtitle={properties.AppTitle.subtitle}
@@ -506,27 +584,41 @@ export function App() {
             <AppStatusLine
               {...appStatusLineBase}
               error={statusIsError}
+              offline={offline}
               fontSize={properties.AppStatusLine.fontSize}
               fontWeight={properties.AppStatusLine.fontWeight}
               message={statusMessage}
-              onClick={openStatusDialog}
             />
           )}
           action={(
             <ModuleMenuActions
               {...moduleMenuActionsBase}
               activeItem={activeMenuItem}
+              offlineButtonProps={{
+                ...sideModuleButtonBase,
+                activeColor: properties.Button.activeColor,
+              }}
+              offlineMode={forcedOfflineMode}
+              pendingTransactions={pendingWorkspaceTransactions}
               helpButtonProps={{
                 ...helpModuleButtonBase,
                 activeColor: properties.Button.activeColor,
                 symbol: properties.HelpModuleButton.symbol,
+                symbolTop: properties.SymbolButton.symbolTop,
+                symbolLeft: properties.SymbolButton.symbolLeft,
               }}
               configButtonProps={{
                 ...configModuleButtonBase,
                 activeColor: properties.Button.activeColor,
                 symbol: properties.ConfigModuleButton.symbol,
+                symbolTop: properties.SymbolButton.symbolTop,
+                symbolLeft: properties.SymbolButton.symbolLeft,
               }}
               onChange={toggleActionModule}
+              onOfflineModeChange={(forced) => {
+                workspaceSyncStatusStore.setForcedOffline(forced);
+                if (!forced) workspaceSyncEngine.retryRegistered();
+              }}
             />
           )}
         />
@@ -536,26 +628,8 @@ export function App() {
         {...panelBase}
         activeItem={activeMenuItem}
         moduleButtonProps={{
-          AGNT: {
-            ...chatModuleButtonBase,
-            activeColor: properties.Button.activeColor,
-            symbol: properties.AgentModuleButton.symbol,
-          },
-          DATA: {
-            ...dataModuleButtonBase,
-            activeColor: properties.Button.activeColor,
-            symbol: properties.DataModuleButton.symbol,
-          },
-          FUNC: {
-            ...funcModuleButtonBase,
-            activeColor: properties.Button.activeColor,
-            symbol: properties.FuncModuleButton.symbol,
-          },
-          CRON: {
-            ...cronModuleButtonBase,
-            activeColor: properties.Button.activeColor,
-            symbol: properties.CronModuleButton.symbol,
-          },
+          ...moduleButtonBase,
+          activeColor: properties.Button.activeColor,
         }}
         onChange={selectPrimaryModule}
       />
@@ -564,7 +638,7 @@ export function App() {
           {...chatModuleBase}
           inputControlProps={sharedInputControlProps}
           treeBrowserProps={{
-            ...treeBrowserBase,
+            ...memoryBrowserBase,
             rowGap: properties.TreeBrowser.rowGap,
             ...sharedTreeChildProps,
           }}
@@ -581,10 +655,22 @@ export function App() {
         <DataModule
           {...dataModuleBase}
           dataBrowserProps={{
-            ...dataBrowserBase,
+            ...dataTreeBase,
+            contentEditorProps: {
+              ...sharedInputControlProps,
+              ...contentEditorBase,
+            },
             inputControlProps: sharedInputControlProps,
+            parentInputProps: {
+              ...parentInputBase,
+              buttonProps: {
+                ...buttonBase,
+                activeColor: properties.Button.activeColor,
+              },
+              inputProps: configuredInputProps,
+            },
             workspaceId,
-            onSynchronizationError: showSynchronizationError,
+            onSynchronizationError: reportSynchronizationError,
             rowGap: properties.TreeBrowser.rowGap,
             ...sharedTreeChildProps,
           }}
@@ -593,8 +679,58 @@ export function App() {
       {activeMenuItem === "FUNC" && (
         <FunctionsModule
           {...functionsModuleBase}
-          functionBrowserProps={{
-            ...functionBrowserBase,
+          workspaceId={workspaceId}
+          appViewConfigButtonProps={{
+            ...configModuleButtonBase,
+            activeColor: properties.Button.activeColor,
+            symbolTop: properties.SymbolButton.symbolTop,
+            symbolLeft: properties.SymbolButton.symbolLeft,
+          }}
+          appViewConfigEditorProps={{
+            ...configEditorBase,
+            cycleButtonProps: {
+              ...cycleButtonBase,
+              activeColor: properties.Button.activeColor,
+            },
+            dataSourceButtonProps: {
+              ...buttonBase,
+              activeColor: properties.Button.activeColor,
+            },
+            dataSourceBaseProps: dataSourceInputBase,
+            dataSourceInputProps: configuredInputProps,
+          }}
+          appViewButtonProps={{
+            ...buttonBase,
+            activeColor: properties.Button.activeColor,
+          }}
+          compassAppBaseProps={compassAppBase}
+          deviceInfoProps={{
+            ...deviceInfoBase,
+            textareaProps: configuredTextareaProps,
+          }}
+          deviceInfoViewBaseProps={deviceInfoViewBase}
+          inventoryAppBaseProps={inventoryAppBase}
+          inventoryBreadcrumbProps={breadcrumbBase}
+          inventoryCompactButtonProps={compactButtonProps}
+          inventoryFormProps={{
+            ...formBase,
+            actionWidth: properties.Form.actionWidth,
+          }}
+          inventoryFormRowProps={formRowBase}
+          inventoryInputProps={configuredInputProps}
+          inventoryParentInputProps={{
+            ...parentInputBase,
+            buttonProps: {
+              ...buttonBase,
+              activeColor: properties.Button.activeColor,
+            },
+            inputProps: configuredInputProps,
+          }}
+          inventoryItemListProps={itemListBase}
+          inventoryTextareaProps={configuredTextareaProps}
+          shoppingListViewBaseProps={shoppingListViewBase}
+          appBrowserProps={{
+            ...appBrowserBase,
             userInputControlProps: sharedInputControlProps,
             widgetInputControlProps: sharedInputControlProps,
             rowGap: properties.TreeBrowser.rowGap,
@@ -610,6 +746,7 @@ export function App() {
             activeColor: properties.Button.activeColor,
           }}
           dialerCenterButtonProps={dialerCenterButtonBase}
+          dialerProps={cronDialerProps}
         />
       )}
       {activeMenuItem === "HELP" && <HelpModule {...helpModuleBase} />}
@@ -634,24 +771,6 @@ export function App() {
     <BlockingDialog
       {...blockingDialogBase}
       buttonProps={buttonBase}
-      open={statusDialogOpen}
-      onClose={() => setStatusDialogOpen(false)}
-      title="Flydeck status"
-    >
-      {accessReason && (
-        <section>
-          <strong>Error</strong>
-          <p role="alert">{accessReason}</p>
-        </section>
-      )}
-      <section>
-        <strong>Server status</strong>
-        <p role="status">{serverReadiness.message}</p>
-      </section>
-    </BlockingDialog>
-    <BlockingDialog
-      {...blockingDialogBase}
-      buttonProps={buttonBase}
       open={accessGate === "checking"}
       title="Loading server state"
     >
@@ -666,27 +785,11 @@ export function App() {
       error={accessReason || undefined}
       onLogin={login}
     />
-    <SynchronizationDialog
-      {...synchronizationDialogBase}
-      buttonProps={buttonBase}
-      open={accessGate === "synchronization"}
-      operation="Checking session and server state"
-      reason={accessReason || "The server has not confirmed its state yet."}
-      onContinue={() => setAccessGate("bypassed")}
-      onIgnore={ignoreSynchronization}
-    />
+    </SymbolButtonConfigurationProvider>
     </ButtonConfigurationProvider>
     </BaseConfigurationProvider>
+    </ClientStateScopeProvider>
   );
-}
-
-function readSynchronizationIgnoredUntil() {
-  try {
-    const value = Number(window.localStorage.getItem(synchronizationIgnoreKey));
-    return Number.isFinite(value) ? value : 0;
-  } catch {
-    return 0;
-  }
 }
 
 function withoutColor<T extends { color: string }>(values: T): Omit<T, "color"> {

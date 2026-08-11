@@ -1,1 +1,5 @@
-export { CronDialer, type CronDialerProps } from "./CronDialer";
+export {
+  CronDialer,
+  type CronDialerProps,
+  type CronDialerScaleProps,
+} from "./CronDialer";

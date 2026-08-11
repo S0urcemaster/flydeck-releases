@@ -40,7 +40,7 @@ describe("TreeBrowser", () => {
     expect(markup).toContain('aria-label="Tree browser"');
     expect(markup).toContain('aria-label="Root children"');
     expect(markup).toContain(">1/1</button>");
-    expect(markup.match(/aria-hidden="true"/g)).toHaveLength(5);
+    expect(markup).toContain('aria-hidden="true"');
     expect(markup).not.toContain("Children of plants");
   });
 

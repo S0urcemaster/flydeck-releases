@@ -13,6 +13,7 @@ export {
   type TreeBrowserRootTarget,
   type TreeBrowserProps,
 } from "./TreeBrowser";
+export { ContentEditor, type ContentEditorProps } from "./ContentEditor";
 export {
   TreeBrowserModel,
   repairSelectedPath,

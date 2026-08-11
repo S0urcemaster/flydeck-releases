@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { DeviceInfoView } from "./DeviceInfoView";
 
 describe("DeviceInfoView", () => {
-  it("composes FunctionView and DeviceInfo", () => {
+  it("composes AppView and DeviceInfo", () => {
     const markup = renderToStaticMarkup(<DeviceInfoView />);
 
     expect(markup).toContain('data-component-name="DeviceInfoView"');

@@ -65,9 +65,9 @@ export function BrowserItem({
   deleteButtonProps,
   labelButtonProps,
   modeButtonProps,
-  color = "COLOR_TEXT",
-  background = "ITEM_COLOR",
-  border = "BORDER_STANDARD",
+  color,
+  background,
+  border,
   ...baseProps
 }: BrowserItemProps) {
   function stopRowClick(event: MouseEvent) {

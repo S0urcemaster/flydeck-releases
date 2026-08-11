@@ -1,12 +1,11 @@
 import type { ReactNode } from "react";
 
-import { type ButtonProps } from "../Button";
-import { PressButton } from "../PressButton";
+import { PressButton, type PressButtonProps } from "../PressButton";
 import styles from "./ModuleButton.module.css";
 
-export type ModuleButtonProps = Omit<ButtonProps, "children"> & {
+export type ModuleButtonProps = Omit<PressButtonProps, "children"> & {
   children: ReactNode;
-  symbol: string;
+  symbol: ReactNode;
 };
 
 export function ModuleButton({

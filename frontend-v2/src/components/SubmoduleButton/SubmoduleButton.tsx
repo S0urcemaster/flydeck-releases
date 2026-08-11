@@ -1,7 +1,6 @@
-import { type ButtonProps } from "../Button";
-import { PressButton } from "../PressButton";
+import { PressButton, type PressButtonProps } from "../PressButton";
 
-export type SubmoduleButtonProps = ButtonProps;
+export type SubmoduleButtonProps = PressButtonProps;
 
 export function SubmoduleButton({
   activeColor = "COLOR_ACCENT_TWO",

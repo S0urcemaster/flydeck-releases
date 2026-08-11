@@ -1,9 +1,9 @@
-import type { ShoppingListOutputCategory } from "../FunctionBrowser";
-import { FunctionView, type FunctionViewProps } from "../FunctionView";
+import type { ShoppingListOutputCategory } from "../AppBrowser";
+import { AppView, type AppViewProps } from "../AppView";
 import styles from "./ShoppingListView.module.css";
 
 export type ShoppingListViewProps = Omit<
-  FunctionViewProps,
+  AppViewProps,
   "children" | "componentName" | "title"
 > & {
   categories: ShoppingListOutputCategory[];
@@ -11,11 +11,11 @@ export type ShoppingListViewProps = Omit<
 
 export function ShoppingListView({
   categories,
-  ...functionViewProps
+  ...appViewProps
 }: ShoppingListViewProps) {
   return (
-    <FunctionView
-      {...functionViewProps}
+    <AppView
+      {...appViewProps}
       componentName="ShoppingListView"
       title="SHOPPING LIST"
     >
@@ -29,6 +29,6 @@ export function ShoppingListView({
           </ul>
         </div>
       ))}
-    </FunctionView>
+    </AppView>
   );
 }

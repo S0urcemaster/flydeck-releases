@@ -6,8 +6,17 @@
   max-width: 100%;
 }
 
-.control[data-aids-visible] {
-  grid-template-rows: minmax(0, 1fr) auto;
+.control[data-keyboard-visible] {
+  grid-template-rows: var(--keyboard-entry-height, auto) auto;
+}
+
+.control[data-keyboard-layout="block"] {
+  display: contents;
+}
+
+.control[data-keyboard-layout="block"] > .root {
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .control[data-size="fill"] {

@@ -24,6 +24,10 @@ import {
   type UpdateCronTimerRequest,
   type UpdateTreeNodeContentRequest,
 } from "@flydeck/shared/v2";
+import {
+  workspaceSyncStatusStore,
+  type WorkspaceSyncStatusStore,
+} from "../replica/WorkspaceSyncStatusStore";
 
 type ResponseSchema<TResult> = { parse(value: unknown): TResult };
 
@@ -37,6 +41,7 @@ export class V2ApiClient {
   constructor(
     private readonly basePath = "/flydeck/api/v2",
     private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis),
+    private readonly syncStatus: WorkspaceSyncStatusStore = workspaceSyncStatusStore,
   ) {}
 
   session() {
@@ -163,14 +168,28 @@ export class V2ApiClient {
     schema: ResponseSchema<TResult>,
     options: { method?: string; body?: unknown } = {},
   ): Promise<TResult> {
-    const response = await this.fetcher(`${this.basePath}${path}`, {
-      method: options.method ?? "GET",
-      credentials: "include",
-      headers: options.body === undefined
-        ? undefined
-        : { "Content-Type": "application/json" },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    if (this.syncStatus.isForcedOffline()) {
+      const error = new TypeError("Offline test mode is enabled.");
+      this.syncStatus.markOffline(error.message);
+      throw error;
+    }
+    let response: Response;
+    try {
+      response = await this.fetcher(`${this.basePath}${path}`, {
+        method: options.method ?? "GET",
+        credentials: "include",
+        headers: options.body === undefined
+          ? undefined
+          : { "Content-Type": "application/json" },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      });
+      this.syncStatus.markOnline();
+    } catch (error) {
+      this.syncStatus.markOffline(
+        error instanceof Error ? error.message : "The server is not reachable.",
+      );
+      throw error;
+    }
     const value: unknown = await response.json();
     if (!response.ok) throw new V2ApiError(apiErrorDtoSchema.parse(value));
     return schema.parse(value);

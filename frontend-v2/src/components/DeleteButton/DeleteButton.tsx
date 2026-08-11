@@ -5,6 +5,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import { Trash2 } from "lucide-react";
 
 import { Button, type ButtonProps } from "../Button";
 
@@ -22,7 +23,7 @@ export type DeleteButtonProps = Omit<
 
 export function DeleteButton({
   action = "delete",
-  children = "×",
+  children = <Trash2 aria-hidden="true" />,
   label,
   onDelete,
   timeout = 500,
@@ -68,19 +69,17 @@ export function DeleteButton({
     setPending(false);
   }
 
-  return (
-    <Button
-      {...buttonProps}
-      componentName="DeleteButton"
-      activeColor={armedColor}
-      selected={armed}
-      disabled={buttonProps.disabled || pending}
-      aria-label={`${pending
-        ? action === "delete" ? "Deleting" : "Resetting"
-        : armed ? `Confirm ${action} for` : `Arm ${action} for`} ${label}`}
-      onClick={click}
-    >
-      {children}
-    </Button>
-  );
+  const sharedButtonProps: ButtonProps = {
+    ...buttonProps,
+    componentName: "DeleteButton",
+    activeColor: armedColor,
+    selected: armed,
+    disabled: buttonProps.disabled || pending,
+    "aria-label": `${pending
+      ? action === "delete" ? "Deleting" : "Resetting"
+      : armed ? `Confirm ${action} for` : `Arm ${action} for`} ${label}`,
+    onClick: click,
+  };
+
+  return <Button {...sharedButtonProps}>{children}</Button>;
 }

@@ -2,41 +2,50 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TreeLoadDto, TreeNodeContentDto, TreeNodeDto } from "@flydeck/shared/v2";
 
 import { V2ApiError, v2Api } from "../../api/V2ApiClient";
-import { ClientStateStore } from "../../state";
+import {
+  reportWorkspaceReplicaError,
+  persistWorkspaceReplica,
+  workspaceReplica,
+  workspaceSyncEngine,
+  type WorkspaceReplicaScope,
+} from "../../replica";
+import { ClientStateStore, useClientStateScope } from "../../state";
 import {
   TreeBrowser,
   TreeBrowserModel,
+  ContentEditor,
+  type ContentEditorProps,
   type TreeBrowserInitialNode,
   type TreeBrowserProps,
   type TreeBrowserRootControl,
 } from "../TreeBrowser";
 import { InputControl, type InputControlProps } from "../InputControl";
 import {
-  resolveRootTarget,
-  RootInputControl,
-  type RootInputControlProps,
-} from "../RootInputControl";
+  ParentInput,
+  type ParentInputProps,
+} from "../ParentInput";
 import styles from "./DataBrowser.module.css";
 
 export type DataBrowserProps = Omit<
   TreeBrowserProps,
-  "componentName" | "model" | "renderContent"
+  "model" | "renderContent"
 > & {
+  contentEditorProps?: ContentEditorProps;
   inputControlProps?: InputControlProps;
+  parentInputProps?: Omit<
+    ParentInputProps,
+    | "current"
+    | "onChange"
+    | "onSetParent"
+    | "targets"
+    | "value"
+  >;
   workspaceId?: string;
   onSynchronizationError?: (reason: string) => void;
 };
 
 const memoryStore = new ClientStateStore({ storage: () => null });
-const emptyDataTree: TreeBrowserInitialNode[] = [{
-  id: "data-root",
-  kind: "data-root",
-  label: "Data",
-  enabled: true,
-  contentEditable: true,
-  listEditable: true,
-  children: [],
-}];
+const emptyDataTree: TreeBrowserInitialNode[] = [];
 const emptyDataModel = new TreeBrowserModel({
   initialTree: emptyDataTree,
   storageKey: "flydeck.tree.data.empty",
@@ -44,16 +53,20 @@ const emptyDataModel = new TreeBrowserModel({
 });
 
 export function DataBrowser({
+  componentName = "DataBrowser",
+  contentEditorProps,
   inputControlProps,
+  parentInputProps,
   workspaceId,
   onSynchronizationError,
   ...treeBrowserProps
 }: DataBrowserProps) {
+  const { userId } = useClientStateScope();
   if (!workspaceId) {
     return (
       <TreeBrowser
         {...treeBrowserProps}
-        componentName="DataBrowser"
+        componentName={componentName}
         model={emptyDataModel}
         renderContent={({ height }) => (
           <InputControl {...inputControlProps} height={height} />
@@ -65,24 +78,36 @@ export function DataBrowser({
   return (
     <ServerDataBrowser
       {...treeBrowserProps}
+      componentName={componentName}
+      contentEditorProps={contentEditorProps}
       inputControlProps={inputControlProps}
+      parentInputProps={parentInputProps}
       workspaceId={workspaceId}
+      userId={userId}
       onSynchronizationError={onSynchronizationError}
     />
   );
 }
 
 function ServerDataBrowser({
+  componentName,
+  contentEditorProps,
   inputControlProps,
+  parentInputProps,
   workspaceId,
+  userId,
   onSynchronizationError,
   ...treeBrowserProps
-}: DataBrowserProps & { workspaceId: string }) {
+}: DataBrowserProps & { workspaceId: string; userId: string }) {
   const [treeLoad, setTreeLoad] = useState<TreeLoadDto | null>(null);
   const treeRevision = useRef(0);
   const nodeRevisions = useRef(new Map<string, number>());
   const enabledRevisions = useRef<Record<string, number>>({});
   const selectionRevision = useRef(0);
+  const replicaScope = useMemo<WorkspaceReplicaScope>(() => ({
+    userId,
+    workspaceId,
+  }), [userId, workspaceId]);
 
   const fail = useCallback((error: unknown) => {
     onSynchronizationError?.(
@@ -90,21 +115,75 @@ function ServerDataBrowser({
     );
   }, [onSynchronizationError]);
 
-  const reload = useCallback(async () => {
+  const submitCommand = useCallback(async (
+    command: Parameters<typeof workspaceSyncEngine.submit>[1],
+  ) => {
     try {
-      setTreeLoad(await v2Api.loadDataTree(workspaceId));
+      const record = await workspaceSyncEngine.submit(replicaScope, command);
+      if (record.tree) {
+        treeRevision.current = record.tree.document.revision;
+        switch (command.type) {
+          case "create-node":
+            nodeRevisions.current.set(command.input.nodeId, 0);
+            enabledRevisions.current[command.input.nodeId] = 1;
+            break;
+          case "rename-node":
+            nodeRevisions.current.set(
+              command.nodeId,
+              command.input.expectedRevision + 1,
+            );
+            break;
+          case "move-node":
+          case "reparent-node":
+            nodeRevisions.current.set(
+              command.nodeId,
+              (nodeRevisions.current.get(command.nodeId) ?? 0) + 1,
+            );
+            break;
+          case "delete-node":
+            nodeRevisions.current.delete(command.nodeId);
+            delete enabledRevisions.current[command.nodeId];
+            break;
+          case "set-node-enabled":
+            enabledRevisions.current[command.nodeId] =
+              command.input.expectedRevision + 1;
+            break;
+          case "set-selection":
+            selectionRevision.current = command.input.expectedRevision + 1;
+            break;
+          case "update-content":
+            break;
+        }
+      }
+      return record;
     } catch (error) {
       fail(error);
+      return null;
     }
-  }, [fail, workspaceId]);
+  }, [fail, replicaScope]);
 
   useEffect(() => {
     let active = true;
-    void v2Api.loadDataTree(workspaceId).then((value) => {
-      if (active) setTreeLoad(value);
-    }).catch(fail);
+    void (async () => {
+      let cached: TreeLoadDto | null = null;
+      try {
+        cached = (await workspaceReplica.load(replicaScope))?.tree ?? null;
+        if (active && cached) setTreeLoad(cached);
+      } catch (error) {
+        reportWorkspaceReplicaError(error);
+        // The server load below can still repair an unavailable local cache.
+      }
+
+      try {
+        const confirmed = await v2Api.loadDataTree(workspaceId);
+        if (active) setTreeLoad(confirmed);
+        persistWorkspaceReplica(workspaceReplica.replaceTree(replicaScope, confirmed));
+      } catch (error) {
+        if (!cached) fail(error);
+      }
+    })();
     return () => { active = false; };
-  }, [fail, workspaceId]);
+  }, [fail, replicaScope, workspaceId]);
 
   useEffect(() => {
     if (!treeLoad) return;
@@ -124,107 +203,105 @@ function ServerDataBrowser({
 
   if (!treeLoad || !model) return null;
 
-  async function confirmed<TResult>(action: () => Promise<TResult>) {
-    try {
-      return await action();
-    } catch (error) {
-      if (error instanceof V2ApiError && error.response.error === "REVISION_CONFLICT") {
-        await reload();
-        return false;
-      }
-      fail(error);
-      return false;
-    }
-  }
-
   return (
     <TreeBrowser
       {...treeBrowserProps}
       key={serverStateFingerprint(treeLoad)}
-      componentName="DataBrowser"
+      componentName={componentName}
       model={model}
       initialSelectedPath={treeLoad.selection.selectedPath}
       onCreateNode={async (label, parentId, afterNodeId) => {
-        const result = await confirmed(() => v2Api.createDataNode(workspaceId, {
-          requestId: crypto.randomUUID(),
-          parentId,
-          afterNodeId,
-          kind: "data-file",
-          label,
-          expectedTreeRevision: treeRevision.current,
-        }));
-        if (result === false) return false;
-        treeRevision.current = result.treeRevision;
-        nodeRevisions.current.set(result.node.id, result.node.revision);
-        enabledRevisions.current[result.node.id] = 1;
-        return toCreatedTreeNode(result.node);
+        const nodeId = crypto.randomUUID();
+        const record = await submitCommand({
+          type: "create-node",
+          input: {
+            requestId: crypto.randomUUID(),
+            nodeId,
+            parentId,
+            afterNodeId,
+            kind: "data-file",
+            label,
+            expectedTreeRevision: treeRevision.current,
+          },
+        });
+        const node = record?.tree?.document.nodes.find(({ id }) => id === nodeId);
+        return node ? toCreatedTreeNode(node) : false;
       }}
       onRenameNode={async (nodeId, label) => {
-        const result = await confirmed(() => v2Api.renameDataNode(workspaceId, nodeId, {
-          label,
-          expectedRevision: nodeRevisions.current.get(nodeId) ?? 0,
+        return Boolean(await submitCommand({
+          type: "rename-node",
+          nodeId,
+          input: {
+            requestId: crypto.randomUUID(),
+            label,
+            expectedRevision: nodeRevisions.current.get(nodeId) ?? 0,
+          },
         }));
-        if (result === false) return false;
-        treeRevision.current = result.treeRevision;
-        nodeRevisions.current.set(nodeId, result.node.revision);
-        return true;
       }}
       onMoveNode={async (nodeId, afterNodeId) => {
-        const result = await confirmed(() => v2Api.moveDataNode(workspaceId, nodeId, {
-          afterNodeId,
-          expectedTreeRevision: treeRevision.current,
+        return Boolean(await submitCommand({
+          type: "move-node",
+          nodeId,
+          input: {
+            requestId: crypto.randomUUID(),
+            afterNodeId,
+            expectedTreeRevision: treeRevision.current,
+          },
         }));
-        if (result === false) return false;
-        treeRevision.current = result.treeRevision;
-        nodeRevisions.current.set(nodeId, result.node.revision);
-        return true;
       }}
       onReparentNode={async (nodeId, parentId) => {
-        const result = await confirmed(() => v2Api.reparentDataNode(workspaceId, nodeId, {
-          parentId,
-          expectedTreeRevision: treeRevision.current,
+        return Boolean(await submitCommand({
+          type: "reparent-node",
+          nodeId,
+          input: {
+            requestId: crypto.randomUUID(),
+            parentId,
+            expectedTreeRevision: treeRevision.current,
+          },
         }));
-        if (result === false) return false;
-        treeRevision.current = result.treeRevision;
-        nodeRevisions.current.set(nodeId, result.node.revision);
-        return true;
       }}
       onDeleteNode={async (nodeId) => {
-        const result = await confirmed(() => v2Api.deleteDataNode(workspaceId, nodeId, {
-          expectedTreeRevision: treeRevision.current,
+        return Boolean(await submitCommand({
+          type: "delete-node",
+          nodeId,
+          input: {
+            requestId: crypto.randomUUID(),
+            expectedTreeRevision: treeRevision.current,
+          },
         }));
-        if (result === false) return false;
-        treeRevision.current = result.revision;
-        nodeRevisions.current.delete(nodeId);
-        delete enabledRevisions.current[nodeId];
-        return true;
       }}
       onEnabledNode={async (nodeId, enabled) => {
-        const result = await confirmed(() => v2Api.setDataNodeEnabled(workspaceId, nodeId, {
-          enabled,
-          expectedRevision: enabledRevisions.current[nodeId] ?? 0,
+        return Boolean(await submitCommand({
+          type: "set-node-enabled",
+          nodeId,
+          input: {
+            requestId: crypto.randomUUID(),
+            enabled,
+            expectedRevision: enabledRevisions.current[nodeId] ?? 0,
+          },
         }));
-        if (result === false) return false;
-        enabledRevisions.current[nodeId] = result.revision;
-        return true;
       }}
       onSelectedPathChange={async (selectedPath) => {
-        const result = await confirmed(() => v2Api.setDataSelection(workspaceId, {
-          selectedPath,
-          expectedRevision: selectionRevision.current,
+        return Boolean(await submitCommand({
+          type: "set-selection",
+          input: {
+            requestId: crypto.randomUUID(),
+            selectedPath,
+            expectedRevision: selectionRevision.current,
+          },
         }));
-        if (result === false) return false;
-        selectionRevision.current = result.revision;
-        return true;
       }}
       renderContent={({ height, node, root }) => (
         <ServerDataContent
           {...inputControlProps}
+          contentEditorProps={contentEditorProps}
           height={height}
           nodeId={node.id}
           root={root}
           rootInputProps={treeBrowserProps.listControlProps?.inputProps}
+          parentInputProps={parentInputProps}
           workspaceId={workspaceId}
+          replicaScope={replicaScope}
           onSynchronizationError={fail}
         />
       )}
@@ -236,14 +313,20 @@ function ServerDataContent({
   nodeId,
   root,
   rootInputProps,
+  parentInputProps,
+  contentEditorProps,
   workspaceId,
+  replicaScope,
   onSynchronizationError,
   ...inputControlProps
 }: InputControlProps & {
+  contentEditorProps?: ContentEditorProps;
   nodeId: string;
   root?: TreeBrowserRootControl;
-  rootInputProps?: RootInputControlProps["inputProps"];
+  rootInputProps?: ParentInputProps["inputProps"];
+  parentInputProps?: DataBrowserProps["parentInputProps"];
   workspaceId: string;
+  replicaScope: WorkspaceReplicaScope;
   onSynchronizationError: (error: unknown) => void;
 }) {
   const [document, setDocument] = useState<TreeNodeContentDto | null>(null);
@@ -251,83 +334,106 @@ function ServerDataContent({
   const [rootDraft, setRootDraft] = useState({
     nodeId,
     currentId: root?.current.id,
-    currentLabel: root?.current.label,
-    value: root?.current.label ?? "",
+    currentPath: root?.current.path,
+    value: root?.current.path ?? "",
   });
   const rootValue = rootDraft.nodeId === nodeId
     && rootDraft.currentId === root?.current.id
-    && rootDraft.currentLabel === root?.current.label
+    && rootDraft.currentPath === root?.current.path
     ? rootDraft.value
-    : root?.current.label ?? "";
-  const rootTarget = root
-    ? resolveRootTarget(root.current, root.targets, rootValue)
-    : null;
-  const rootValid = !root || Boolean(rootTarget);
-
+    : root?.current.path ?? "";
   useEffect(() => {
     let active = true;
-    void v2Api.readDataContent(workspaceId, nodeId).then((value) => {
-      if (!active) return;
-      setDocument(value);
-      setDraft(value.content);
-    }).catch(onSynchronizationError);
+    void (async () => {
+      let cached: TreeNodeContentDto | null = null;
+      try {
+        cached = (await workspaceReplica.load(replicaScope))?.contents[nodeId] ?? null;
+        if (active && cached) {
+          setDocument(cached);
+          setDraft(cached.content);
+        }
+      } catch (error) {
+        reportWorkspaceReplicaError(error);
+        // Continue with the authoritative server read.
+      }
+
+      try {
+        const confirmed = await v2Api.readDataContent(workspaceId, nodeId);
+        if (active) {
+          setDocument(confirmed);
+          setDraft(confirmed.content);
+        }
+        persistWorkspaceReplica(workspaceReplica.putContent(replicaScope, confirmed));
+      } catch (error) {
+        if (!cached) onSynchronizationError(error);
+      }
+    })();
     return () => { active = false; };
-  }, [nodeId, onSynchronizationError, workspaceId]);
+  }, [nodeId, onSynchronizationError, replicaScope, workspaceId]);
 
   return (
     <div className={styles.content} style={{ height: inputControlProps.height }}>
       {root && (
-        <RootInputControl
+        <ParentInput
+          {...parentInputProps}
           current={root.current}
-          inputProps={rootInputProps}
+          inputProps={{
+            ...parentInputProps?.inputProps,
+            ...rootInputProps,
+          }}
           targets={root.targets}
           value={rootValue}
           onChange={(value) => setRootDraft({
             nodeId,
             currentId: root.current.id,
-            currentLabel: root.current.label,
+            currentPath: root.current.path,
             value,
           })}
+          onSetParent={async (target) => {
+            const confirmed = await root.onChange(target.id);
+            if (confirmed) {
+              setRootDraft({
+                nodeId,
+                currentId: target.id,
+                currentPath: target.path,
+                value: target.path,
+              });
+            }
+          }}
         />
       )}
-      <InputControl
+      <ContentEditor
         {...inputControlProps}
+        {...contentEditorProps}
         buttonProps={{
           ...inputControlProps.buttonProps,
-          disabled: inputControlProps.buttonProps?.disabled || !document || !rootValid,
+          ...contentEditorProps?.buttonProps,
+          disabled: inputControlProps.buttonProps?.disabled
+            || contentEditorProps?.buttonProps?.disabled
+            || !document,
         }}
         height={root ? "100%" : inputControlProps.height}
         value={draft}
         onChange={setDraft}
         onSend={async (content) => {
-          if (!document || !rootValid) return;
+          if (!document) return;
           try {
-            const confirmed = await v2Api.updateDataContent(workspaceId, nodeId, {
-              content,
-              expectedRevision: document.revision,
+            const record = await workspaceSyncEngine.submit(replicaScope, {
+              type: "update-content",
+              nodeId,
+              input: {
+                requestId: crypto.randomUUID(),
+                content,
+                expectedRevision: document.revision,
+              },
             });
-            setDocument(confirmed);
-            setDraft(confirmed.content);
-          } catch (error) {
-            if (error instanceof V2ApiError && error.response.error === "REVISION_CONFLICT") {
-              const current = await v2Api.readDataContent(workspaceId, nodeId);
+            const current = record.contents[nodeId];
+            if (current) {
               setDocument(current);
               setDraft(current.content);
-              return;
             }
+          } catch (error) {
             onSynchronizationError(error);
-            return;
-          }
-          if (root && rootTarget && rootTarget.id !== root.current.id) {
-            const confirmed = await root.onChange(rootTarget.id);
-            if (confirmed) {
-              setRootDraft({
-                nodeId,
-                currentId: rootTarget.id,
-                currentLabel: rootTarget.label,
-                value: rootTarget.label,
-              });
-            }
           }
         }}
       />
@@ -346,7 +452,7 @@ function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
 
   function build(parentId: string | null): TreeBrowserInitialNode[] {
     return (childrenByParent.get(parentId) ?? [])
-      .sort((left, right) => left.position - right.position)
+      .sort(compareDataNodes)
       .map((node) => ({
         id: node.id,
         kind: node.kind,
@@ -354,13 +460,28 @@ function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
         enabled: enabled.has(node.id),
         contentEditable: node.capabilities.contentEditable,
         contentVisible: false,
-        listEditable: node.capabilities.listEditable,
+        listEditable: node.kind === "system-directory" || node.kind === "trash-directory"
+          ? false
+          : node.capabilities.listEditable,
         listItemLimit: node.capabilities.listItemLimit ?? undefined,
         children: build(node.id),
       }));
   }
 
   return build(null);
+}
+
+function compareDataNodes(left: TreeNodeDto, right: TreeNodeDto) {
+  const rank = (node: TreeNodeDto) => node.parentId === null
+    ? node.kind === "system-directory"
+      ? 1
+      : node.kind === "trash-directory"
+        ? 2
+        : 0
+    : 0;
+  return rank(left) - rank(right)
+    || left.position - right.position
+    || left.id.localeCompare(right.id);
 }
 
 function toCreatedTreeNode(node: TreeNodeDto) {

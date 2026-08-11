@@ -1,9 +1,9 @@
 import {
-  ModuleButton,
-  type ModuleButtonProps,
-} from "../ModuleButton";
+  SymbolButton,
+  type SymbolButtonProps,
+} from "../SymbolButton";
 
-export type SideModuleButtonProps = Omit<ModuleButtonProps, "children">;
+export type SideModuleButtonProps = SymbolButtonProps;
 
 export function SideModuleButton({
   componentName = "SideModuleButton",
@@ -11,8 +11,6 @@ export function SideModuleButton({
   ...props
 }: SideModuleButtonProps) {
   return (
-    <ModuleButton {...props} componentName={componentName} symbol={symbol}>
-      {""}
-    </ModuleButton>
+    <SymbolButton {...props} componentName={componentName} symbol={symbol} />
   );
 }

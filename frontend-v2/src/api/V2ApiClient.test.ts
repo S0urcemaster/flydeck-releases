@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { V2ApiClient, V2ApiError } from "./V2ApiClient";
+import { WorkspaceSyncStatusStore } from "../replica";
 
 describe("V2ApiClient", () => {
   it("reads the compact server readiness status", async () => {
@@ -53,5 +54,30 @@ describe("V2ApiClient", () => {
     await expect(result).rejects.toMatchObject({
       response: { error: "REVISION_CONFLICT", currentRevision: 3 },
     });
+  });
+
+  it("marks the whole workspace offline when transport fails", async () => {
+    const syncStatus = new WorkspaceSyncStatusStore(false);
+    const client = new V2ApiClient(
+      "/flydeck/api/v2",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+      syncStatus,
+    );
+
+    await expect(client.readiness()).rejects.toThrow("Failed to fetch");
+    expect(syncStatus.getSnapshot()).toEqual({
+      state: "offline",
+      reason: "Failed to fetch",
+    });
+  });
+
+  it("blocks transport completely while offline test mode is enabled", async () => {
+    const syncStatus = new WorkspaceSyncStatusStore(false);
+    const fetcher = vi.fn();
+    const client = new V2ApiClient("/flydeck/api/v2", fetcher, syncStatus);
+    syncStatus.setForcedOffline(true);
+
+    await expect(client.readiness()).rejects.toThrow("Offline test mode");
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });

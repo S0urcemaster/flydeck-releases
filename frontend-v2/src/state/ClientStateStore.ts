@@ -1,6 +1,10 @@
 import {
+  createContext,
+  createElement,
   useCallback,
+  useContext,
   useSyncExternalStore,
+  type ReactNode,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -20,7 +24,7 @@ export type ClientStateSlice<T> = {
   migrateLegacy?: (value: unknown) => T | null;
 };
 
-type StorageLike = Pick<Storage, "getItem" | "setItem">;
+export type ClientStorage = Pick<Storage, "getItem" | "setItem">;
 
 type StoredSlice = {
   version: number;
@@ -33,6 +37,68 @@ export const defaultClientStateScope: ClientStateScope = {
   deviceId: "local",
 };
 
+const clientStateScopeContext = createContext(defaultClientStateScope);
+const clientDeviceIdKey = "flydeck:v2:client-device-id";
+const lastClientIdentityKey = "flydeck:v2:last-client-identity";
+
+export type ClientIdentity = Pick<ClientStateScope, "userId" | "workspaceId">;
+
+export function ClientStateScopeProvider({
+  children,
+  scope,
+}: {
+  children: ReactNode;
+  scope: ClientStateScope;
+}) {
+  return createElement(clientStateScopeContext.Provider, { value: scope }, children);
+}
+
+export function getClientDeviceId(
+  storage: ClientStorage | null = browserStorage(),
+  createId: () => string = createDeviceId,
+) {
+  if (!storage) return "ephemeral";
+  try {
+    const stored = storage.getItem(clientDeviceIdKey)?.trim();
+    if (stored) return stored;
+    const created = createId();
+    storage.setItem(clientDeviceIdKey, created);
+    return created;
+  } catch {
+    return "ephemeral";
+  }
+}
+
+export function getLastClientIdentity(
+  storage: ClientStorage | null = browserStorage(),
+): ClientIdentity | null {
+  if (!storage) return null;
+  try {
+    const parsed: unknown = JSON.parse(storage.getItem(lastClientIdentityKey) ?? "null");
+    if (!parsed || typeof parsed !== "object") return null;
+    const identity = parsed as Partial<ClientIdentity>;
+    return typeof identity.userId === "string" && identity.userId.length > 0
+      && typeof identity.workspaceId === "string" && identity.workspaceId.length > 0
+      ? { userId: identity.userId, workspaceId: identity.workspaceId }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLastClientIdentity(
+  identity: ClientIdentity,
+  storage: ClientStorage | null = browserStorage(),
+) {
+  if (!storage) return false;
+  try {
+    storage.setItem(lastClientIdentityKey, JSON.stringify(identity));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export class ClientStateStore {
   private readonly cache = new Map<string, unknown>();
   private readonly definitions = new Map<string, ClientStateSlice<unknown>>();
@@ -41,7 +107,7 @@ export class ClientStateStore {
   constructor(
     private readonly options: {
       namespace?: string;
-      storage?: () => StorageLike | null;
+      storage?: () => ClientStorage | null;
     } = {},
   ) {}
 
@@ -195,25 +261,31 @@ export const selectedLabComponentSlice: ClientStateSlice<string> = {
 
 export function useClientStateSlice<T>(
   slice: ClientStateSlice<T>,
-  scope: ClientStateScope = defaultClientStateScope,
+  scope?: ClientStateScope,
   store = clientStateStore,
 ): readonly [T, Dispatch<SetStateAction<T>>] {
+  const inheritedScope = useContext(clientStateScopeContext);
+  const resolvedScope = scope ?? inheritedScope;
   const subscribe = useCallback(
-    (listener: () => void) => store.subscribe(slice, listener, scope),
-    [scope, slice, store],
+    (listener: () => void) => store.subscribe(slice, listener, resolvedScope),
+    [resolvedScope, slice, store],
   );
   const getSnapshot = useCallback(
-    () => store.get(slice, scope),
-    [scope, slice, store],
+    () => store.get(slice, resolvedScope),
+    [resolvedScope, slice, store],
   );
   const value = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const setValue: Dispatch<SetStateAction<T>> = useCallback((next) => {
-    const current = store.get(slice, scope);
+    const current = store.get(slice, resolvedScope);
     store.set(slice, typeof next === "function"
       ? (next as (value: T) => T)(current)
-      : next, scope);
-  }, [scope, slice, store]);
+      : next, resolvedScope);
+  }, [resolvedScope, slice, store]);
   return [value, setValue] as const;
+}
+
+export function useClientStateScope() {
+  return useContext(clientStateScopeContext);
 }
 
 export function isStringRecord(value: unknown): value is Record<string, string> {
@@ -231,4 +303,19 @@ function isStoredSlice(value: unknown): value is StoredSlice {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<StoredSlice>;
   return Number.isInteger(candidate.version) && "value" in candidate;
+}
+
+function browserStorage(): ClientStorage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function createDeviceId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

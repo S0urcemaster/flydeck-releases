@@ -5,10 +5,8 @@ import { describe, expect, it } from "vitest";
 import { ModulePanel, modulePanelItems } from "./ModulePanel";
 
 const moduleButtonProps = {
-  AGNT: { activeColor: "COLOR_ACCENT_ONE", height: "32px", symbol: "●" },
-  DATA: { activeColor: "COLOR_ACCENT_ONE", height: "32px", symbol: "◆" },
-  FUNC: { activeColor: "COLOR_ACCENT_ONE", height: "32px", symbol: "⚙" },
-  CRON: { activeColor: "COLOR_ACCENT_ONE", height: "32px", symbol: "◷" },
+  activeColor: "COLOR_ACCENT_ONE",
+  height: "32px",
 };
 
 describe("ModulePanel", () => {

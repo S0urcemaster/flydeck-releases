@@ -6,7 +6,7 @@ import { ListControlButton } from "./ListControlButton";
 describe("ListControlButton", () => {
   it("derives from Button", () => {
     const markup = renderToStaticMarkup(
-      <ListControlButton width="52px">→</ListControlButton>,
+      <ListControlButton width="52px" symbol="→" />,
     );
 
     expect(markup).toContain('data-component-name="ListControlButton"');

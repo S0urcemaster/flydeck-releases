@@ -82,6 +82,7 @@ integration("PostgreSQL migrations", () => {
     const trees = new TreeService(database!);
     const first = await trees.createNode(workspaceId, userId, {
       requestId: "00000000-0000-4000-8000-000000000111",
+      nodeId: "00000000-0000-4000-8000-000000000211",
       parentId: null,
       afterNodeId: null,
       kind: "data-file",
@@ -90,6 +91,7 @@ integration("PostgreSQL migrations", () => {
     });
     const repeated = await trees.createNode(workspaceId, userId, {
       requestId: "00000000-0000-4000-8000-000000000111",
+      nodeId: "00000000-0000-4000-8000-000000000211",
       parentId: null,
       afterNodeId: null,
       kind: "data-file",
@@ -104,6 +106,7 @@ integration("PostgreSQL migrations", () => {
     });
     const second = await trees.createNode(workspaceId, userId, {
       requestId: "00000000-0000-4000-8000-000000000112",
+      nodeId: "00000000-0000-4000-8000-000000000212",
       parentId: null,
       afterNodeId: first.node.id,
       kind: "data-file",
@@ -118,9 +121,11 @@ integration("PostgreSQL migrations", () => {
     await trees.setEnabled(workspaceId, userId, first.node.id, false, 1);
     await trees.setEnabled(workspaceId, userId, second.node.id, false, 1);
     await trees.setSelection(workspaceId, userId, {
+      requestId: "00000000-0000-4000-8000-000000000114",
       selectedPath: [first.node.id], expectedRevision: 0,
     });
     await trees.setSelection(workspaceId, userId, {
+      requestId: "00000000-0000-4000-8000-000000000115",
       selectedPath: [second.node.id], expectedRevision: 1,
     });
     const loaded = await trees.load(workspaceId, userId, "data");

@@ -1,0 +1,15 @@
+.root {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.navigation {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.empty {
+  color: var(--color-error);
+}

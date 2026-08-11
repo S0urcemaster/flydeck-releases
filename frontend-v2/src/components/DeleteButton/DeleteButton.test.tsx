@@ -16,7 +16,8 @@ describe("DeleteButton", () => {
 
     expect(markup).toContain('data-component-name="DeleteButton"');
     expect(markup).toContain('aria-label="Arm delete for Rose"');
-    expect(markup).toContain(">×</button>");
+    expect(markup).toContain("<svg");
+    expect(markup.match(/data-component-name=/g)).toHaveLength(1);
   });
 
   it("can expose the same confirmation behavior for reset actions", () => {
@@ -28,5 +29,6 @@ describe("DeleteButton", () => {
 
     expect(markup).toContain('aria-label="Arm reset for Page color"');
     expect(markup).toContain(">RESET</button>");
+    expect(markup.match(/data-component-name=/g)).toHaveLength(1);
   });
 });

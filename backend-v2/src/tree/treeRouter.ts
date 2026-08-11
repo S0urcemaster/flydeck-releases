@@ -4,6 +4,7 @@ import {
   createTreeNodeResponseSchema,
   deleteTreeNodeRequestSchema,
   moveTreeNodeRequestSchema,
+  mutationRevisionDtoSchema,
   reparentTreeNodeRequestSchema,
   renameTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
@@ -52,51 +53,69 @@ export function createTreeRouter(sessions: SessionService, trees: TreeService) {
   });
 
   router.patch("/nodes/:nodeId", async (request, response) => {
-    const { workspaceId } = await requireWorkspaceAccess(
+    const { workspaceId, userId } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = renameTreeNodeRequestSchema.parse(request.body);
     response.json(createTreeNodeResponseSchema.parse(
-      await trees.renameNode(workspaceId, nodeId, input.label, input.expectedRevision),
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.rename",
+        createTreeNodeResponseSchema,
+        (transactionTrees) => transactionTrees.renameNode(
+          workspaceId, nodeId, input.label, input.expectedRevision,
+        ),
+      ),
     ));
   });
 
   router.post("/nodes/:nodeId/move", async (request, response) => {
-    const { workspaceId } = await requireWorkspaceAccess(
+    const { workspaceId, userId } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = moveTreeNodeRequestSchema.parse(request.body);
     response.json(createTreeNodeResponseSchema.parse(
-      await trees.moveNode(
-        workspaceId, nodeId, input.afterNodeId, input.expectedTreeRevision,
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.move",
+        createTreeNodeResponseSchema,
+        (transactionTrees) => transactionTrees.moveNode(
+          workspaceId, nodeId, input.afterNodeId, input.expectedTreeRevision,
+        ),
       ),
     ));
   });
 
   router.put("/nodes/:nodeId/parent", async (request, response) => {
-    const { workspaceId } = await requireWorkspaceAccess(
+    const { workspaceId, userId } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = reparentTreeNodeRequestSchema.parse(request.body);
     response.json(createTreeNodeResponseSchema.parse(
-      await trees.reparentNode(
-        workspaceId, nodeId, input.parentId, input.expectedTreeRevision,
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.reparent",
+        createTreeNodeResponseSchema,
+        (transactionTrees) => transactionTrees.reparentNode(
+          workspaceId, nodeId, input.parentId, input.expectedTreeRevision,
+        ),
       ),
     ));
   });
 
   router.delete("/nodes/:nodeId", async (request, response) => {
-    const { workspaceId } = await requireWorkspaceAccess(
+    const { workspaceId, userId } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = deleteTreeNodeRequestSchema.parse(request.body);
-    response.json(await trees.deleteNode(
-      workspaceId, nodeId, input.expectedTreeRevision,
-    ));
+    response.json(mutationRevisionDtoSchema.parse(await trees.executeIdempotent(
+      workspaceId, userId, input.requestId, "tree.delete",
+      mutationRevisionDtoSchema,
+      (transactionTrees) => transactionTrees.deleteNode(
+        workspaceId, nodeId, input.expectedTreeRevision,
+      ),
+    )));
   });
 
   router.put("/nodes/:nodeId/enabled", async (request, response) => {
@@ -106,8 +125,12 @@ export function createTreeRouter(sessions: SessionService, trees: TreeService) {
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = setTreeNodeEnabledRequestSchema.parse(request.body);
     response.json(setTreeNodeEnabledResponseSchema.parse(
-      await trees.setEnabled(
-        workspaceId, userId, nodeId, input.enabled, input.expectedRevision,
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.enabled",
+        setTreeNodeEnabledResponseSchema,
+        (transactionTrees) => transactionTrees.setEnabled(
+          workspaceId, userId, nodeId, input.enabled, input.expectedRevision,
+        ),
       ),
     ));
   });
@@ -118,19 +141,29 @@ export function createTreeRouter(sessions: SessionService, trees: TreeService) {
     );
     const input = setTreeSelectionRequestSchema.parse(request.body);
     response.json(treeSelectionDtoSchema.parse(
-      await trees.setSelection(workspaceId, userId, input),
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.selection",
+        treeSelectionDtoSchema,
+        (transactionTrees) => transactionTrees.setSelection(
+          workspaceId, userId, input,
+        ),
+      ),
     ));
   });
 
   router.put("/nodes/:nodeId/content", async (request, response) => {
-    const { workspaceId } = await requireWorkspaceAccess(
+    const { workspaceId, userId } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = updateTreeNodeContentRequestSchema.parse(request.body);
     response.json(treeNodeContentDtoSchema.parse(
-      await trees.updateContent(
-        workspaceId, nodeId, input.content, input.expectedRevision,
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.content",
+        treeNodeContentDtoSchema,
+        (transactionTrees) => transactionTrees.updateContent(
+          workspaceId, nodeId, input.content, input.expectedRevision,
+        ),
       ),
     ));
   });

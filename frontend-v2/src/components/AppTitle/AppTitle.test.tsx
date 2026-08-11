@@ -60,4 +60,14 @@ describe("AppTitle", () => {
       markup.indexOf(">?</button>"),
     );
   });
+
+  it("marks the complete Flydeck identity as offline", () => {
+    const markup = renderToStaticMarkup(
+      <AppTitle offline title="Flydeck" symbol="F" />,
+    );
+
+    expect(markup).toContain("data-offline=\"true\"");
+    expect(markup).toContain(">F</span>");
+    expect(markup).toContain(">Flydeck</span>");
+  });
 });

@@ -1,23 +1,19 @@
+import { Blocks, Bot, Clock3, Database } from "lucide-react";
+
 import { Base, type BaseStyleProps } from "../Base";
-import { AgentModuleButton } from "../AgentModuleButton";
-import { CronModuleButton } from "../CronModuleButton";
-import { DataModuleButton } from "../DataModuleButton";
-import { FuncModuleButton } from "../FuncModuleButton";
+import { ModuleButton, type ModuleButtonProps } from "../ModuleButton";
 import type { ModuleMenuItem } from "../ModuleMenu";
 import styles from "./ModulePanel.module.css";
 
 export const modulePanelItems = ["AGNT", "DATA", "FUNC", "CRON"] as const;
-export type ModulePanelButtonProps = BaseStyleProps & {
-  activeColor: string;
-  symbol: string;
-};
+export type ModulePanelButtonProps = Omit<
+  ModuleButtonProps,
+  "children" | "onClick" | "selected" | "symbol"
+>;
 
 export type ModulePanelProps = BaseStyleProps & {
   activeItem: ModuleMenuItem;
-  moduleButtonProps: Record<
-    typeof modulePanelItems[number],
-    ModulePanelButtonProps
-  >;
+  moduleButtonProps: ModulePanelButtonProps;
   onChange: (item: ModuleMenuItem) => void;
 };
 
@@ -47,26 +43,30 @@ export function ModulePanel({
       width={width}
       height={height}
     >
-      <AgentModuleButton
-        {...moduleButtonProps.AGNT}
+      <ModuleButton
+        {...moduleButtonProps}
+        symbol={<Bot size="1em" strokeWidth={1.8} />}
         selected={activeItem === "AGNT"}
         onClick={() => onChange("AGNT")}
-      />
-      <DataModuleButton
-        {...moduleButtonProps.DATA}
+      >AGNT</ModuleButton>
+      <ModuleButton
+        {...moduleButtonProps}
+        symbol={<Database size="1em" strokeWidth={1.8} />}
         selected={activeItem === "DATA"}
         onClick={() => onChange("DATA")}
-      />
-      <FuncModuleButton
-        {...moduleButtonProps.FUNC}
+      >DATA</ModuleButton>
+      <ModuleButton
+        {...moduleButtonProps}
+        symbol={<Blocks size="1em" strokeWidth={1.8} />}
         selected={activeItem === "FUNC"}
         onClick={() => onChange("FUNC")}
-      />
-      <CronModuleButton
-        {...moduleButtonProps.CRON}
+      >APPS</ModuleButton>
+      <ModuleButton
+        {...moduleButtonProps}
+        symbol={<Clock3 size="1em" strokeWidth={1.8} />}
         selected={activeItem === "CRON"}
         onClick={() => onChange("CRON")}
-      />
+      >CRON</ModuleButton>
     </Base>
   );
 }

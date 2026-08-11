@@ -1,0 +1,165 @@
+import { useEffect, useState } from "react";
+
+import { useClientStateSlice, type ClientStateSlice } from "../../state";
+import { Base, type BaseStyleProps } from "../Base";
+import {
+  ConfigModuleButton,
+  type ConfigModuleButtonProps,
+} from "../ConfigModuleButton";
+import { ConfigEditor, type ConfigEditorProps } from "./ConfigEditor";
+import styles from "./AppView.module.css";
+
+export type AppViewHeight = "S" | "M" | "L";
+export type AppAccessMode = "read" | "read-write";
+
+type PersistedAppView = {
+  dataSource: string;
+  height: AppViewHeight;
+};
+
+type PersistedAppViews = Record<string, PersistedAppView>;
+
+export type AppViewProps = BaseStyleProps & {
+  accessMode?: AppAccessMode;
+  children?: React.ReactNode;
+  componentName?: string;
+  configButtonProps?: Omit<ConfigModuleButtonProps, "symbol" | "onClick">;
+  configEditorProps?: Omit<
+    ConfigEditorProps,
+    | "appHeight"
+    | "dataSource"
+    | "dataSourceStatus"
+    | "onAppHeightChange"
+    | "onDataSourceChange"
+  >;
+  dataSource?: string;
+  defaultDataSource?: string;
+  onConfig?: () => void;
+  onDataSourceChange?: (dataSource: string) => void;
+  onDataSourceResolved?: (dataSource: string) => void;
+  title: string;
+  validateDataSource?: (dataSource: string) => Promise<boolean>;
+};
+
+export function AppView({
+  accessMode = "read",
+  children,
+  componentName = "AppView",
+  configButtonProps,
+  configEditorProps,
+  dataSource,
+  defaultDataSource,
+  onConfig,
+  onDataSourceChange,
+  onDataSourceResolved,
+  title,
+  validateDataSource,
+  ...baseProps
+}: AppViewProps) {
+  const [configurationVisible, setConfigurationVisible] = useState(false);
+  const [persistedAppViews, setPersistedAppViews] = useClientStateSlice(
+    appViewsSlice,
+  );
+  const persistedAppView = persistedAppViews[componentName];
+  const appHeight = persistedAppView?.height ?? "S";
+  const currentDataSource = dataSource
+    ?? persistedAppView?.dataSource
+    ?? defaultDataSource
+    ?? "";
+  const [dataSourceResult, setDataSourceResult] = useState<{
+    dataSource: string;
+    status: "valid" | "invalid";
+  } | null>(null);
+  const dataSourceStatus = dataSourceResult?.dataSource === currentDataSource
+    ? dataSourceResult.status
+    : null;
+
+  useEffect(() => {
+    onDataSourceResolved?.(currentDataSource);
+  }, [currentDataSource, onDataSourceResolved]);
+
+  useEffect(() => {
+    if (!validateDataSource) return;
+    let active = true;
+    void validateDataSource(currentDataSource).then((valid) => {
+      if (active) setDataSourceResult({
+        dataSource: currentDataSource,
+        status: valid ? "valid" : "invalid",
+      });
+    }).catch(() => {
+      if (active) setDataSourceResult({
+        dataSource: currentDataSource,
+        status: "invalid",
+      });
+    });
+    return () => { active = false; };
+  }, [currentDataSource, validateDataSource]);
+
+  return (
+    <Base
+      {...baseProps}
+      className={styles.root}
+      componentName={componentName}
+      data-access-mode={accessMode}
+      data-app-height={appHeight}
+    >
+      <div className={styles.titleBar}>
+        <div className={styles.title} data-access-mode={accessMode}>{title}</div>
+        <ConfigModuleButton
+          {...configButtonProps}
+          aria-label={`Configure ${title}`}
+          selected={configurationVisible}
+          symbol=""
+          onClick={() => {
+            setConfigurationVisible((current) => !current);
+            onConfig?.();
+          }}
+        />
+      </div>
+      <div className={styles.content}>
+        {configurationVisible ? (
+          <ConfigEditor
+            {...configEditorProps}
+            appHeight={appHeight}
+            dataSource={currentDataSource}
+            dataSourceStatus={dataSourceStatus}
+            onDataSourceChange={(nextDataSource) => {
+              setPersistedAppViews((current) => ({
+                ...current,
+                [componentName]: {
+                  dataSource: nextDataSource,
+                  height: current[componentName]?.height ?? appHeight,
+                },
+              }));
+              onDataSourceChange?.(nextDataSource);
+            }}
+            onAppHeightChange={(height) => setPersistedAppViews((current) => ({
+              ...current,
+              [componentName]: {
+                dataSource: current[componentName]?.dataSource ?? currentDataSource,
+                height,
+              },
+            }))}
+          />
+        ) : children}
+      </div>
+    </Base>
+  );
+}
+
+const appViewsSlice: ClientStateSlice<PersistedAppViews> = {
+  name: "appViews.settings",
+  version: 1,
+  defaultValue: {},
+  validate: (value): value is PersistedAppViews => (
+    Boolean(value && typeof value === "object" && !Array.isArray(value))
+    && Object.values(value as Record<string, unknown>).every((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+      const candidate = entry as Partial<PersistedAppView>;
+      return typeof candidate.dataSource === "string"
+        && (candidate.height === "S"
+          || candidate.height === "M"
+          || candidate.height === "L");
+    })
+  ),
+};

@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { LongPressButton, resolveLongPressTimeout } from "./LongPressButton";
+import {
+  LongPressButton,
+  resolveLongPressTimeout,
+} from "./LongPressButton";
 
 describe("LongPressButton", () => {
   it("renders a dedicated reusable button", () => {

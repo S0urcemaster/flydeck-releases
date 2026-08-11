@@ -4,8 +4,16 @@ import { describe, expect, it } from "vitest";
 import { Button, ButtonConfigurationProvider } from "./Button";
 
 describe("Button", () => {
-  it("owns its standard visual defaults", () => {
-    const markup = renderToStaticMarkup(<Button>Default</Button>);
+  it("renders the explicit persisted visual contract", () => {
+    const markup = renderToStaticMarkup(
+      <Button
+        color="COLOR_TEXT"
+        background="COLOR_SURFACE"
+        border="BORDER_STANDARD"
+      >
+        Default
+      </Button>,
+    );
 
     expect(markup).toContain("color:var(--color-text)");
     expect(markup).toContain("background:var(--color-surface)");
@@ -21,6 +29,21 @@ describe("Button", () => {
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain('data-size="compact"');
     expect(markup).toContain("color:var(--color-surface)");
+  });
+
+  it("allows a composed button to confirm by forcing inactive appearance", () => {
+    const markup = renderToStaticMarkup(
+      <Button
+        background="COLOR_SURFACE"
+        pressed={false}
+        selected
+      >
+        Confirmed
+      </Button>,
+    );
+
+    expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toContain("background:var(--color-surface)");
   });
 
   it("inherits active color from its composition root", () => {

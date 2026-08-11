@@ -1,10 +1,17 @@
 export {
   ClientStateStore,
+  ClientStateScopeProvider,
   clientStateStore,
   defaultClientStateScope,
+  getClientDeviceId,
+  getLastClientIdentity,
   isStringRecord,
   selectedLabComponentSlice,
+  setLastClientIdentity,
+  useClientStateScope,
   useClientStateSlice,
   type ClientStateScope,
   type ClientStateSlice,
+  type ClientStorage,
+  type ClientIdentity,
 } from "./ClientStateStore";

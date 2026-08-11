@@ -61,9 +61,11 @@ DialSurface
 
 `DialSurface` converts pointer input into a normalized angle and phase.
 `Dialer` owns inner/outer dial state, corner buttons, the center button, and
-value selection. The specialized dialers supply scales, snapping, labels, and
-value conversion. The current `CronDialer` is still a visual/interaction
-prototype; it does not yet create timers.
+value selection. `ColorDialer` supplies its own scales and value conversion.
+`CronDialer` currently prototypes a fixed logarithmic inner zoom scale and a
+dynamically divided outer time scale that maintains similar mark density
+around its independent value pointer. Its four corner labels and center
+duration/date-time conversion remain. It does not yet create timers.
 
 ### TreeBrowser
 
@@ -95,7 +97,7 @@ migration protocol beyond the single model version.
 | AGNT | CHAT placeholder; MEMO shows a locally persisted plant fixture | Chat API, conversations, prompt drafts, agent state, real memo tree and content |
 | DATA | Generic tree with dummy categories and local UI state | Server projection, records/content, revisions, CRUD error/loading states |
 | FUNC | Tree-backed DeviceInfo, Compass, and ShoppingList prototypes | Server catalog, persisted user functions/content, execution contract |
-| CRON | Generic dial basis, CronDialer, and ColorDialer prototypes | Title/editor, date/duration model, timer API, timer list, notifications |
+| CRON | Generic dial basis and logarithmic CronDialer interaction prototype | Title/editor, production date/duration model, timer API, timer list, notifications |
 | HELP | Bundled manual | Versioned help content if server-controlled help is later required |
 | CONFIG | Connected empty module | Typed runtime settings projected through TreeBrowser |
 
@@ -170,9 +172,8 @@ Editor
 ├── Textarea
 ├── EditorActions
 ├── CursorControls
-└── KeyboardHost
-    ├── PhoneKeyboard
-    ├── MediKeyboard
+└── Keyboard
+    ├── Button keys
     └── CharacterDialer -> Dialer -> DialSurface
 ```
 
@@ -205,9 +206,34 @@ It needs:
 - explicit cleanup on logout and account switching.
 
 Keep small preferences, navigation state, and unsent drafts in localStorage as
-requested. Do not store session tokens there. Large histories, binary data, or
-an offline mirror belong in IndexedDB if they are added later; the public store
-contract should allow that backend without changing components.
+requested. Do not store session tokens there. Canonical DATA does not become a
+larger `ClientStateStore` slice: it belongs to a separate `WorkspaceReplica`
+with an asynchronous IndexedDB adapter, transactional outbox, and global sync
+status. APPS read projections and issue commands through that replica instead
+of owning caches or server requests. Binary data belongs to a separate blob
+store referenced by DATA records.
+
+Status: authenticated user/workspace/device scoping and the transactional
+`WorkspaceReplicaStorage` contract with a test memory adapter were implemented
+on 2026-08-11. The production IndexedDB adapter is implemented as the first
+durable backend. DataBrowser now performs cache-first tree/content hydration,
+and transport availability is global: offline state uses a blue Flydeck
+wordmark/logo plus the `Offline` title message without changing the title
+background. Inventory now reads the same cache-first projection and feeds
+confirmed mutations back into it. All DATA mutations now have request IDs and
+an atomic backend idempotency boundary, while create uses a client-assigned
+node ID. The replica persists and deduplicates typed outbox entries; dispatch,
+optimistic projection, and automatic replay are implemented for Inventory.
+The sync engine serializes replay per user/workspace and retries registered
+scopes when connectivity returns. DataBrowser now uses the same command path
+for every tree, semantic, selection, and content mutation, completing the
+offline DATA writer migration.
+
+The title actions include a deliberate Offline test toggle before Help. It
+uses the same global transport boundary as real connection failures rather
+than faking component state. Its off state shows `WifiOff`; its on state shows
+the aggregated pending Outbox transaction count. Turning it off triggers
+registered-scope replay immediately.
 
 Recommended ownership:
 
@@ -539,7 +565,7 @@ device, concurrent edits, backend restart, and restore from backup.
 
 ### Phase 4 — editor keyboards, MEMO, and chat
 
-- Migrate Editor, PhoneKeyboard, MediKeyboard, and CharacterDialer behavior.
+- Migrate Editor, Keyboard, and CharacterDialer behavior.
 - Implement real MEMO nodes/content and per-user enabled context.
 - Port chat conversations, messages, runs, idempotent send, SSE updates,
   cancellation, restart recovery, and model/effort settings to PostgreSQL.

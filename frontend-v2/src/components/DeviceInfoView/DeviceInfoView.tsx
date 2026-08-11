@@ -1,8 +1,8 @@
 import { DeviceInfo, type DeviceInfoProps } from "../DeviceInfo";
-import { FunctionView, type FunctionViewProps } from "../FunctionView";
+import { AppView, type AppViewProps } from "../AppView";
 
 export type DeviceInfoViewProps = Omit<
-  FunctionViewProps,
+  AppViewProps,
   "children" | "componentName" | "title"
 > & {
   deviceInfoProps?: DeviceInfoProps;
@@ -10,15 +10,15 @@ export type DeviceInfoViewProps = Omit<
 
 export function DeviceInfoView({
   deviceInfoProps,
-  ...functionViewProps
+  ...appViewProps
 }: DeviceInfoViewProps) {
   return (
-    <FunctionView
-      {...functionViewProps}
+    <AppView
+      {...appViewProps}
       componentName="DeviceInfoView"
       title="DEVICEINFO"
     >
       <DeviceInfo {...deviceInfoProps} showRefreshButton={false} />
-    </FunctionView>
+    </AppView>
   );
 }

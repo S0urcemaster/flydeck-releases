@@ -1,0 +1,27 @@
+.root {
+  display: grid;
+  grid-template-rows: max-content minmax(0, 1fr);
+  gap: var(--space-xs);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.placeholder {
+  min-height: 0;
+}
+
+.success {
+  color: var(--color-success);
+}
+
+.error {
+  color: var(--color-error);
+}
+
+.setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-xs);
+  align-items: center;
+}

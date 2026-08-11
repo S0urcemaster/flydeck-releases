@@ -1,3 +1,5 @@
+import { CircleHelp } from "lucide-react";
+
 import {
   SideModuleButton,
   type SideModuleButtonProps,
@@ -10,11 +12,12 @@ export function HelpModuleButton({
   componentName = "HelpModuleButton",
   ...props
 }: HelpModuleButtonProps) {
+  void symbol;
   return (
     <SideModuleButton
       {...props}
       componentName={componentName}
-      symbol={symbol}
+      symbol={<CircleHelp size="1em" strokeWidth={1.8} />}
     />
   );
 }

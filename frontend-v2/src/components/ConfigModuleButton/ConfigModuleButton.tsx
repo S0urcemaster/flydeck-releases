@@ -1,3 +1,5 @@
+import { Settings } from "lucide-react";
+
 import {
   SideModuleButton,
   type SideModuleButtonProps,
@@ -10,11 +12,12 @@ export function ConfigModuleButton({
   componentName = "ConfigModuleButton",
   ...props
 }: ConfigModuleButtonProps) {
+  void symbol;
   return (
     <SideModuleButton
       {...props}
       componentName={componentName}
-      symbol={symbol}
+      symbol={<Settings size="1em" strokeWidth={1.8} />}
     />
   );
 }

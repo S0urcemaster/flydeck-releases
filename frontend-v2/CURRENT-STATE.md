@@ -6,31 +6,41 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 
 ## Implemented application surface
 
-- `BlockingDialog` is the reusable modal interaction boundary.
-  `SynchronizationDialog` explains which server operation is still pending and
-  why, and permits an explicit continuation with the last confirmed server
-  state. `LoginDialog` is non-dismissible and performs password login. All
-  three are independently catalogued. While a dialog blocks, `AppShell` is
-  inert and hidden from the accessibility tree.
-- Application startup reads `/auth/session`. A response taking longer than
-  three seconds opens `SynchronizationDialog`; continuing does not promote any
-  unconfirmed client mutation to authoritative state. `LOGIN_REQUIRED=false`
+- `BlockingDialog` remains the reusable modal interaction boundary for initial
+  session loading and login. Synchronization failures no longer open a modal or
+  make `AppShell` inert; they remain visible in the noninteractive
+  `AppStatusLine` while the cached application state stays usable.
+- Application startup reads `/auth/session`. After one second it releases the
+  initial loading gate even without a server response and continues with the
+  cached identity or anonymous/default replica scope. `LOGIN_REQUIRED=false`
   enters through the configured local server identity; required login opens
   `LoginDialog`.
+- The last confirmed user/workspace IDs (never the session token) locate the
+  matching local replica during an offline start. Transport failures publish
+  one global workspace sync status: `AppTitle` colors only its Flydeck wordmark
+  and logo with the blue primary accent and its status line reads `Offline`;
+  the title background is unchanged. A later successful API response clears
+  offline state.
+- `ModuleMenuActions` places an Offline test toggle immediately left of Help.
+  In its normal state it renders the `WifiOff` symbol. While enabled it replaces
+  that symbol with the global number of pending Outbox transactions, blocks
+  every V2 API request before transport, and therefore exercises the real
+  cache/optimistic/outbox path. Disabling it releases transport and immediately
+  retries every registered workspace scope.
 - `DeleteButton` now acquires an immediate in-flight guard before invoking an
   asynchronous delete. It remains disabled until that promise settles. This
-  local destructive-action lock is independent from dismissing a global
-  synchronization dialog.
+  local destructive-action lock is independent from global synchronization
+  status.
 
 - `App` composes `AppShell`, `AppTitle`, `ModulePanel`, and the active module.
 - `Button` is the shared selected/disabled button control. `ModulePanel` and the
   AppShell viewport simulation compose it instead of styling raw buttons.
-- `ModuleButton` composes `Button` and keeps the standard 44px control height.
-  `AgentModuleButton`, `DataModuleButton`, `FuncModuleButton`, and
-  `CronModuleButton` each compose it, own their label, and require their
-  persisted editable character prop without an icon-library dependency.
-- The module-button lab editors display the composition chain explicitly:
-  concrete button → `ModuleButton.symbol` → `Button.activeColor` → `Base`.
+- `ModuleButton` composes `PressButton` and is parameterized by label and
+  symbol. `ModulePanel` renders AGNT, DATA, APPS, and CRON directly as four
+  instances of that one component; the former empty wrapper components and
+  their duplicate persisted contracts have been removed.
+- The ModuleButton lab editor displays its composition chain explicitly:
+  `ModuleButton.symbol` → `PressButton` → `Button.activeColor` → `Base`.
 - `Button.activeColor` owns its selected-state accent. Module buttons use the
   blue `ACCENT_ONE`; green `ACCENT_TWO` is reserved for a subordinate control
   level rather than alternating within the module level.
@@ -54,9 +64,24 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - Concrete module properties resolve `inherit` against the configured
   `Module.base`, so border, background, spacing, and color form one shared
   module body unless a concrete module overrides them.
-- `CronModule` is an interaction prototype that composes the shared `Dialer`
-  through `CronDialer` and `ColorDialer`; it does not yet own timer creation or
-  a timer list. `SettingsModule` remains an empty migration target. `AgentModule`
+- `CronModule` composes the shared `Dialer` through `CronDialer`. The current
+  interaction prototype gives the fixed inner ring a continuous logarithmic
+  `1h`–`5y` zoom scale with a five-degree north dead zone. The outer ring uses
+  a dynamically rebuilt time scale with roughly twelve suitable marks
+  (five-minute marks at the `1h` zoom) around the independently positioned
+  outer value pointer; zooming does not change the selected time. Labels fade
+  only at north, never at the value pointer. Selecting a time stores the outer
+  pointer angle and current range as its zoom anchor. Zooming out moves the
+  pointer toward north; zooming back in returns it to that stored angle. Any
+  further zoom toward the `1h` maximum keeps the pointer fixed and expands the
+  scale around it. Time values and marks follow the remembered clockwise or
+  counterclockwise side, keeping zero at north on either half. Both duration
+  and target date use the center format `yyy.mm.dd hh:mm`. Its
+  scale, pointer, font-size, and separate ring-background properties remain in
+  the typed lab contract. The four corner labels and center duration/date-time
+  conversion remain; the module does not yet own
+  timer creation or a timer list. `SettingsModule` remains an empty migration
+  target. `AgentModule`
   owns subordinate `CHAT` and `MEMO` navigation; `MEMO` presents the recursive
   `TreeBrowser` with a locally persisted plant fixture.
   `HelpModule` renders `src/assets/manual.md`.
@@ -102,8 +127,52 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - `ClientStateStore` is the single browser-storage boundary. It owns versioned,
   validated slices under a user/workspace/device namespace, same-tab
   subscriptions, cross-tab storage events, and non-destructive migration from
-  the previous `flydeck.tree.*` keys. No other production source accesses
+  the previous `flydeck.tree.*` keys. `App` now supplies the authenticated user
+  and workspace plus one persistent browser-device ID through
+  `ClientStateScopeProvider`; descendant slices no longer collapse into the
+  previous anonymous/default scope. No other production source accesses
   `localStorage` directly.
+- Canonical DATA is being separated from that UI/preference store. The first
+  `WorkspaceReplicaStorage` contract defines user/workspace isolation,
+  revisioned tree/content records, a typed mutation outbox, sync status, and
+  atomic transactions. Its tested memory adapter is the deterministic test
+  boundary; the production IndexedDB adapter stores each replica in a single
+  read/write transaction. DataBrowser now hydrates its tree and node content
+  cache-first from that replica and refreshes each from confirmed server data.
+  Inventory uses the same cached tree/content projection, refreshes it from the
+  server, and writes confirmed create, rename, reparent, and content results
+  back through the replica. A local cache failure is reported globally without
+  turning an already confirmed server mutation into a failed mutation.
+  Offline mutation queuing remains the next step.
+- Every shared DATA mutation contract now carries a UUID request ID, including
+  create, rename, move, reparent, delete, enabled state, selection, and content.
+  Create additionally carries its client-assigned node UUID so an offline item
+  has one stable identity before server contact. Backend tree routes execute
+  each non-create command through a transaction-scoped idempotency boundary;
+  mutation and recorded response commit atomically, repeated IDs replay the
+  original response, and cross-operation ID reuse is rejected. Create retains
+  its existing stored-response path and now serializes concurrent repeats with
+  the same advisory lock. `WorkspaceReplica` can durably enqueue, deduplicate,
+  count attempts, and acknowledge typed commands.
+- `WorkspaceSyncEngine` now owns serialized per-workspace replay, dispatches
+  every typed DATA command through `V2ApiClient`, retains failed entries,
+  records attempts, acknowledges confirmed responses, and refreshes the tree
+  after a drained queue. App startup registers the last confirmed workspace;
+  browser `online` events retry every registered scope. Inventory is the first
+  complete optimistic writer: New, Name, Desc, and Parent update DATA plus
+  outbox in one IndexedDB transaction, immediately re-project from the replica,
+  and use the same path whether online or offline.
+- `WorkspaceSyncEngine.submit` returns the durable optimistic replica record
+  immediately after that single local transaction. Server dispatch, outbox
+  acknowledgement, and the final confirmed-tree refresh continue in the
+  background, so DATA selection and editing no longer wait for network replay.
+  DataBrowser consumes that returned record directly instead of re-reading the
+  replica and replacing/remounting its complete tree after every action.
+- DataBrowser now also issues create, rename, move, reparent, delete, enabled,
+  selection, and content commands exclusively through `WorkspaceSyncEngine`.
+  Its local TreeBrowser model receives the same optimistic replica result that
+  will later be replayed; there is no longer a direct-write exception between
+  Inventory and the general DATA editor.
 - MEMO, DATA, and FUNC `InputControl` instances are controlled and persist
   node-scoped drafts through that store. `InputControl` retains an uncontrolled
   mode only for isolated examples.
@@ -192,6 +261,116 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 
 ## Development lab
 
+- `src/config/componentManifest.ts` is now the authoritative inventory and
+  single-parent inheritance graph for all 72 production component TSX files.
+  The application catalog, composition depth colors, and component-family
+  lists derive from that manifest. Architecture tests compare the manifest to
+  the complete `components` and `modules` source tree, reject missing parents
+  and cycles, and require every component to terminate at `Base`.
+- The catalog now includes isolated previews for `AppView`, `CompassApp`,
+  `ConfigEditor`, `ContentEditor`, `DataSourceInput`, `DataTree`,
+  `DeviceInfoView`, `DialSurface`, `Dialer`, `InventoryApp`, `PressButton`,
+  `ParentInput`, `RootInputControl`, and `ShoppingListView`. Every selected application
+  component displays its manifest-derived complete inheritance chain.
+- Composition depth is no longer capped at two; depths three and four expose
+  the actual `PressButton` and side-module chains. `ConfigEditor` now composes
+  `Base` and exposes `BaseStyleProps` instead of using a raw root `div`.
+- `PressButton` is a persisted intermediate component contract. `ModuleButton`,
+  `SubmoduleButton`, `CycleButton`, and
+  `ListControlListSizeButton` resolve their Base properties through it.
+  `AppStatusLine` is a noninteractive `Base` output and cannot open or focus a
+  status dialog.
+  `ListControlListSizeButton` now derives from and renders `PressButton`, owns
+  its `BUTTON_WIDTH`, and no longer advertises the unrelated
+  `ListControlButton` contract. `DeleteButton` has one stable `Button` parent
+  for both icon and text content instead of changing its runtime ancestry.
+- The primary AGNT, DATA, APPS, and CRON ModuleButtons retain their text labels
+  but hide their decorative symbols at viewport widths up to 620px.
+- The manifest test loads every component source and verifies that its JSX
+  renders the exact direct parent declared by its public component contract.
+  `Keyboard` no longer reaches into descendant buttons with a CSS selector or
+  privately overrides their persisted height and padding.
+- `AppView` and its `CompassApp`, `DeviceInfoView`, `InventoryApp`, and
+  `ShoppingListView` specializations now have persisted Base contracts that
+  resolve through the declared `AppView` parent. `ConfigEditor` has its own
+  persisted Base contract. `AppView` also owns the semantic `read` versus
+  `read-write` contract: read-only app titles use the green secondary accent,
+  while writers use the blue active accent. Their nested Button, Input, Textarea,
+  DataSourceInput, CycleButton, and DeviceInfo dependencies receive explicit
+  component props from `App`; the views no longer hide visual defaults or
+  reach around the component-property chain.
+- The tree/input graph now persists and resolves every declared specialization:
+  `DataTree → DataBrowser → TreeBrowser`, `MemoryBrowser → TreeBrowser`,
+  `ContentEditor → InputControl`, and
+  `ParentInput/DataSourceInput → RootInputControl → Base`. `DataTree` retains its own
+  component identity through the complete runtime chain. App and the lab pass
+  the derived Base values and nested control props explicitly; editable Base
+  and font values are no longer duplicated as TSX defaults in TreeBrowser,
+  BrowserItem, ListControl, Input, Textarea, Keyboard, InputControl, or
+  RootInputControl. DATA and Inventory now share `ParentInput` for validated
+  parent paths and the `Set Parent` action. An architecture test protects this
+  boundary.
+- The final component audit covers all 72 manifest entries. Every component
+  except the foundational `Base` now owns a persisted Base contract.
+  `DialSurface → Base`, `Dialer → Base`, and both
+  `ColorDialer/CronDialer → Dialer` are represented in generated properties,
+  runtime resolution, and the lab; Dialer receives its DialSurface properties
+  through an explicit child contract. No derived component keeps editable
+  color, background, border, spacing, dimensions, or typography as a TSX
+  parameter default. Manifest and property tests enforce both invariants.
+- `Block → Base` is the explicit app-row layout primitive and always occupies
+  the complete app width. `Form` composes `Base<form>` and supplies one
+  persisted `actionWidth` to all nested `FormRow` actions. `FormRow` composes
+  `Block` plus the shared `Button`;
+  its idle right-hand button shows only the value label. Focusing a row changes
+  that action to `Save`; a row with an `onNew` contract adds `New` below it.
+  The previous input-aid component has been fully renamed to `Keyboard`.
+  `InputControl` is now the common keyboard-backed wrapper for an `Input` or a
+  `Textarea`. In the APPS TreeBrowser it keeps Keyboard visible for the complete
+  input focus, spans Keyboard across the complete `ListControl`, and places
+  `NEW`/`SAVE` or `SEND` in Keyboard's own action row below the tool keys.
+  Keyboard initially suppresses the native mobile keyboard through
+  `inputMode="none"`; its smartphone-keyboard button only releases and focuses
+  the native device keyboard and never toggles the Flydeck Keyboard. The
+  31 stable logical placeholder keys are owned directly by `Keyboard` and are
+  always visible with it; key 30 is the space key and renders as three equal
+  button segments. Keyboard rows, toolbar buttons, and action buttons have no
+  inter-button gap. They are not toggled by the native smartphone-keyboard
+  button. Keys 1–19 and 21–27 now enter the 26-character QWERTZ sequence;
+  short Shift presses cycle lowercase, uppercase, and the complete requested
+  symbol layout, while an unlocked alternate layout returns to lowercase after
+  one character. `ShiftButton → LongPressButton → Button` owns key 20 and a
+  long press locks uppercase or the currently selected symbol layout until the
+  next Shift press; its uppercase state uses the distinct `ArrowBigUpDash`
+  symbol only after the already-active Shift button is pressed again for the
+  symbol layout. Key 28 performs exactly one Backspace action per press. Key 29
+  is the parent emoji-mode Shift control: it replaces all 26 character keys
+  with emoji while leaving comma, space, and period unchanged; key 20 then
+  cycles through two additional emoji layouts. Key 29 uses the first smiling
+  emoji (`😀`) as its visible label; in emoji mode key 20 displays the first
+  emoji of whichever emoji layout is currently active. The three segments of key 30
+  insert comma, space, and period respectively;
+  all Keyboard button symbols are optically lowered by three pixels. Inventory form
+  rows still use their existing action placement until the announced Form and
+  FormRow migration.
+  InventoryApp uses rows for Name,
+  Desc, and Parent. Name and description are local drafts and change the item
+  only through Save; the focused Name row can create a sibling item from the
+  drafts. Parent remains the sole branch-reparenting control. Both components
+  are independently catalogued and editable. Inventory is a `read-write` app:
+  Name, Desc, Parent, and New persist through the V2 tree APIs and carry the
+  server's node, content, and tree revisions forward; failed mutations reload
+  authoritative server state.
+- `Breadcrumb` renders the complete clickable Inventory parent chain and
+  `ItemList` renders the current sibling level with its selected item. Both
+  compose the shared `CompactButton → Button → Base` specialization. Its
+  smaller typography, height, and padding are persisted properties; the two
+  containers own a zero-gap wrapping layout. Inventory derives `hasChildren`
+  for every item in both horizontal lists through one status function;
+  `CompactButton` renders branch items with a thicker border and leaf items
+  with the configured standard border. An empty parent chain remains visible
+  as a disabled `root` CompactButton with a dashed border. Inventory no longer
+  renders the previous green path/status string.
 - `AppShell` composes a reusable `BackgroundLogo` behind its transparent
   module/browser layers. Its Unicode symbol, responsive font-size factor,
   opacity, and Base properties are independently editable in the alphabetic
@@ -249,6 +428,39 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   and the lab props text.
 - Textarea edits update the preview. `APPLY` validates and persists them for
   the application.
+- Opening the custom `Keyboard` preserves the focused `Input`, `Textarea`, or
+  `InputControl` height and expands its surrounding app content by the
+  keyboard height. `DataBrowser` content and fixed-height `AppView` surfaces
+  release their height caps while a keyboard is visible, so the keyboard does
+  not compress the text-entry area.
+- Text content uses a `Save` action. DATA parent editing places `Set Parent`
+  below the keyboard; Inventory places `Save`/`New` for Name and `Save` for
+  Desc below the keyboard and uses the same shared `ParentInput` action row.
+- `Keyboard` has one target-independent toolbar contract: its time/date button
+  is always present for both `Input` and `Textarea`; no caller-specific flag
+  controls that toolbar composition.
+- Keyboard row two widens its `A` and `L` edge keys to the full keyboard
+  bounds. Backspace composes the dedicated `BackspaceButton → PressButton`
+  contract: it deletes once on press and repeats after a short hold delay until
+  release or cancellation.
+- `LongPressButton` uses Button's controlled pressed appearance to drop back
+  to its inactive colors as soon as the second/hold action fires. The short
+  action remains suppressed until release, and selected semantics remain
+  exposed through `aria-pressed` while the visual confirmation is inactive.
+- `CycleButton` remains the controlled selector used by both `S M L` controls:
+  Keyboard font size and ConfigEditor app height. In the symbol layout, the
+  former `X`/`$` key instead composes `DialButton → PressButton`: its static
+  label starts with `€` and a small `$`; the first press inserts `€`, rapid
+  subsequent presses replace that same character with `$`, then `€`, while a
+  press after the 800ms dial timeout starts a new character.
+- The comma key is a DialButton with `, " '` and the period key is a DialButton
+  with `. : ;`. In the symbol layout, the bracket keys are DialButtons with
+  `( <` and `) >`. The now-duplicate quote/colon/semicolon symbol positions are
+  non-writing placeholders labeled with their key numbers `23`–`26` pending a
+  final assignment.
+- Uppercase remains a one-shot Shift state, while the second Shift state
+  (symbols) remains active after character input and Currency-cycle presses
+  until Shift is pressed again.
 - The properties textarea uses a larger monospaced font for comfortable
   editing. The lab has no clipboard/JSX generation action.
 - `CommentHighlightedTextarea` provides the shared passive grey background for

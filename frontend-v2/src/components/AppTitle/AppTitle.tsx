@@ -8,6 +8,7 @@ export type AppTitleProps = BaseStyleProps & {
   subtitle?: string;
   status?: ReactNode;
   action?: ReactNode;
+  offline?: boolean;
   fontSize?: number;
   titleTop?: number;
   titleLeft?: number;
@@ -41,6 +42,7 @@ export function AppTitle({
   subtitle,
   status,
   action,
+  offline = false,
   fontSize,
   titleTop,
   titleLeft,
@@ -87,6 +89,7 @@ export function AppTitle({
       width={width}
       height={height}
       style={style}
+      data-offline={offline || undefined}
     >
       <div className={styles.identity}>
         <h1 className={styles.title}>

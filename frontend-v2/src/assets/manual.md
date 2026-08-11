@@ -2,6 +2,7 @@
 
 Welcome to Flydeck V2 by Digi Craft
 Created by Sebastian Teister, Germany
+Images follow when finished
 
 ## General
 
@@ -93,11 +94,20 @@ Buttons often have multiple functions :
 - Second function when *long pressed*
 - *Unlock* function (like delete)
 
-*Cycling* buttons have a cycle symbol
+### Tree Browser Hierarchy Control
 
-*Long press* buttons have an alternative label like "Save New" that creates a new item when pressed long instead of overwriting the current
+When working with trees : you need to create, update, delete and move items
+For a tree like TreeBrowser where every item is a branch : one should be able to pick one branch and stick it somwhere else
+For that : every branch (every branch is also an item in TreeBrowser) has its parent saved in itsels -- that,s how branches are connected : only through that parent
+The parent is written down in a certain syntax like : storage/box1 - separated with a slash /
+With this notation : sticking one branch name into the other : an unambigous path is created which cannot be misinterpreted
 
-*Unlock* buttons (like delete) unlock dangerous functions
+#### Example
+
+I have a path to my sock in my flat : flat/bedroom/cupboard/greenleftsock
+Now I take it to the kitchen : flat/kitchen/washingmachine/greenleftsock
+
+When you want to move an item or branch with items or a branch with many branches : you change the parent of just this branch - and all appended to that branch moves too
 
 ## AGNT
 

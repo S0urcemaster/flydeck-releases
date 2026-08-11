@@ -1,7 +1,15 @@
 .root {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-xs);
   min-width: 0;
   min-height: 0;
+}
+
+.root[data-keyboard-visible] {
+  grid-template-rows: var(--keyboard-entry-height, auto) auto;
+}
+
+.root[data-keyboard-layout="block"] {
+  display: contents;
 }

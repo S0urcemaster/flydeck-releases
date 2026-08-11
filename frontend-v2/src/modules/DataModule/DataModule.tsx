@@ -1,17 +1,14 @@
-import {
-  DataBrowser,
-  type DataBrowserProps,
-} from "../../components/DataBrowser";
+import { DataTree, type DataTreeProps } from "../../components/DataTree";
 import { Module, type ModuleProps } from "../../components/Module";
 
 export type DataModuleProps = ModuleProps & {
-  dataBrowserProps?: DataBrowserProps;
+  dataBrowserProps?: DataTreeProps;
 };
 
 export function DataModule({ dataBrowserProps, ...props }: DataModuleProps) {
   return (
     <Module {...props} componentName="DataModule" aria-label="Data module">
-      <DataBrowser {...dataBrowserProps} />
+      <DataTree {...dataBrowserProps} />
     </Module>
   );
 }

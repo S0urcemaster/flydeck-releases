@@ -5,3 +5,8 @@
   min-width: 0;
   min-height: 0;
 }
+
+.content:has([data-keyboard-visible]) {
+  height: auto !important;
+  grid-template-rows: max-content auto;
+}

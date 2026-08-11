@@ -20,4 +20,13 @@ describe("Textarea", () => {
       'data-size="properties"',
     );
   });
+
+  it("exposes a layout-transparent field for a block-wide Keyboard", () => {
+    const markup = renderToStaticMarkup(
+      <Textarea keyboard keyboardLayout="block" />,
+    );
+
+    expect(markup).toContain('data-keyboard-layout="block"');
+    expect(markup).toContain('inputMode="none"');
+  });
 });

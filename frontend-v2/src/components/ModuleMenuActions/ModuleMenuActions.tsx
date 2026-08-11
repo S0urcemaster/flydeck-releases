@@ -1,4 +1,7 @@
+import { WifiOff } from "lucide-react";
+
 import { Base, type BaseStyleProps } from "../Base";
+import { Button, type ButtonProps } from "../Button";
 import {
   ConfigModuleButton,
   type ConfigModuleButtonProps,
@@ -14,14 +17,22 @@ export type ModuleMenuActionsProps = BaseStyleProps & {
   activeItem: ModuleMenuItem;
   configButtonProps: ConfigModuleButtonProps;
   helpButtonProps: HelpModuleButtonProps;
+  offlineButtonProps: Omit<ButtonProps, "children" | "onClick" | "selected">;
+  offlineMode: boolean;
+  pendingTransactions: number;
   onChange: (item: ModuleMenuItem) => void;
+  onOfflineModeChange: (offline: boolean) => void;
 };
 
 export function ModuleMenuActions({
   activeItem,
   configButtonProps,
   helpButtonProps,
+  offlineButtonProps,
+  offlineMode,
+  pendingTransactions,
   onChange,
+  onOfflineModeChange,
   ...baseProps
 }: ModuleMenuActionsProps) {
   return (
@@ -32,6 +43,18 @@ export function ModuleMenuActions({
       className={styles.root}
       aria-label="Module menu actions"
     >
+      <Button
+        {...offlineButtonProps}
+        aria-label={offlineMode
+          ? `Offline test mode: on, ${pendingTransactions} pending transactions`
+          : "Offline test mode: off"}
+        selected={offlineMode}
+        onClick={() => onOfflineModeChange(!offlineMode)}
+      >
+        {offlineMode
+          ? pendingTransactions
+          : <WifiOff size="1em" strokeWidth={1.8} aria-hidden="true" />}
+      </Button>
       <HelpModuleButton
         {...helpButtonProps}
         aria-label="Help"

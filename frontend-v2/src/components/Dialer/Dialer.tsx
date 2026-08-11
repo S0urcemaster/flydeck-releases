@@ -16,6 +16,7 @@ import {
   DialSurface,
   type DialInputPhase,
   type DialPosition,
+  type DialSurfaceProps,
   type DialTangentialInput,
 } from "../DialSurface";
 import styles from "./Dialer.module.css";
@@ -53,17 +54,24 @@ export type DialerProps<TValue = number> = Omit<BaseProps<"div">, "as"> & {
   centerButtonProps?:
     | DialerCenterButtonProps
     | ((state: DialerState<TValue>) => DialerCenterButtonProps);
+  dialSurfaceProps?: Omit<
+    DialSurfaceProps,
+    "children" | "layer" | "marker" | "onTangentialInput" | "position"
+  >;
   getValue?: (state: Omit<DialerState<TValue>, "selectedValue">) => TValue;
   getInnerAngle?: (angle: number) => number;
+  getOuterAngle?: (angle: number, innerAngle: number) => number;
   innerAngle?: number;
   initialInnerAngle?: number;
   initialOuterAngle?: number;
+  innerBackground?: string;
   innerScale?: (state: DialerState<TValue>) => ReactNode;
   innerMarker?: (state: DialerState<TValue>) => ReactNode;
   onInnerInput?: (input: DialTangentialInput) => void;
   onOuterInput?: (input: DialTangentialInput) => void;
   onValue?: (value: TValue) => void;
   outerAngle?: number;
+  outerBackground?: string;
   outerScale?: (state: DialerState<TValue>) => ReactNode;
   outerMarker?: (state: DialerState<TValue>) => ReactNode;
   selectionPhase?: DialerSelectionPhase;
@@ -78,18 +86,22 @@ export function Dialer<TValue = number>({
   buttonProps,
   centerLabel,
   centerButtonProps,
+  dialSurfaceProps,
   className,
   getValue,
   getInnerAngle,
+  getOuterAngle,
   innerAngle: controlledInnerAngle,
   initialInnerAngle = 0,
   initialOuterAngle = 0,
+  innerBackground,
   innerScale,
   innerMarker,
   onInnerInput,
   onOuterInput,
   onValue,
   outerAngle: controlledOuterAngle,
+  outerBackground,
   outerScale,
   outerMarker,
   selectionPhase = "release",
@@ -131,11 +143,13 @@ export function Dialer<TValue = number>({
   }
 
   function handleOuterInput(input: DialTangentialInput) {
-    setOuterAngle(input.angle);
+    const nextAngle = getOuterAngle?.(input.angle, innerAngle) ?? input.angle;
+    const nextInput = { ...input, angle: nextAngle };
+    setOuterAngle(nextAngle);
     setOuterPhase(input.phase);
-    onOuterInput?.(input);
+    onOuterInput?.(nextInput);
 
-    if (input.phase !== selectionPhase) {
+    if (nextInput.phase !== selectionPhase) {
       return;
     }
 
@@ -143,8 +157,8 @@ export function Dialer<TValue = number>({
       ? getValue({
           innerAngle,
           innerPhase,
-          outerAngle: input.angle,
-          outerPhase: input.phase,
+          outerAngle: nextAngle,
+          outerPhase: nextInput.phase,
         })
       : input.angle as TValue;
     setSelectedValue(value);
@@ -171,6 +185,8 @@ export function Dialer<TValue = number>({
       )}
 
       <DialSurface
+        {...dialSurfaceProps}
+        background={outerBackground}
         layer="outer"
         aria-label="Outer dial"
         data-angle-origin="north"
@@ -182,6 +198,8 @@ export function Dialer<TValue = number>({
         {outerScale?.(state)}
       </DialSurface>
       <DialSurface
+        {...dialSurfaceProps}
+        background={innerBackground}
         layer="inner"
         aria-label="Inner dial"
         data-angle-origin="north"
@@ -195,9 +213,9 @@ export function Dialer<TValue = number>({
 
       <DialerCenterButton
         {...buttonProps}
+        aria-label="Dial center"
         {...resolvedCenterButtonProps}
         className={styles.centerButton}
-        aria-label="Dial center"
       >
         {resolvedCenterLabel}
       </DialerCenterButton>

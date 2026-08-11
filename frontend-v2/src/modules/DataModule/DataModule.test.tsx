@@ -7,7 +7,7 @@ describe("DataModule", () => {
   it("composes the shared Module surface", () => {
     const markup = renderToStaticMarkup(<DataModule padding="SPACE_SM" />);
     expect(markup).toContain('aria-label="Data module"');
-    expect(markup).toContain('data-component-name="DataBrowser"');
+    expect(markup).toContain('data-component-name="DataTree"');
     expect(markup).toContain("Data");
   });
 });

@@ -1,10 +1,20 @@
-import { Button, type ButtonProps } from "../Button";
+import type { ReactNode } from "react";
 
-export type ListControlButtonProps = ButtonProps;
+import { Button, type ButtonProps } from "../Button";
+import { SymbolButton } from "../SymbolButton";
+
+export type ListControlButtonProps = ButtonProps & {
+  symbol?: ReactNode;
+};
 
 export function ListControlButton({
   componentName = "ListControlButton",
+  symbol,
+  children,
   ...props
 }: ListControlButtonProps) {
-  return <Button {...props} componentName={componentName} />;
+  if (symbol !== undefined) {
+    return <SymbolButton {...props} componentName={componentName} symbol={symbol} />;
+  }
+  return <Button {...props} componentName={componentName}>{children}</Button>;
 }

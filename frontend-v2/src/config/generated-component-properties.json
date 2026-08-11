@@ -38,7 +38,86 @@
       "height": "40px"
     }
   },
+  "CompactButton": {
+    "fontSize": "0.72rem",
+    "fontWeight": "inherit",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "0 SPACE_XS",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "28px"
+    }
+  },
+  "Block": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "100%",
+      "height": "unset"
+    }
+  },
+  "Breadcrumb": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "ItemList": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "PressButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "LongPressButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "ShiftButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "BackspaceButton": {
     "base": {
       "color": "inherit",
       "background": "inherit",
@@ -60,7 +139,18 @@
       "height": "inherit"
     }
   },
-  "InputAids": {
+  "DialButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "Keyboard": {
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",
@@ -83,6 +173,19 @@
       "height": "inherit"
     }
   },
+  "SymbolButton": {
+    "symbolTop": "2px",
+    "symbolLeft": "-1px",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "SideModuleButton": {
     "base": {
       "color": "inherit",
@@ -91,54 +194,6 @@
       "padding": "inherit",
       "margin": "inherit",
       "width": "BUTTON_WIDTH",
-      "height": "inherit"
-    }
-  },
-  "AgentModuleButton": {
-    "symbol": "●",
-    "base": {
-      "color": "inherit",
-      "background": "inherit",
-      "border": "inherit",
-      "padding": "inherit",
-      "margin": "inherit",
-      "width": "inherit",
-      "height": "inherit"
-    }
-  },
-  "DataModuleButton": {
-    "symbol": "◆",
-    "base": {
-      "color": "inherit",
-      "background": "inherit",
-      "border": "inherit",
-      "padding": "inherit",
-      "margin": "inherit",
-      "width": "inherit",
-      "height": "inherit"
-    }
-  },
-  "FuncModuleButton": {
-    "symbol": "⚙",
-    "base": {
-      "color": "inherit",
-      "background": "inherit",
-      "border": "inherit",
-      "padding": "inherit",
-      "margin": "inherit",
-      "width": "inherit",
-      "height": "inherit"
-    }
-  },
-  "CronModuleButton": {
-    "symbol": "◷",
-    "base": {
-      "color": "inherit",
-      "background": "inherit",
-      "border": "inherit",
-      "padding": "inherit",
-      "margin": "inherit",
-      "width": "inherit",
       "height": "inherit"
     }
   },
@@ -202,17 +257,6 @@
     }
   },
   "LoginDialog": {
-    "base": {
-      "color": "inherit",
-      "background": "inherit",
-      "border": "inherit",
-      "padding": "inherit",
-      "margin": "inherit",
-      "width": "inherit",
-      "height": "inherit"
-    }
-  },
-  "SynchronizationDialog": {
     "base": {
       "color": "inherit",
       "background": "inherit",
@@ -326,6 +370,58 @@
       "height": "25%"
     }
   },
+  "DialSurface": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "Dialer": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "ColorDialer": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "CronDialer": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    },
+    "innerBackground": "#ecf3ffff",
+    "innerTextColor": "#181818ff",
+    "innerPointerColor": "#287a3fff",
+    "innerFontSize": "0.72rem",
+    "outerBackground": "#b9b9b9ff",
+    "outerTextColor": "#181818ff",
+    "outerPointerColor": "#287a3fff",
+    "outerFontSize": "0.72rem"
+  },
   "MemoryBrowser": {
     "base": {
       "color": "inherit",
@@ -360,7 +456,7 @@
       "height": "inherit"
     }
   },
-  "FunctionBrowser": {
+  "AppBrowser": {
     "base": {
       "color": "inherit",
       "background": "inherit",
@@ -371,9 +467,153 @@
       "height": "inherit"
     }
   },
+  "DataTree": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "RootInputControl": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "ParentInput": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "DataSourceInput": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "ContentEditor": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "AppView": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "CompassApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "ConfigEditor": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "DeviceInfoView": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "InventoryApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "ShoppingListView": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "Form": {
+    "actionWidth": "120px",
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "unset",
+      "height": "unset"
+    }
+  },
+  "FormRow": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "inherit",
+      "height": "unset"
+    }
+  },
   "Input": {
     "fontSize": "24px",
-    "inputAids": true,
+    "keyboard": true,
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",
@@ -426,7 +666,7 @@
       "border": "inherit",
       "padding": "inherit",
       "margin": "inherit",
-      "width": "inherit",
+      "width": "BUTTON_WIDTH",
       "height": "inherit"
     }
   },
@@ -597,8 +837,8 @@
     }
   },
   "Textarea": {
-    "fontSize": "24px",
-    "inputAids": true,
+    "fontSize": "20px",
+    "keyboard": true,
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",

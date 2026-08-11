@@ -48,6 +48,7 @@ export const treeLoadDtoSchema = z.object({
 
 export const createTreeNodeRequestSchema = z.object({
   requestId: requestIdSchema,
+  nodeId: z.uuid(),
   parentId: z.uuid().nullable(),
   afterNodeId: z.uuid().nullable(),
   kind: treeNodeKindSchema,
@@ -61,25 +62,30 @@ export const createTreeNodeResponseSchema = z.object({
 });
 
 export const renameTreeNodeRequestSchema = z.object({
+  requestId: requestIdSchema,
   label: treeNodeLabelSchema,
   expectedRevision: revisionSchema,
 }).strict();
 
 export const moveTreeNodeRequestSchema = z.object({
+  requestId: requestIdSchema,
   afterNodeId: z.uuid().nullable(),
   expectedTreeRevision: revisionSchema,
 }).strict();
 
 export const reparentTreeNodeRequestSchema = z.object({
+  requestId: requestIdSchema,
   parentId: z.uuid().nullable(),
   expectedTreeRevision: revisionSchema,
 }).strict();
 
 export const deleteTreeNodeRequestSchema = z.object({
+  requestId: requestIdSchema,
   expectedTreeRevision: revisionSchema,
 }).strict();
 
 export const setTreeNodeEnabledRequestSchema = z.object({
+  requestId: requestIdSchema,
   enabled: z.boolean(),
   expectedRevision: revisionSchema,
 }).strict();
@@ -91,6 +97,7 @@ export const setTreeNodeEnabledResponseSchema = z.object({
 });
 
 export const setTreeSelectionRequestSchema = z.object({
+  requestId: requestIdSchema,
   selectedPath: z.array(z.uuid()),
   expectedRevision: revisionSchema,
 }).strict();
@@ -103,6 +110,7 @@ export const treeNodeContentDtoSchema = z.object({
 });
 
 export const updateTreeNodeContentRequestSchema = z.object({
+  requestId: requestIdSchema,
   content: z.string().max(1_000_000),
   expectedRevision: revisionSchema,
 }).strict();

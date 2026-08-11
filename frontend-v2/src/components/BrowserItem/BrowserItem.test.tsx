@@ -11,6 +11,7 @@ describe("BrowserItem", () => {
         label="USER"
         selected
         activeColor="COLOR_ACCENT_TWO"
+        background="ITEM_COLOR"
         buttonProps={{ width: "41px" }}
         deleteButtonProps={{ width: "53px" }}
         labelButtonProps={{ padding: "7px" }}

@@ -33,6 +33,51 @@ type ContentRow = { node_id: string; format: "text" | "markdown" | "json"; conte
 export class TreeService {
   constructor(private readonly database: Database) {}
 
+  async executeIdempotent<TResult>(
+    workspaceId: string,
+    userId: string,
+    requestId: string,
+    operation: string,
+    schema: { parse(value: unknown): TResult },
+    action: (transactionTrees: TreeService) => Promise<TResult>,
+    responseStatus = 200,
+  ) {
+    return this.database.transaction(async (client) => {
+      await lockIdempotencyKey(client, userId, workspaceId, requestId);
+      const previous = await client.query<{
+        operation: string;
+        response_body: unknown;
+      }>(`
+        SELECT operation, response_body FROM idempotency_keys
+        WHERE user_id = $1 AND workspace_id = $2 AND request_id = $3
+      `, [userId, workspaceId, requestId]);
+      if (previous.rows[0]) {
+        if (previous.rows[0].operation !== operation) {
+          throw new HttpError(
+            400,
+            "INVALID_REQUEST",
+            "The request ID was already used for another operation",
+          );
+        }
+        return schema.parse(previous.rows[0].response_body);
+      }
+
+      const response = schema.parse(await action(
+        new TreeService(databaseForTransaction(client)),
+      ));
+      await rememberIdempotentResponse(
+        client,
+        userId,
+        workspaceId,
+        requestId,
+        operation,
+        responseStatus,
+        response,
+      );
+      return response;
+    });
+  }
+
   async load(workspaceId: string, userId: string, kind: "data" | "config") {
     if (kind === "data") await this.ensureDataTree(workspaceId);
     const tree = await this.findTree(workspaceId, kind);
@@ -113,6 +158,7 @@ export class TreeService {
     input: CreateTreeNodeRequest,
   ) {
     return this.database.transaction(async (client) => {
+      await lockIdempotencyKey(client, userId, workspaceId, input.requestId);
       const previous = await client.query<{ response_body: unknown }>(`
         SELECT response_body FROM idempotency_keys
         WHERE user_id = $1 AND workspace_id = $2 AND request_id = $3
@@ -131,7 +177,7 @@ export class TreeService {
         WHERE tree_id = $1 AND parent_id IS NOT DISTINCT FROM $2
           AND position >= $3
       `, [tree.id, input.parentId, position]);
-      const nodeId = randomUUID();
+      const nodeId = input.nodeId;
       const inserted = await client.query<MutableNodeRow>(`
         INSERT INTO tree_nodes (
           id, tree_id, parent_id, kind, label, position
@@ -171,6 +217,7 @@ export class TreeService {
   ) {
     return this.database.transaction(async (client) => {
       const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
+      await assertMutableDataNode(client, tree.id, nodeId);
       const result = await client.query<MutableNodeRow>(`
         UPDATE tree_nodes
         SET label = $1, revision = revision + 1, updated_at = now()
@@ -198,6 +245,7 @@ export class TreeService {
     return this.database.transaction(async (client) => {
       const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
       assertRevision(tree.revision, expectedTreeRevision, "Tree");
+      await assertMutableDataNode(client, tree.id, nodeId);
       const sourceResult = await client.query<MutableNodeRow>(`
         SELECT *, false AS enabled, 0 AS enabled_revision
         FROM tree_nodes WHERE tree_id = $1 AND id = $2
@@ -212,13 +260,19 @@ export class TreeService {
             node: toNodeDto(source), treeRevision: Number(tree.revision),
           });
         }
-        const after = await client.query<{ position: number }>(`
-          SELECT position FROM tree_nodes
+        const after = await client.query<{ position: number; kind: string }>(`
+          SELECT position, kind FROM tree_nodes
           WHERE tree_id = $1 AND id = $2
             AND parent_id IS NOT DISTINCT FROM $3
         `, [tree.id, afterNodeId, source.parent_id]);
         if (!after.rows[0]) {
           throw new HttpError(400, "INVALID_REQUEST", "afterNodeId is not a sibling");
+        }
+        if (
+          after.rows[0].kind === "system-directory"
+          || after.rows[0].kind === "trash-directory"
+        ) {
+          throw new HttpError(403, "FORBIDDEN", "System directories cannot be moved past");
         }
         targetPosition = after.rows[0].position + (source.position > after.rows[0].position ? 1 : 0);
       }
@@ -269,6 +323,7 @@ export class TreeService {
     return this.database.transaction(async (client) => {
       const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
       assertRevision(tree.revision, expectedTreeRevision, "Tree");
+      await assertMutableDataNode(client, tree.id, nodeId);
       const sourceResult = await client.query<MutableNodeRow>(`
         SELECT *, false AS enabled, 0 AS enabled_revision
         FROM tree_nodes WHERE tree_id = $1 AND id = $2
@@ -341,18 +396,41 @@ export class TreeService {
     return this.database.transaction(async (client) => {
       const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
       assertRevision(tree.revision, expectedTreeRevision, "Tree");
-      const removed = await client.query<{ parent_id: string | null; position: number }>(`
-        DELETE FROM tree_nodes
-        WHERE id = $1 AND tree_id = $2
-        RETURNING parent_id, position
+      await assertMutableDataNode(client, tree.id, nodeId);
+      const source = await client.query<{ parent_id: string | null; position: number }>(`
+        SELECT parent_id, position FROM tree_nodes WHERE id = $1 AND tree_id = $2
       `, [nodeId, tree.id]);
-      if (!removed.rows[0]) throw new HttpError(404, "NOT_FOUND", "Node was not found");
+      const trash = await client.query<{ id: string }>(`
+        SELECT id FROM tree_nodes
+        WHERE tree_id = $1 AND kind = 'trash-directory'
+      `, [tree.id]);
+      if (!source.rows[0] || !trash.rows[0]) {
+        throw new HttpError(404, "NOT_FOUND", "Data node or trash directory was not found");
+      }
+      if (source.rows[0].parent_id === trash.rows[0].id) {
+        const removed = await client.query<{ parent_id: string | null; position: number }>(`
+          DELETE FROM tree_nodes
+          WHERE id = $1 AND tree_id = $2
+          RETURNING parent_id, position
+        `, [nodeId, tree.id]);
+        await client.query(`
+          UPDATE tree_nodes SET position = position - 1, updated_at = now()
+          WHERE tree_id = $1
+            AND parent_id IS NOT DISTINCT FROM $2
+            AND position > $3
+        `, [tree.id, removed.rows[0].parent_id, removed.rows[0].position]);
+        return { id: nodeId, revision: await bumpTree(client, tree.id) };
+      }
+      const position = await insertionPosition(client, tree.id, trash.rows[0].id, null);
       await client.query(`
         UPDATE tree_nodes SET position = position - 1, updated_at = now()
-        WHERE tree_id = $1
-          AND parent_id IS NOT DISTINCT FROM $2
-          AND position > $3
-      `, [tree.id, removed.rows[0].parent_id, removed.rows[0].position]);
+        WHERE tree_id = $1 AND parent_id IS NOT DISTINCT FROM $2 AND position > $3
+      `, [tree.id, source.rows[0].parent_id, source.rows[0].position]);
+      await client.query(`
+        UPDATE tree_nodes
+        SET parent_id = $1, position = $2, revision = revision + 1, updated_at = now()
+        WHERE id = $3 AND tree_id = $4
+      `, [trash.rows[0].id, position, nodeId, tree.id]);
       return { id: nodeId, revision: await bumpTree(client, tree.id) };
     });
   }
@@ -494,24 +572,94 @@ export class TreeService {
       if (!tree.rows[0]) {
         throw new HttpError(404, "NOT_FOUND", "Workspace was not found");
       }
-      const nodeId = randomUUID();
-      const inserted = await client.query<{ id: string }>(`
-        INSERT INTO tree_nodes (
-          id, tree_id, parent_id, kind, label, position,
-          content_editable, list_editable
-        )
-        SELECT $1, $2, NULL, 'data-root', 'Data', 0, true, true
-        WHERE NOT EXISTS (
-          SELECT 1 FROM tree_nodes WHERE tree_id = $2
-        )
-        RETURNING id
-      `, [nodeId, tree.rows[0].id]);
-      if (inserted.rows[0]) {
+      let changed = false;
+      const accidentalRoot = await client.query<{ id: string }>(`
+        SELECT id FROM tree_nodes
+        WHERE tree_id = $1 AND kind = 'data-root' AND parent_id IS NULL
+      `, [tree.rows[0].id]);
+      if (accidentalRoot.rows[0]) {
         await client.query(`
-          INSERT INTO node_contents (node_id, format, content)
-          VALUES ($1, 'markdown', '')
-        `, [nodeId]);
+          UPDATE tree_nodes
+          SET parent_id = NULL, updated_at = now()
+          WHERE tree_id = $1 AND parent_id = $2
+        `, [tree.rows[0].id, accidentalRoot.rows[0].id]);
+        await client.query(`
+          UPDATE tree_user_states
+          SET selected_path = selected_path[2:], revision = revision + 1, updated_at = now()
+          WHERE tree_id = $1 AND selected_path[1] = $2
+        `, [tree.rows[0].id, accidentalRoot.rows[0].id]);
+        await client.query(`
+          DELETE FROM tree_nodes WHERE id = $1 AND tree_id = $2
+        `, [accidentalRoot.rows[0].id, tree.rows[0].id]);
+        changed = true;
       }
+      const protectedDirectories = [
+        { kind: "system-directory", label: "_system", listEditable: true },
+        { kind: "trash-directory", label: "_trash", listEditable: false },
+      ];
+      for (const directory of protectedDirectories) {
+        const directories = await client.query<{ id: string }>(`
+          SELECT id FROM tree_nodes
+          WHERE tree_id = $1 AND parent_id IS NULL AND kind = $2
+          ORDER BY position, id
+        `, [tree.rows[0].id, directory.kind]);
+        const canonical = directories.rows[0];
+        if (canonical && directories.rows.length > 1) {
+          const duplicateIds = directories.rows.slice(1).map(({ id }) => id);
+          await client.query(`
+            UPDATE tree_nodes
+            SET parent_id = $1, updated_at = now()
+            WHERE tree_id = $2 AND parent_id = ANY($3::uuid[])
+          `, [canonical.id, tree.rows[0].id, duplicateIds]);
+          await client.query(`
+            DELETE FROM tree_nodes
+            WHERE tree_id = $1 AND id = ANY($2::uuid[])
+          `, [tree.rows[0].id, duplicateIds]);
+          changed = true;
+        }
+        const result = await client.query<{ id: string }>(`
+          INSERT INTO tree_nodes (
+            id, tree_id, parent_id, kind, label, position,
+            content_editable, list_editable
+          )
+          SELECT $1, $2, $3, $4, $5,
+            COALESCE((
+              SELECT MAX(position) + 1 FROM tree_nodes
+              WHERE tree_id = $2 AND parent_id IS NOT DISTINCT FROM $3
+            ), 0), false, $6
+          WHERE NOT EXISTS (
+              SELECT 1 FROM tree_nodes
+              WHERE tree_id = $2 AND parent_id IS NOT DISTINCT FROM $3 AND kind = $4
+            )
+          RETURNING id
+        `, [randomUUID(), tree.rows[0].id, null, directory.kind, directory.label, directory.listEditable]);
+        if (result.rows[0]) {
+          changed = true;
+          await client.query(`
+            INSERT INTO node_contents (node_id, format, content)
+            VALUES ($1, 'markdown', '')
+          `, [result.rows[0].id]);
+        }
+      }
+      const normalized = await client.query<{ id: string }>(`
+        WITH ordered AS (
+          SELECT id, row_number() OVER (
+            ORDER BY CASE kind
+              WHEN 'system-directory' THEN 1
+              WHEN 'trash-directory' THEN 2
+              ELSE 0
+            END, position, id
+          ) - 1 AS next_position
+          FROM tree_nodes
+          WHERE tree_id = $1 AND parent_id = $2
+        )
+        UPDATE tree_nodes
+        SET position = ordered.next_position, updated_at = now()
+        FROM ordered
+        WHERE tree_nodes.id = ordered.id AND tree_nodes.position <> ordered.next_position
+        RETURNING tree_nodes.id
+      `, [tree.rows[0].id, null]);
+      if (changed || normalized.rows.length > 0) await bumpTree(client, tree.rows[0].id);
     });
   }
 }
@@ -555,25 +703,44 @@ async function assertWritableParent(client: Queryable, treeId: string, parentId:
   }
 }
 
+async function assertMutableDataNode(client: Queryable, treeId: string, nodeId: string) {
+  const result = await client.query<{ kind: string }>(`
+    SELECT kind FROM tree_nodes WHERE tree_id = $1 AND id = $2
+  `, [treeId, nodeId]);
+  if (!result.rows[0]) throw new HttpError(404, "NOT_FOUND", "Node was not found");
+  if (result.rows[0].kind === "system-directory" || result.rows[0].kind === "trash-directory") {
+    throw new HttpError(403, "FORBIDDEN", "System directories cannot be changed");
+  }
+}
+
 async function insertionPosition(
   client: Queryable,
   treeId: string,
   parentId: string | null,
   afterNodeId: string | null,
 ) {
+  let position: number;
   if (!afterNodeId) {
     const result = await client.query<{ position: number }>(`
       SELECT COALESCE(MAX(position) + 1, 0)::integer AS position
       FROM tree_nodes WHERE tree_id = $1 AND parent_id IS NOT DISTINCT FROM $2
     `, [treeId, parentId]);
-    return result.rows[0].position;
+    position = result.rows[0].position;
+  } else {
+    const result = await client.query<{ position: number }>(`
+      SELECT position + 1 AS position FROM tree_nodes
+      WHERE tree_id = $1 AND id = $2 AND parent_id IS NOT DISTINCT FROM $3
+    `, [treeId, afterNodeId, parentId]);
+    if (!result.rows[0]) throw new HttpError(400, "INVALID_REQUEST", "afterNodeId is not a sibling");
+    position = result.rows[0].position;
   }
-  const result = await client.query<{ position: number }>(`
-    SELECT position + 1 AS position FROM tree_nodes
-    WHERE tree_id = $1 AND id = $2 AND parent_id IS NOT DISTINCT FROM $3
-  `, [treeId, afterNodeId, parentId]);
-  if (!result.rows[0]) throw new HttpError(400, "INVALID_REQUEST", "afterNodeId is not a sibling");
-  return result.rows[0].position;
+  const protectedPosition = await client.query<{ position: number }>(`
+    SELECT MIN(position)::integer AS position
+    FROM tree_nodes
+    WHERE tree_id = $1 AND parent_id IS NOT DISTINCT FROM $2
+      AND kind IN ('system-directory', 'trash-directory')
+  `, [treeId, parentId]);
+  return Math.min(position, protectedPosition.rows[0].position ?? position);
 }
 
 async function bumpTree(client: Queryable, treeId: string) {
@@ -646,4 +813,44 @@ function maximumRevision(revisions: Array<string | number>) {
     (maximum, revision) => Math.max(maximum, Number(revision)),
     0,
   );
+}
+
+async function lockIdempotencyKey(
+  client: Queryable,
+  userId: string,
+  workspaceId: string,
+  requestId: string,
+) {
+  await client.query(
+    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+    [`${userId}:${workspaceId}:${requestId}`],
+  );
+}
+
+async function rememberIdempotentResponse(
+  client: Queryable,
+  userId: string,
+  workspaceId: string,
+  requestId: string,
+  operation: string,
+  responseStatus: number,
+  response: unknown,
+) {
+  await client.query(`
+    INSERT INTO idempotency_keys (
+      user_id, workspace_id, request_id, operation,
+      response_status, response_body, expires_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, now() + interval '24 hours')
+  `, [userId, workspaceId, requestId, operation, responseStatus, response]);
+}
+
+function databaseForTransaction(client: Queryable): Database {
+  return {
+    query: <TResult extends Record<string, unknown>>(
+      text: string,
+      values?: readonly unknown[],
+    ) => client.query<TResult>(text, values),
+    transaction: (operation) => operation(client),
+    end: async () => undefined,
+  };
 }

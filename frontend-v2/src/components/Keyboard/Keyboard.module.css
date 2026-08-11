@@ -1,0 +1,61 @@
+.root {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  min-width: 0;
+}
+
+.root[data-layout="block"] {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.symbol {
+  transform: translateY(3px);
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(20, minmax(0, 1fr));
+  gap: 0;
+  min-width: 0;
+}
+
+.key {
+  grid-column: span 2;
+  min-width: 0;
+  min-height: var(--button-height);
+  padding: 0;
+}
+
+.key[data-row="1"] { grid-row: 1; }
+.key[data-row="2"] { grid-row: 2; }
+.key[data-row="3"] { grid-row: 3; }
+.key[data-row="4"] { grid-row: 4; }
+.key[data-position="row-two-edge"] { grid-column: span 3; }
+.key[data-position="row-three-edge"] { grid-column: span 3; }
+.key[data-position="row-four-edge"] { grid-column: span 4; }
+.key[data-position="space"] { grid-column: span 4; }
+
+.actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0;
+  min-width: 0;
+}
+
+.root small {
+  font-size: 0.62em;
+}

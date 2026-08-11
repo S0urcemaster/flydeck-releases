@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  useState,
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
@@ -29,12 +30,14 @@ export function LongPressButton({
   longPressTimeout,
   onLongPress,
   onPress,
+  pressed,
   ...buttonProps
 }: LongPressButtonProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = useRef(false);
   const longTriggered = useRef(false);
   const suppressClick = useRef(false);
+  const [longPressConfirmed, setLongPressConfirmed] = useState(false);
 
   useEffect(() => () => {
     if (timer.current !== null) clearTimeout(timer.current);
@@ -44,10 +47,12 @@ export function LongPressButton({
     if (disabled || active.current) return;
     active.current = true;
     longTriggered.current = false;
+    setLongPressConfirmed(false);
     timer.current = setTimeout(() => {
       timer.current = null;
       if (!active.current) return;
       longTriggered.current = true;
+      setLongPressConfirmed(true);
       void onLongPress();
     }, resolveLongPressTimeout(element, longPressTimeout));
   }
@@ -56,6 +61,7 @@ export function LongPressButton({
     if (!active.current) return;
     active.current = false;
     clearTimer();
+    setLongPressConfirmed(false);
     if (!longTriggered.current) void onPress();
   }
 
@@ -64,6 +70,7 @@ export function LongPressButton({
     longTriggered.current = false;
     suppressClick.current = false;
     clearTimer();
+    setLongPressConfirmed(false);
   }
 
   function clearTimer() {
@@ -77,6 +84,7 @@ export function LongPressButton({
       {...buttonProps}
       componentName={componentName}
       disabled={disabled}
+      pressed={longPressConfirmed ? false : pressed}
       onClick={() => {
         if (suppressClick.current) {
           suppressClick.current = false;
