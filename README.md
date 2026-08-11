@@ -8,6 +8,11 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 11.08.026 19:15 Pre-Release V2 (191e9014c723)
+Cache
+Keyboard
+![alt text](releases/02608111915/sc1.png)
+
 ### 08.08.026 14:45 Pre-Release V2 (09c218df5e08)
 DATA pretty usable -release
 
