@@ -17,9 +17,24 @@ import {
   type AppBrowserProps,
 } from "../../components/AppBrowser";
 import { Module, type ModuleProps } from "../../components/Module";
+import {
+  SubmodulePanel,
+  type SubmodulePanelProps,
+} from "../../components/SubmodulePanel";
+
+export type FunctionsAppTab =
+  | "BROWSER"
+  | "DEVICE INFO"
+  | "COMPASS"
+  | "INVENTORY"
+  | "SHOPPING LIST";
 
 export type FunctionsModuleProps = ModuleProps & {
   appBrowserProps?: AppBrowserProps;
+  appTabPanelProps?: Omit<
+    SubmodulePanelProps<FunctionsAppTab>,
+    "activeItem" | "items" | "onChange"
+  >;
   appViewConfigButtonProps?: Omit<
     ConfigModuleButtonProps,
     "symbol" | "onClick"
@@ -36,6 +51,7 @@ export type FunctionsModuleProps = ModuleProps & {
   inventoryFormRowProps?: InventoryAppProps["formRowProps"];
   inventoryInputProps?: InventoryAppProps["inputProps"];
   inventoryItemListProps?: InventoryAppProps["itemListProps"];
+  inventoryNodeIdInputProps?: InventoryAppProps["nodeIdInputProps"];
   inventoryParentInputProps?: InventoryAppProps["parentInputProps"];
   inventoryTextareaProps?: InventoryAppProps["textareaProps"];
   shoppingListViewBaseProps?: BaseStyleProps;
@@ -44,6 +60,7 @@ export type FunctionsModuleProps = ModuleProps & {
 
 export function FunctionsModule({
   appBrowserProps,
+  appTabPanelProps,
   appViewConfigButtonProps,
   appViewConfigEditorProps,
   appViewButtonProps,
@@ -57,12 +74,14 @@ export function FunctionsModule({
   inventoryFormRowProps,
   inventoryInputProps,
   inventoryItemListProps,
+  inventoryNodeIdInputProps,
   inventoryParentInputProps,
   inventoryTextareaProps,
   shoppingListViewBaseProps,
   workspaceId,
   ...props
 }: FunctionsModuleProps) {
+  const [activeTab, setActiveTab] = useState<FunctionsAppTab>("BROWSER");
   const [output, setOutput] = useState<AppBrowserOutputState>({
     categories: [],
     compassActive: false,
@@ -71,6 +90,10 @@ export function FunctionsModule({
     shoppingListActive: false,
     shoppingCategories: [],
   });
+  const visibleTabs = getVisibleFunctionsAppTabs(output);
+  const visibleActiveTab = visibleTabs.includes(activeTab)
+    ? activeTab
+    : "BROWSER";
   const validateDataSource = useCallback(async (dataSource: string) => {
     if (!workspaceId) return false;
     const tree = await v2Api.loadDataTree(workspaceId);
@@ -83,7 +106,13 @@ export function FunctionsModule({
       componentName="FunctionsModule"
       aria-label="Functions module"
     >
-      {output.deviceInfoActive ? (
+      <SubmodulePanel
+        {...appTabPanelProps}
+        activeItem={visibleActiveTab}
+        items={visibleTabs}
+        onChange={setActiveTab}
+      />
+      {visibleActiveTab === "DEVICE INFO" ? (
         <DeviceInfoView
           {...deviceInfoViewBaseProps}
           key="device-info-view"
@@ -93,7 +122,7 @@ export function FunctionsModule({
           validateDataSource={validateDataSource}
         />
       ) : null}
-      {output.compassActive
+      {visibleActiveTab === "COMPASS"
         ? (
             <CompassApp
               {...compassAppBaseProps}
@@ -106,7 +135,7 @@ export function FunctionsModule({
             />
           )
         : null}
-      {output.inventoryActive
+      {visibleActiveTab === "INVENTORY"
         ? (
             <InventoryApp
               {...inventoryAppBaseProps}
@@ -121,6 +150,7 @@ export function FunctionsModule({
               formRowButtonProps={appViewButtonProps}
               inputProps={inventoryInputProps}
               itemListProps={inventoryItemListProps}
+              nodeIdInputProps={inventoryNodeIdInputProps}
               parentInputProps={inventoryParentInputProps}
               textareaProps={inventoryTextareaProps}
               validateDataSource={validateDataSource}
@@ -128,7 +158,7 @@ export function FunctionsModule({
             />
           )
         : null}
-      {output.shoppingListActive
+      {visibleActiveTab === "SHOPPING LIST"
         ? (
             <ShoppingListView
               {...shoppingListViewBaseProps}
@@ -140,13 +170,26 @@ export function FunctionsModule({
             />
           )
         : null}
-      <AppBrowser
-        {...appBrowserProps}
-        key="function-browser"
-        onOutputChange={setOutput}
-      />
+      {visibleActiveTab === "BROWSER" ? (
+        <AppBrowser
+          {...appBrowserProps}
+          key="function-browser"
+          onOutputChange={setOutput}
+        />
+      ) : null}
     </Module>
   );
+}
+
+export function getVisibleFunctionsAppTabs(
+  output: AppBrowserOutputState,
+): FunctionsAppTab[] {
+  const tabs: FunctionsAppTab[] = ["BROWSER"];
+  if (output.deviceInfoActive) tabs.push("DEVICE INFO");
+  if (output.compassActive) tabs.push("COMPASS");
+  if (output.inventoryActive) tabs.push("INVENTORY");
+  if (output.shoppingListActive) tabs.push("SHOPPING LIST");
+  return tabs;
 }
 
 export function dataSourceBranchExists(
@@ -158,7 +201,7 @@ export function dataSourceBranchExists(
   let parentId: string | null = null;
   for (const segment of segments) {
     const matches = nodes.filter((node) => (
-      node.parentId === parentId && node.label === segment
+      node.parentId === parentId && node.localId === segment
     ));
     if (matches.length !== 1) return false;
     parentId = matches[0].id;

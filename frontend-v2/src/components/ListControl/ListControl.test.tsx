@@ -24,6 +24,7 @@ describe("ListControl", () => {
 
     expect(markup).toContain('data-component-name="ListControl"');
     expect(markup).toContain('aria-label="New item name"');
+    expect(markup).toContain(">Name</span>");
     expect(markup).toContain('value="Alpha"');
     expect(markup).not.toContain(">＋</button>");
     expect(markup).not.toContain(">✓</button>");

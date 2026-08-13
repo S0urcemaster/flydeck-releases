@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createCronTimerRequestSchema,
+  createTreeNodeLocalId,
   createTreeNodeRequestSchema,
   reparentTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
@@ -12,6 +13,14 @@ const firstId = "00000000-0000-4000-8000-000000000001";
 const secondId = "00000000-0000-4000-8000-000000000002";
 
 describe("V2 network contracts", () => {
+  it("creates short sibling IDs and resolves collisions within twelve characters", () => {
+    expect(createTreeNodeLocalId("Äpfel & Öl")).toBe("apfel-ol");
+    expect(createTreeNodeLocalId(
+      "Ein sehr langer Eintrag",
+      ["ein-sehr-lan"],
+    )).toBe("ein-sehr-l-2");
+  });
+
   it("accepts a compact flat initial tree document", () => {
     expect(treeDocumentDtoSchema.parse({
       id: firstId,
@@ -30,6 +39,7 @@ describe("V2 network contracts", () => {
       afterNodeId: null,
       kind: "memo-entry",
       label: "Idea",
+      localId: "idea",
       expectedTreeRevision: 4,
     })).toMatchObject({ label: "Idea", expectedTreeRevision: 4 });
 
@@ -48,6 +58,7 @@ describe("V2 network contracts", () => {
       afterNodeId: null,
       kind: "data-file",
       label: "Name from the list input",
+      localId: "name",
       content: "This must not become the item name",
       expectedTreeRevision: 0,
     }).success).toBe(false);

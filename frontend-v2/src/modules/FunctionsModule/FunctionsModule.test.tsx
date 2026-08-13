@@ -8,6 +8,8 @@ describe("FunctionsModule", () => {
     const markup = renderToStaticMarkup(<FunctionsModule padding="SPACE_SM" />);
 
     expect(markup).toContain('aria-label="Functions module"');
+    expect(markup).toContain('aria-label="Submodule panel"');
+    expect(markup).toContain("BROWSER");
     expect(markup).toContain('data-component-name="AppBrowser"');
     expect(markup).toContain("System");
     expect(markup).toContain("User");

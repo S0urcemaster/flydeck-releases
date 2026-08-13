@@ -1,5 +1,7 @@
 import {
+  useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 
@@ -36,6 +38,8 @@ export type DialerSelectionPhase = Extract<
   "press" | "release"
 >;
 
+export type DialerInteractionMode = "pointer" | "wheel";
+
 export type DialerState<TValue> = {
   innerAngle: number;
   innerPhase: DialInputPhase | null;
@@ -65,6 +69,7 @@ export type DialerProps<TValue = number> = Omit<BaseProps<"div">, "as"> & {
   initialInnerAngle?: number;
   initialOuterAngle?: number;
   innerBackground?: string;
+  interactionMode?: DialerInteractionMode;
   innerScale?: (state: DialerState<TValue>) => ReactNode;
   innerMarker?: (state: DialerState<TValue>) => ReactNode;
   onInnerInput?: (input: DialTangentialInput) => void;
@@ -95,6 +100,7 @@ export function Dialer<TValue = number>({
   initialInnerAngle = 0,
   initialOuterAngle = 0,
   innerBackground,
+  interactionMode = "pointer",
   innerScale,
   innerMarker,
   onInnerInput,
@@ -115,6 +121,8 @@ export function Dialer<TValue = number>({
   const [uncontrolledOuterAngle, setOuterAngle] = useState(initialOuterAngle);
   const [outerPhase, setOuterPhase] = useState<DialInputPhase | null>(null);
   const [selectedValue, setSelectedValue] = useState<TValue | null>(null);
+  const innerWheelGesture = useRef<WheelGesture | null>(null);
+  const outerWheelGesture = useRef<WheelGesture | null>(null);
   const classes = className ? `${styles.root} ${className}` : styles.root;
   const innerAngle = controlledInnerAngle ?? uncontrolledInnerAngle;
   const outerAngle = controlledOuterAngle ?? uncontrolledOuterAngle;
@@ -133,17 +141,29 @@ export function Dialer<TValue = number>({
     : centerButtonProps;
 
   function handleInnerInput(input: DialTangentialInput) {
+    const inputAngle = interactionMode === "wheel"
+      ? wheelSelectionAngle(input, innerAngle, innerWheelGesture)
+      : input.angle;
     const nextInput = {
       ...input,
-      angle: getInnerAngle?.(input.angle) ?? input.angle,
+      angle: getInnerAngle?.(inputAngle) ?? inputAngle,
     };
+    if (interactionMode === "wheel" && innerWheelGesture.current) {
+      innerWheelGesture.current.selectionAngle = nextInput.angle;
+    }
     setInnerAngle(nextInput.angle);
     setInnerPhase(input.phase);
     onInnerInput?.(nextInput);
   }
 
   function handleOuterInput(input: DialTangentialInput) {
-    const nextAngle = getOuterAngle?.(input.angle, innerAngle) ?? input.angle;
+    const inputAngle = interactionMode === "wheel"
+      ? wheelSelectionAngle(input, outerAngle, outerWheelGesture)
+      : input.angle;
+    const nextAngle = getOuterAngle?.(inputAngle, innerAngle) ?? inputAngle;
+    if (interactionMode === "wheel" && outerWheelGesture.current) {
+      outerWheelGesture.current.selectionAngle = nextAngle;
+    }
     const nextInput = { ...input, angle: nextAngle };
     setOuterAngle(nextAngle);
     setOuterPhase(input.phase);
@@ -160,7 +180,7 @@ export function Dialer<TValue = number>({
           outerAngle: nextAngle,
           outerPhase: nextInput.phase,
         })
-      : input.angle as TValue;
+      : nextAngle as TValue;
     setSelectedValue(value);
     onValue?.(value);
   }
@@ -191,11 +211,16 @@ export function Dialer<TValue = number>({
         aria-label="Outer dial"
         data-angle-origin="north"
         data-dial-reference="range-boundary"
-        position={positionFromAngle(outerAngle)}
+        position={positionFromAngle(interactionMode === "wheel" ? 0 : outerAngle)}
         marker={outerMarker?.(state)}
         onTangentialInput={handleOuterInput}
       >
-        {outerScale?.(state)}
+        <span
+          className={styles.scaleRotation}
+          style={scaleRotationStyle(interactionMode, outerAngle)}
+        >
+          {outerScale?.(state)}
+        </span>
       </DialSurface>
       <DialSurface
         {...dialSurfaceProps}
@@ -204,11 +229,16 @@ export function Dialer<TValue = number>({
         aria-label="Inner dial"
         data-angle-origin="north"
         data-dial-reference="zero-point"
-        position={positionFromAngle(innerAngle)}
+        position={positionFromAngle(interactionMode === "wheel" ? 0 : innerAngle)}
         marker={innerMarker?.(state)}
         onTangentialInput={handleInnerInput}
       >
-        {innerScale?.(state)}
+        <span
+          className={styles.scaleRotation}
+          style={scaleRotationStyle(interactionMode, innerAngle)}
+        >
+          {innerScale?.(state)}
+        </span>
       </DialSurface>
 
       <DialerCenterButton
@@ -221,6 +251,46 @@ export function Dialer<TValue = number>({
       </DialerCenterButton>
     </Base>
   );
+}
+
+type WheelGesture = {
+  pointerAngle: number;
+  selectionAngle: number;
+};
+
+function wheelSelectionAngle(
+  input: DialTangentialInput,
+  selectionAngle: number,
+  gestureRef: { current: WheelGesture | null },
+) {
+  if (input.phase === "press" || !gestureRef.current) {
+    gestureRef.current = {
+      pointerAngle: input.angle,
+      selectionAngle,
+    };
+  }
+  const gesture = gestureRef.current;
+  const nextAngle = gesture.selectionAngle
+    - signedAngleDelta(gesture.pointerAngle, input.angle);
+  gestureRef.current = {
+    pointerAngle: input.angle,
+    selectionAngle: nextAngle,
+  };
+  if (input.phase === "release") gestureRef.current = null;
+  return nextAngle;
+}
+
+export function signedAngleDelta(from: number, to: number) {
+  return ((to - from + 540) % 360) - 180;
+}
+
+function scaleRotationStyle(
+  interactionMode: DialerInteractionMode,
+  angle: number,
+): CSSProperties | undefined {
+  return interactionMode === "wheel"
+    ? { transform: `rotate(${-angle}deg)` }
+    : undefined;
 }
 
 export function positionFromAngle(angle: number): DialPosition {

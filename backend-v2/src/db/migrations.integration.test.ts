@@ -87,6 +87,7 @@ integration("PostgreSQL migrations", () => {
       afterNodeId: null,
       kind: "data-file",
       label: "First",
+      localId: "first",
       expectedTreeRevision: 0,
     });
     const repeated = await trees.createNode(workspaceId, userId, {
@@ -96,6 +97,7 @@ integration("PostgreSQL migrations", () => {
       afterNodeId: null,
       kind: "data-file",
       label: "Ignored duplicate",
+      localId: "ignored",
       expectedTreeRevision: 0,
     });
     expect(repeated).toEqual(first);
@@ -111,12 +113,26 @@ integration("PostgreSQL migrations", () => {
       afterNodeId: first.node.id,
       kind: "data-file",
       label: "Second",
+      localId: "second",
       expectedTreeRevision: 1,
     });
     const moved = await trees.moveNode(workspaceId, second.node.id, null, 2);
     expect(moved.node.position).toBe(0);
     const renamed = await trees.renameNode(workspaceId, first.node.id, "Renamed", 0);
     expect(renamed.treeRevision).toBe(4);
+    const identified = await trees.updateLocalId(
+      workspaceId,
+      first.node.id,
+      "renamed",
+      1,
+    );
+    expect(identified.node.localId).toBe("renamed");
+    await expect(trees.updateLocalId(
+      workspaceId,
+      first.node.id,
+      "second",
+      2,
+    )).rejects.toMatchObject({ status: 400, code: "INVALID_REQUEST" });
     await trees.updateContent(workspaceId, first.node.id, "# Content\n", 0);
     await trees.setEnabled(workspaceId, userId, first.node.id, false, 1);
     await trees.setEnabled(workspaceId, userId, second.node.id, false, 1);
@@ -140,16 +156,16 @@ integration("PostgreSQL migrations", () => {
       workspaceId,
       first.node.id,
       second.node.id,
-      4,
+      5,
     );
     expect(reparented.node.parentId).toBe(second.node.id);
     await expect(trees.reparentNode(
       workspaceId,
       second.node.id,
       first.node.id,
-      5,
+      6,
     )).rejects.toMatchObject({ status: 400, code: "INVALID_REQUEST" });
-    await trees.deleteNode(workspaceId, second.node.id, 5);
+    await trees.deleteNode(workspaceId, second.node.id, 6);
 
     const cron = new CronService(database!);
     const timer = await cron.create(workspaceId, userId, {

@@ -6,6 +6,12 @@
   max-width: 100%;
 }
 
+.control > .root,
+.control > .label {
+  grid-column: 1;
+  grid-row: 1;
+}
+
 .control[data-keyboard-visible] {
   grid-template-rows: var(--keyboard-entry-height, auto) auto;
 }
@@ -17,6 +23,26 @@
 .control[data-keyboard-layout="block"] > .root {
   grid-column: 1;
   grid-row: 1;
+}
+
+.control[data-keyboard-layout="block"] > .label {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.label {
+  z-index: 1;
+  align-self: center;
+  justify-self: end;
+  max-width: 50%;
+  padding-right: var(--space-sm);
+  overflow: hidden;
+  color: var(--color-text);
+  line-height: 1;
+  opacity: 0.5;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .root {

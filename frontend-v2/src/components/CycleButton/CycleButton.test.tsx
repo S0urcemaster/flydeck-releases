@@ -20,4 +20,15 @@ describe("CycleButton", () => {
       />,
     )).toContain("M <small>L S</small>");
   });
+
+  it("accepts a separate action for the displayed value", () => {
+    expect(renderToStaticMarkup(
+      <CycleButton
+        options={["!", "?", "%"]}
+        value="!"
+        onChange={() => undefined}
+        onPress={() => undefined}
+      />,
+    )).toContain("! <small>? %</small>");
+  });
 });

@@ -14,6 +14,7 @@ import {
   treeLoadDtoSchema,
   treeNodeContentDtoSchema,
   updateTreeNodeContentRequestSchema,
+  updateTreeNodeLocalIdRequestSchema,
 } from "@flydeck/shared/v2";
 import { z } from "zod";
 import type { SessionService } from "../auth/SessionService.js";
@@ -81,6 +82,23 @@ export function createTreeRouter(sessions: SessionService, trees: TreeService) {
         createTreeNodeResponseSchema,
         (transactionTrees) => transactionTrees.moveNode(
           workspaceId, nodeId, input.afterNodeId, input.expectedTreeRevision,
+        ),
+      ),
+    ));
+  });
+
+  router.put("/nodes/:nodeId/local-id", async (request, response) => {
+    const { workspaceId, userId } = await requireWorkspaceAccess(
+      sessions, request, workspaceIdParameter(request), true,
+    );
+    const nodeId = uuidSchema.parse(request.params.nodeId);
+    const input = updateTreeNodeLocalIdRequestSchema.parse(request.body);
+    response.json(createTreeNodeResponseSchema.parse(
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.local-id",
+        createTreeNodeResponseSchema,
+        (transactionTrees) => transactionTrees.updateLocalId(
+          workspaceId, nodeId, input.localId, input.expectedRevision,
         ),
       ),
     ));

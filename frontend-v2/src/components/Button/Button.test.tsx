@@ -84,6 +84,17 @@ describe("Button", () => {
     expect(markup).toContain("font-weight:500");
   });
 
+  it("keeps provider-owned controls at the configured height", () => {
+    const markup = renderToStaticMarkup(
+      <ButtonConfigurationProvider fontSize="12px" height="40px">
+        <Button>Stable height</Button>
+      </ButtonConfigurationProvider>,
+    );
+
+    expect(markup).toContain("font-size:12px");
+    expect(markup).toContain("height:40px");
+  });
+
   it("exposes the selected-state color as an explicit prop", () => {
     const markup = renderToStaticMarkup(
       <Button activeColor="COLOR_ACCENT_TWO" selected>Active</Button>,

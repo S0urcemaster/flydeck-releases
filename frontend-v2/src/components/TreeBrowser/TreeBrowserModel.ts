@@ -4,12 +4,13 @@ import {
   type ClientStateStore,
 } from "../../state";
 
-export type TreeBrowserPageSize = 3 | 5 | 10;
+export type TreeBrowserPageSize = 3 | 5 | 9;
 
 export type TreeBrowserModelNode<TData = unknown> = {
   id: string;
   kind?: string;
   label: string;
+  localId?: string;
   contentEditable: boolean;
   listEditable: boolean;
   listItemLimit?: number;
@@ -21,6 +22,7 @@ export type TreeBrowserModelInitialNode<TData = unknown> = {
   id: string;
   kind?: string;
   label: string;
+  localId?: string;
   enabled: boolean;
   contentEditable?: boolean;
   contentVisible?: boolean;
@@ -74,8 +76,12 @@ type StoredTreeBrowserModel = {
     revision: number;
   };
   semanticState: TreeBrowserSemanticState;
-  viewState: Omit<TreeBrowserViewState, "contentVisibleByNodeId"> & {
+  viewState: Omit<
+    TreeBrowserViewState,
+    "contentVisibleByNodeId" | "pageSizes"
+  > & {
     contentVisibleByNodeId?: Record<string, boolean>;
+    pageSizes: Record<string, TreeBrowserPageSize | 10>;
   };
 };
 
@@ -94,7 +100,7 @@ type LegacyStoredTreeBrowserModel = {
   version: 1;
   nodes: LegacyStoredNode[];
   pages: Record<string, number>;
-  pageSizes: Record<string, TreeBrowserPageSize>;
+  pageSizes: Record<string, TreeBrowserPageSize | 10>;
   selectedPath: string[];
 };
 
@@ -162,7 +168,7 @@ export class TreeBrowserModel<TData = unknown> {
       viewState: {
         contentVisibleByNodeId,
         pages: stored.viewState.pages,
-        pageSizes: stored.viewState.pageSizes,
+        pageSizes: normalizePageSizes(stored.viewState.pageSizes),
         selectedPath: repairSelectedPath(nodes, stored.viewState.selectedPath),
       },
     };
@@ -189,6 +195,7 @@ function initializeTree<TData>(
         id: node.id,
         kind: node.kind,
         label: node.label,
+        localId: node.localId,
         contentEditable: node.contentEditable ?? true,
         listEditable: node.listEditable ?? true,
         listItemLimit: node.listItemLimit,
@@ -232,6 +239,9 @@ function mergeNodes<TData>(
       ...definition,
       kind: definition.kind ?? stored.kind,
       label: definition.data === undefined ? stored.label : definition.label,
+      localId: definition.data === undefined
+        ? stored.localId ?? definition.localId
+        : definition.localId,
       contentEditable: definition.data === undefined
         ? stored.contentEditable
         : definition.contentEditable,
@@ -262,6 +272,7 @@ function stripData<TData>(
     id: node.id,
     kind: node.kind,
     label: node.label,
+    localId: node.localId,
     contentEditable: node.contentEditable,
     listEditable: node.listEditable,
     listItemLimit: node.listItemLimit,
@@ -395,6 +406,7 @@ function isStoredNode(value: unknown): value is StoredTreeBrowserNode {
   return typeof node.id === "string"
     && (node.kind === undefined || typeof node.kind === "string")
     && typeof node.label === "string"
+    && (node.localId === undefined || typeof node.localId === "string")
     && typeof node.contentEditable === "boolean"
     && typeof node.listEditable === "boolean"
     && (node.listItemLimit === undefined || (
@@ -486,6 +498,15 @@ function isPageSizeRecord(
 ): value is Record<string, TreeBrowserPageSize> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
     && Object.values(value as Record<string, unknown>).every(
-      (size) => size === 3 || size === 5 || size === 10,
+      (size) => size === 3 || size === 5 || size === 9 || size === 10,
     );
+}
+
+function normalizePageSizes(
+  pageSizes: Record<string, TreeBrowserPageSize | 10>,
+): Record<string, TreeBrowserPageSize> {
+  return Object.fromEntries(Object.entries(pageSizes).map(([id, size]) => [
+    id,
+    size === 10 ? 9 : size,
+  ]));
 }

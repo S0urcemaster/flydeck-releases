@@ -14,6 +14,9 @@ describe("AppStatusLine", () => {
     const offlineMarkup = renderToStaticMarkup(
       <AppStatusLine offline message="Offline" />,
     );
+    const activityMarkup = renderToStaticMarkup(
+      <AppStatusLine activity message="saved" />,
+    );
 
     expect(successMarkup).toContain('data-component-name="AppStatusLine"');
     expect(successMarkup).toContain("<output");
@@ -23,5 +26,6 @@ describe("AppStatusLine", () => {
     expect(errorMarkup).toContain("Server unavailable");
     expect(errorMarkup).toContain("var(--color-error)");
     expect(offlineMarkup).toContain("var(--color-accent-one)");
+    expect(activityMarkup).toContain("var(--color-accent-one)");
   });
 });

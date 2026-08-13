@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { Button, type ButtonProps } from "../Button";
+import styles from "./LongPressButton.module.css";
 
 export type LongPressButtonProps = Omit<
   ButtonProps,
@@ -25,6 +26,7 @@ export type LongPressButtonProps = Omit<
 };
 
 export function LongPressButton({
+  className,
   componentName = "LongPressButton",
   disabled,
   longPressTimeout,
@@ -82,6 +84,7 @@ export function LongPressButton({
   return (
     <Button
       {...buttonProps}
+      className={className ? `${styles.root} ${className}` : styles.root}
       componentName={componentName}
       disabled={disabled}
       pressed={longPressConfirmed ? false : pressed}

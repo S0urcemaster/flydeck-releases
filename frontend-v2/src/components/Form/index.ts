@@ -1,1 +1,1 @@
-export { Form, type FormProps, useFormActionWidth } from "./Form";
+export { Form, type FormProps } from "./Form";

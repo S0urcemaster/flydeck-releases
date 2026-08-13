@@ -1,5 +1,6 @@
 import {
   createTreeNodeResponseSchema,
+  createTreeNodeLocalId,
   setTreeNodeEnabledResponseSchema,
   treeLoadDtoSchema,
   treeNodeDtoSchema,
@@ -18,6 +19,7 @@ type NodeRow = {
   parent_id: string | null;
   kind: string;
   label: string;
+  local_id: string;
   position: number;
   revision: string | number;
   content_editable: boolean;
@@ -85,7 +87,8 @@ export class TreeService {
       this.database.query<NodeRow>(`
         SELECT
           tree_nodes.id, tree_nodes.parent_id, tree_nodes.kind,
-          tree_nodes.label, tree_nodes.position, tree_nodes.revision,
+          tree_nodes.label, tree_nodes.local_id, tree_nodes.position,
+          tree_nodes.revision,
           tree_nodes.content_editable, tree_nodes.list_editable,
           tree_nodes.list_item_limit,
           COALESCE(node_user_states.enabled, false) AS enabled,
@@ -115,6 +118,7 @@ export class TreeService {
           parentId: node.parent_id,
           kind: node.kind,
           label: node.label,
+          localId: node.local_id,
           position: node.position,
           revision: Number(node.revision),
           capabilities: {
@@ -169,6 +173,9 @@ export class TreeService {
       const tree = await findTreeForUpdate(client, workspaceId, "data");
       assertRevision(tree.revision, input.expectedTreeRevision, "Tree");
       await assertWritableParent(client, tree.id, input.parentId);
+      await assertLocalIdAvailable(
+        client, tree.id, input.parentId, input.localId,
+      );
       const position = await insertionPosition(
         client, tree.id, input.parentId, input.afterNodeId,
       );
@@ -180,10 +187,18 @@ export class TreeService {
       const nodeId = input.nodeId;
       const inserted = await client.query<MutableNodeRow>(`
         INSERT INTO tree_nodes (
-          id, tree_id, parent_id, kind, label, position
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+          id, tree_id, parent_id, kind, label, local_id, position
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *, false AS enabled, 0 AS enabled_revision
-      `, [nodeId, tree.id, input.parentId, input.kind, input.label, position]);
+      `, [
+        nodeId,
+        tree.id,
+        input.parentId,
+        input.kind,
+        input.label,
+        input.localId,
+        position,
+      ]);
       await client.query(`
         INSERT INTO node_contents (node_id, format, content)
         VALUES ($1, 'markdown', '')
@@ -228,6 +243,47 @@ export class TreeService {
         const current = await nodeRevision(client, tree.id, nodeId);
         throwRevisionConflict("Node", current);
       }
+      const treeRevision = await bumpTree(client, tree.id);
+      return createTreeNodeResponseSchema.parse({
+        node: toNodeDto(result.rows[0]),
+        treeRevision,
+      });
+    });
+  }
+
+  async updateLocalId(
+    workspaceId: string,
+    nodeId: string,
+    localId: string,
+    expectedRevision: number,
+  ) {
+    return this.database.transaction(async (client) => {
+      const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
+      await assertMutableDataNode(client, tree.id, nodeId);
+      const source = await client.query<{
+        parent_id: string | null;
+        revision: string | number;
+      }>(`
+        SELECT parent_id, revision FROM tree_nodes
+        WHERE tree_id = $1 AND id = $2
+      `, [tree.id, nodeId]);
+      if (!source.rows[0]) {
+        throw new HttpError(404, "NOT_FOUND", "Node was not found");
+      }
+      assertRevision(source.rows[0].revision, expectedRevision, "Node");
+      await assertLocalIdAvailable(
+        client,
+        tree.id,
+        source.rows[0].parent_id,
+        localId,
+        nodeId,
+      );
+      const result = await client.query<MutableNodeRow>(`
+        UPDATE tree_nodes
+        SET local_id = $1, revision = revision + 1, updated_at = now()
+        WHERE id = $2 AND tree_id = $3 AND revision = $4
+        RETURNING *, false AS enabled, 0 AS enabled_revision
+      `, [localId, nodeId, tree.id, expectedRevision]);
       const treeRevision = await bumpTree(client, tree.id);
       return createTreeNodeResponseSchema.parse({
         node: toNodeDto(result.rows[0]),
@@ -339,6 +395,9 @@ export class TreeService {
         throw new HttpError(400, "INVALID_REQUEST", "A node cannot be its own parent");
       }
       await assertWritableParent(client, tree.id, parentId);
+      await assertLocalIdAvailable(
+        client, tree.id, parentId, source.local_id, nodeId,
+      );
       if (parentId) {
         const cycle = await client.query<{ found: boolean }>(`
           WITH RECURSIVE descendants AS (
@@ -397,8 +456,13 @@ export class TreeService {
       const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
       assertRevision(tree.revision, expectedTreeRevision, "Tree");
       await assertMutableDataNode(client, tree.id, nodeId);
-      const source = await client.query<{ parent_id: string | null; position: number }>(`
-        SELECT parent_id, position FROM tree_nodes WHERE id = $1 AND tree_id = $2
+      const source = await client.query<{
+        local_id: string;
+        parent_id: string | null;
+        position: number;
+      }>(`
+        SELECT local_id, parent_id, position
+        FROM tree_nodes WHERE id = $1 AND tree_id = $2
       `, [nodeId, tree.id]);
       const trash = await client.query<{ id: string }>(`
         SELECT id FROM tree_nodes
@@ -422,15 +486,24 @@ export class TreeService {
         return { id: nodeId, revision: await bumpTree(client, tree.id) };
       }
       const position = await insertionPosition(client, tree.id, trash.rows[0].id, null);
+      const trashIds = await client.query<{ local_id: string }>(`
+        SELECT local_id FROM tree_nodes
+        WHERE tree_id = $1 AND parent_id = $2
+      `, [tree.id, trash.rows[0].id]);
+      const trashLocalId = createTreeNodeLocalId(
+        source.rows[0].local_id,
+        trashIds.rows.map(({ local_id }) => local_id),
+      );
       await client.query(`
         UPDATE tree_nodes SET position = position - 1, updated_at = now()
         WHERE tree_id = $1 AND parent_id IS NOT DISTINCT FROM $2 AND position > $3
       `, [tree.id, source.rows[0].parent_id, source.rows[0].position]);
       await client.query(`
         UPDATE tree_nodes
-        SET parent_id = $1, position = $2, revision = revision + 1, updated_at = now()
+        SET parent_id = $1, position = $2, local_id = $5,
+            revision = revision + 1, updated_at = now()
         WHERE id = $3 AND tree_id = $4
-      `, [trash.rows[0].id, position, nodeId, tree.id]);
+      `, [trash.rows[0].id, position, nodeId, tree.id, trashLocalId]);
       return { id: nodeId, revision: await bumpTree(client, tree.id) };
     });
   }
@@ -619,10 +692,10 @@ export class TreeService {
         }
         const result = await client.query<{ id: string }>(`
           INSERT INTO tree_nodes (
-            id, tree_id, parent_id, kind, label, position,
+            id, tree_id, parent_id, kind, label, local_id, position,
             content_editable, list_editable
           )
-          SELECT $1, $2, $3, $4, $5,
+          SELECT $1, $2, $3, $4, $5, $7,
             COALESCE((
               SELECT MAX(position) + 1 FROM tree_nodes
               WHERE tree_id = $2 AND parent_id IS NOT DISTINCT FROM $3
@@ -632,7 +705,15 @@ export class TreeService {
               WHERE tree_id = $2 AND parent_id IS NOT DISTINCT FROM $3 AND kind = $4
             )
           RETURNING id
-        `, [randomUUID(), tree.rows[0].id, null, directory.kind, directory.label, directory.listEditable]);
+        `, [
+          randomUUID(),
+          tree.rows[0].id,
+          null,
+          directory.kind,
+          directory.label,
+          directory.listEditable,
+          directory.kind === "system-directory" ? "_system" : "_trash",
+        ]);
         if (result.rows[0]) {
           changed = true;
           await client.query(`
@@ -689,7 +770,16 @@ async function findNodeTreeForUpdate(client: Queryable, workspaceId: string, nod
 }
 
 async function assertWritableParent(client: Queryable, treeId: string, parentId: string | null) {
-  if (!parentId) return;
+  if (!parentId) {
+    const result = await client.query<{ count: string }>(`
+      SELECT count(*) FROM tree_nodes
+      WHERE tree_id = $1 AND parent_id IS NULL
+    `, [treeId]);
+    if (Number(result.rows[0].count) >= 99) {
+      throw new HttpError(400, "INVALID_REQUEST", "Parent list item limit was reached");
+    }
+    return;
+  }
   const result = await client.query<{ list_editable: boolean; list_item_limit: number | null; count: string }>(`
     SELECT tree_nodes.list_editable, tree_nodes.list_item_limit,
       (SELECT count(*) FROM tree_nodes children WHERE children.parent_id = tree_nodes.id) AS count
@@ -698,8 +788,35 @@ async function assertWritableParent(client: Queryable, treeId: string, parentId:
   const parent = result.rows[0];
   if (!parent) throw new HttpError(400, "INVALID_REQUEST", "Parent node was not found");
   if (!parent.list_editable) throw new HttpError(403, "FORBIDDEN", "Parent list is read-only");
-  if (parent.list_item_limit !== null && Number(parent.count) >= parent.list_item_limit) {
+  const limit = Math.min(parent.list_item_limit ?? 99, 99);
+  if (Number(parent.count) >= limit) {
     throw new HttpError(400, "INVALID_REQUEST", "Parent list item limit was reached");
+  }
+}
+
+async function assertLocalIdAvailable(
+  client: Queryable,
+  treeId: string,
+  parentId: string | null,
+  localId: string,
+  exceptNodeId?: string,
+) {
+  const result = await client.query<{ found: boolean }>(`
+    SELECT EXISTS (
+      SELECT 1 FROM tree_nodes
+      WHERE tree_id = $1
+        AND parent_id IS NOT DISTINCT FROM $2
+        AND local_id = $3
+        AND ($4::uuid IS NULL OR id <> $4)
+    ) AS found
+  `, [treeId, parentId, localId, exceptNodeId ?? null]);
+  if (result.rows[0].found) {
+    throw new HttpError(
+      400,
+      "INVALID_REQUEST",
+      "The ID is already used in this list",
+      { field: "localId" },
+    );
   }
 }
 
@@ -789,6 +906,7 @@ function toNodeDto(node: MutableNodeRow) {
     parentId: node.parent_id,
     kind: node.kind,
     label: node.label,
+    localId: node.local_id,
     position: node.position,
     revision: Number(node.revision),
     capabilities: {

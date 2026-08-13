@@ -72,7 +72,7 @@ export function SettingsModule({
         {...treeBrowserProps}
         browserLabel="Theme configuration"
         componentName="ThemeBrowser"
-        defaultPageSize={10}
+        defaultPageSize={9}
         rootPageSize={5}
         model={model}
         rootListEditable={false}

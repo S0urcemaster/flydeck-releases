@@ -6,9 +6,9 @@ import { FormRow } from "../FormRow";
 import { Form } from "./Form";
 
 describe("Form", () => {
-  it("gives every FormRow action the same configured width", () => {
+  it("lets idle FormRow inputs use the complete form width", () => {
     const markup = renderToStaticMarkup(
-      <Form actionWidth="123px" padding="7px">
+      <Form padding="7px">
         <FormRow label="Name" onSet={() => undefined}>
           <Input aria-label="Name" />
         </FormRow>
@@ -19,7 +19,7 @@ describe("Form", () => {
     );
 
     expect(markup).toContain('data-component-name="Form"');
-    expect(markup.match(/width:123px/g)).toHaveLength(2);
+    expect(markup).not.toContain("<button");
     expect(markup).toContain("padding:7px");
   });
 });

@@ -5,6 +5,7 @@ export type CycleButtonProps = Omit<
   "children" | "onChange" | "onClick"
 > & {
   onChange: (value: string) => void;
+  onPress?: (value: string) => void;
   options: readonly string[];
   value: string;
 };
@@ -12,6 +13,7 @@ export type CycleButtonProps = Omit<
 export function CycleButton({
   componentName = "CycleButton",
   onChange,
+  onPress,
   options,
   value,
   ...buttonProps
@@ -38,6 +40,7 @@ export function CycleButton({
       preserveFocus
       onClick={() => {
         if (normalizedOptions.length === 0) return;
+        onPress?.(selected);
         onChange(normalizedOptions[(selectedIndex + 1) % normalizedOptions.length]);
       }}
     >

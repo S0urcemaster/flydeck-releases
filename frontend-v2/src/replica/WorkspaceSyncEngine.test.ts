@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import type { TreeLoadDto } from "@flydeck/shared/v2";
 
-import { V2ApiClient } from "../api/V2ApiClient";
+import { V2ApiClient, V2ApiError } from "../api/V2ApiClient";
 import {
   MemoryWorkspaceReplicaStorage,
   WorkspaceReplica,
@@ -123,9 +124,66 @@ describe("WorkspaceSyncEngine", () => {
     confirmRename({ node: after.document.nodes[0], treeRevision: 2 });
     await expect(draining).resolves.toBe(true);
   });
+
+  it("discards a stale selection conflict and continues later writes", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const before = tree("Before", 0, 1);
+    const after = tree("After", 1, 2);
+    after.selection = { revision: 4, selectedPath: [nodeId] };
+    await replica.replaceTree(scope, before);
+    await replica.enqueue(scope, {
+      type: "set-selection",
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000008",
+        selectedPath: [nodeId],
+        expectedRevision: 0,
+      },
+    });
+    await replica.enqueue(scope, {
+      type: "rename-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000009",
+        label: "After",
+        expectedRevision: 0,
+      },
+    });
+    await replica.recordAttempt(
+      scope,
+      "00000000-0000-4000-8000-000000000008",
+    );
+    const renameDataNode = vi.fn().mockResolvedValue({
+      node: after.document.nodes[0],
+      treeRevision: 2,
+    });
+    const api = {
+      setDataSelection: vi.fn().mockRejectedValue(new V2ApiError({
+        error: "REVISION_CONFLICT",
+        message: "Selection was changed by another request",
+        requestId: "request-1",
+        currentRevision: 4,
+      })),
+      renameDataNode,
+      loadDataTree: vi.fn().mockResolvedValue(after),
+    } as unknown as V2ApiClient;
+    const status = new WorkspaceSyncStatusStore(false);
+    const engine = new WorkspaceSyncEngine(replica, api, status, false);
+
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(renameDataNode).toHaveBeenCalledOnce();
+    expect((await replica.load(scope))?.outbox).toEqual([]);
+    expect((await replica.load(scope))?.tree).toEqual(after);
+    expect(status.getSnapshot()).toEqual({ state: "idle" });
+    expect(status.getActivitySnapshot()).toEqual({ message: "queue saved" });
+  });
 });
 
-function tree(label: string, nodeRevision: number, treeRevision: number) {
+function tree(
+  label: string,
+  nodeRevision: number,
+  treeRevision: number,
+): TreeLoadDto {
   return {
     document: {
       id: "00000000-0000-4000-8000-000000000005",
@@ -137,6 +195,7 @@ function tree(label: string, nodeRevision: number, treeRevision: number) {
         parentId: null,
         kind: "data-file",
         label,
+        localId: label.toLocaleLowerCase(),
         position: 0,
         revision: nodeRevision,
         capabilities: { contentEditable: true, listEditable: true, listItemLimit: null },

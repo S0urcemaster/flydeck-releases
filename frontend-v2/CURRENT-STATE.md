@@ -22,9 +22,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   the title background is unchanged. A later successful API response clears
   offline state.
 - `ModuleMenuActions` places an Offline test toggle immediately left of Help.
-  In its normal state it renders the `WifiOff` symbol. While enabled it replaces
-  that symbol with the global number of pending Outbox transactions, blocks
-  every V2 API request before transport, and therefore exercises the real
+  In its online state it renders the `WifiOff` symbol. Both a real connection
+  failure and enabled test mode select the button and replace that symbol with
+  the global number of pending Outbox transactions. Test mode blocks every V2
+  API request before transport and therefore exercises the real
   cache/optimistic/outbox path. Disabling it releases transport and immediately
   retries every registered workspace scope.
 - `DeleteButton` now acquires an immediate in-flight guard before invoking an
@@ -64,24 +65,38 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - Concrete module properties resolve `inherit` against the configured
   `Module.base`, so border, background, spacing, and color form one shared
   module body unless a concrete module overrides them.
-- `CronModule` composes the shared `Dialer` through `CronDialer`. The current
-  interaction prototype gives the fixed inner ring a continuous logarithmic
-  `1h`–`5y` zoom scale with a five-degree north dead zone. The outer ring uses
-  a dynamically rebuilt time scale with roughly twelve suitable marks
-  (five-minute marks at the `1h` zoom) around the independently positioned
-  outer value pointer; zooming does not change the selected time. Labels fade
-  only at north, never at the value pointer. Selecting a time stores the outer
-  pointer angle and current range as its zoom anchor. Zooming out moves the
-  pointer toward north; zooming back in returns it to that stored angle. Any
-  further zoom toward the `1h` maximum keeps the pointer fixed and expands the
-  scale around it. Time values and marks follow the remembered clockwise or
-  counterclockwise side, keeping zero at north on either half. Both duration
-  and target date use the center format `yyy.mm.dd hh:mm`. Its
-  scale, pointer, font-size, and separate ring-background properties remain in
-  the typed lab contract. The four corner labels and center duration/date-time
-  conversion remain; the module does not yet own
-  timer creation or a timer list. `SettingsModule` remains an empty migration
-  target. `AgentModule`
+- `Dialer` supports two generic interaction modes. Its default `pointer` mode
+  moves both markers over stationary scales; `wheel` mode keeps both markers
+  at north and rotates the scales underneath while retaining the same logical
+  angles. `CronModule` composes `CronDialer → Dialer` in wheel mode. Its outer
+  ring supplies a time scale around the north-anchored selected timestamp; its
+  inner ring changes the visible range logarithmically over three quarters of
+  a turn, from `1h` at north to `5y` at west, without moving that timestamp.
+  The four corner buttons remain `SCALE`,
+  `SEND`, `RANGE`, and `ZOOM`; the center button shows the selected time.
+  CronDialer persists separate font sizes and weights for the center value,
+  inner range scale, and outer time scale. Each ring exposes one start and one
+  end color; the inner ring reuses its pair for every segment. The two disc
+  base colors are independently configurable. Both scales place their tick
+  marks directly at
+  the outer edge of their respective circular surfaces while their labels sit
+  farther inward in the usable middle of each ring to support larger type.
+  The six inner range anchors are evenly spaced across the 270-degree travel;
+  each of the five real zoom intervals has its own light-to-dark background
+  segment and logarithmic interpolation between its two labeled endpoints.
+  Unlike the generic capped Dialer, CronDialer fills the available container
+  width while retaining its square aspect ratio and proportional ring geometry.
+  Its outer disc reaches the component edge and the inner disc grows
+  proportionally, so the dial overlaps more of the four corner buttons. Its
+  center button preserves the configurable DialerCenterButton width and height
+  instead of replacing them with Cron-specific dimensions.
+  The outer ring shades the hour, calendar day, week, month, or year containing
+  the selected north-point time at its actual position on the rotating scale. This
+  scale-owned arc rotates with the dial and uses a light-to-dark theme-derived
+  gradient. Because the arc uses the same selected-time reference as the scale,
+  it remains visible and stable while zooming. Repeated outer-scale text labels
+  are suppressed while their underlying time ticks remain visible.
+  `SettingsModule` remains an empty migration target. `AgentModule`
   owns subordinate `CHAT` and `MEMO` navigation; `MEMO` presents the recursive
   `TreeBrowser` with a locally persisted plant fixture.
   `HelpModule` renders `src/assets/manual.md`.
@@ -98,19 +113,30 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   selection appends the same five-row level as an empty list. There is no tree
   indentation and no child list is inserted beside or immediately after its
   parent row.
-- `BrowserItem`, `Checkbox`, and `ListControl` own the reusable row, enable
-  control, and paging UI respectively. All are independently catalogued and
-  have persisted Base properties.
+- `BrowserItem`, `Checkbox`, and `ListControl` own the reusable row, action
+  selection, and paging UI respectively. All are independently catalogued and
+  have persisted Base properties. Checkbox additionally owns its mark
+  `fontSize`; editing it in the lab no longer mutates the inherited global
+  Button typography. Lab navigation and action buttons inherit the configured
+  Button height, so typography previews cannot resize the lab chrome.
 - `BrowserItem` shows its `DeleteButton` only while selected and no longer owns
   ordering controls. `ListControl` places its page status at the left, a
   reusable `Input` in the remaining row width, and `＋` plus previous-page,
   move-up, move-down, and next-page buttons at the right. NEW is enabled only
   for a non-empty name that does not already exist case-insensitively.
-  `ListControlListSizeButton` is controlled by the list owner, displays current
-  page/total pages, and requests list-size changes through `3 → 5 → 10 → 3`;
+  `ListControlListSizeButton` is controlled by the list owner, displays only
+  its current page size, and requests changes through `3 → 5 → 9 → 3`;
   each tree level owns the resulting setting independently.
   `TreeBrowser` supplies the selected-row color by depth, alternating from
   `ACCENT_ONE` to `ACCENT_TWO`.
+  Selecting a row makes it the only active item in its sibling list and checks
+  it for actions. Further siblings can be added or removed through their
+  checkboxes without opening them; the active row remains checked. Delete and
+  Set Parent apply to the complete checked sibling set, and Set Parent validates
+  target capacity for the whole batch.
+  Checkboxes display each item's one-based position in the complete sibling
+  list. Every list has a hard 99-item ceiling even when its domain-specific
+  `listItemLimit` is absent or larger.
   ListControl page and page-size changes never alter `selectedPath`; an active
   item and its descendant list/content remain active even while another page
   of the owning list is visible.
@@ -143,11 +169,12 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   server, and writes confirmed create, rename, reparent, and content results
   back through the replica. A local cache failure is reported globally without
   turning an already confirmed server mutation into a failed mutation.
-  Offline mutation queuing remains the next step.
+  Offline mutation queuing is active through that same replica.
 - Every shared DATA mutation contract now carries a UUID request ID, including
   create, rename, move, reparent, delete, enabled state, selection, and content.
-  Create additionally carries its client-assigned node UUID so an offline item
-  has one stable identity before server contact. Backend tree routes execute
+  Create additionally carries its client-assigned node UUID and sibling-local
+  12-character `localId`, so an offline item has both a stable internal identity
+  and a short address before server contact. Backend tree routes execute
   each non-create command through a transaction-scoped idempotency boundary;
   mutation and recorded response commit atomically, repeated IDs replay the
   original response, and cross-operation ID reuse is rejected. Create retains
@@ -168,14 +195,29 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   background, so DATA selection and editing no longer wait for network replay.
   DataBrowser consumes that returned record directly instead of re-reading the
   replica and replacing/remounting its complete tree after every action.
+- The title status line visualizes durable writes in the blue primary accent.
+  Each user command shows `cached...` for at least 500ms and then `saved`; while
+  offline it transitions to `in queue`, and a completely replayed recovery
+  queue produces one `queue saved`. TreeBrowser gives every multi-select action
+  one persisted user-command ID, so its individual mutations share one visual
+  lifecycle. Internal selection persistence does not create write messages.
 - DataBrowser now also issues create, rename, move, reparent, delete, enabled,
   selection, and content commands exclusively through `WorkspaceSyncEngine`.
   Its local TreeBrowser model receives the same optimistic replica result that
   will later be replayed; there is no longer a direct-write exception between
   Inventory and the general DATA editor.
 - MEMO, DATA, and FUNC `InputControl` instances are controlled and persist
-  node-scoped drafts through that store. `InputControl` retains an uncontrolled
-  mode only for isolated examples.
+  node-scoped drafts through that store. DATA content starts with an editable ID
+  input; Inventory exposes the same field as its first form row. IDs use
+  lowercase letters, numbers, `_`, and `-`, are unique only among siblings, and
+  are generated from the item name with collision suffixes. Set Parent and app
+  data-source inputs resolve paths composed from these IDs instead of labels;
+  UUIDs remain the persisted relationship keys. `InputControl` retains an uncontrolled
+  mode only for isolated examples. DATA and Inventory compose one catalogued
+  `NodeIdInput → InputControl` specialization for the ID field. It owns ID
+  normalization and validation while inheriting the complete configured
+  InputControl, Input, Button, and Keyboard property chain; neither feature
+  recreates or replaces that visual contract.
 - Tree view state owns `contentVisible`; children and content are independent,
   so every item can switch between both views. `TreeBrowser` controls only
   navigation, mode switching, and content height; a generic
@@ -194,13 +236,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   root. Locked lists disable their mutating controls, limits block additional
   children, and the mode button is disabled when its target mode is locked.
   FUNC fixes its three-entry root plus the `Widgets` and `System` child lists.
-- List editability does not disable checkboxes: each node's checkbox is an
-  independent visibility flag and all FUNC flags start off. `FunctionBrowser`
-  reports its derived output state to `FunctionsModule`, which renders the
-  bounded `DeviceInfoView` and `CompassView` above the less frequently used
-  browser. Both compose `FunctionView → Base`. DeviceInfo appears when its item
-  is enabled; Compass shows enabled sayings grouped under enabled categories
-  when Compass itself is enabled. Enabling a parent never mutates its children.
+- List editability does not disable checkboxes: checkboxes extend the local
+  action selection even in locked lists. The older semantic enabled state
+  remains in `TreeBrowserModel` snapshots for compatibility, but is no longer
+  controlled by the TreeBrowser row checkbox.
   Stable sibling keys ensure inserting or removing an output view never
   remounts the state-owning FunctionBrowser.
   The Compass data attachment is tagged as a `view-generator`; its output is
@@ -262,7 +301,7 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 ## Development lab
 
 - `src/config/componentManifest.ts` is now the authoritative inventory and
-  single-parent inheritance graph for all 72 production component TSX files.
+  single-parent inheritance graph for all 73 production component TSX files.
   The application catalog, composition depth colors, and component-family
   lists derive from that manifest. Architecture tests compare the manifest to
   the complete `components` and `modules` source tree, reject missing parents
@@ -301,7 +340,7 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   reach around the component-property chain.
 - The tree/input graph now persists and resolves every declared specialization:
   `DataTree → DataBrowser → TreeBrowser`, `MemoryBrowser → TreeBrowser`,
-  `ContentEditor → InputControl`, and
+  `ContentEditor/NodeIdInput → InputControl`, and
   `ParentInput/DataSourceInput → RootInputControl → Base`. `DataTree` retains its own
   component identity through the complete runtime chain. App and the lab pass
   the derived Base values and nested control props explicitly; editable Base
@@ -319,11 +358,11 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   color, background, border, spacing, dimensions, or typography as a TSX
   parameter default. Manifest and property tests enforce both invariants.
 - `Block → Base` is the explicit app-row layout primitive and always occupies
-  the complete app width. `Form` composes `Base<form>` and supplies one
-  persisted `actionWidth` to all nested `FormRow` actions. `FormRow` composes
-  `Block` plus the shared `Button`;
-  its idle right-hand button shows only the value label. Focusing a row changes
-  that action to `Save`; a row with an `onNew` contract adds `New` below it.
+  the complete app width. `Form` composes `Base<form>`. `FormRow` composes
+  `Block` plus the shared `Button`; it renders no idle action, so its field uses
+  the complete row width. Focusing a row adds `Save` below the keyboard; a row
+  with an `onNew` contract also adds `New`. `ParentInput` likewise renders
+  `Set Parent` only while its field is being edited.
   The previous input-aid component has been fully renamed to `Keyboard`.
   `InputControl` is now the common keyboard-backed wrapper for an `Input` or a
   `Textarea`. In the APPS TreeBrowser it keeps Keyboard visible for the complete
@@ -433,9 +472,11 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   keyboard height. `DataBrowser` content and fixed-height `AppView` surfaces
   release their height caps while a keyboard is visible, so the keyboard does
   not compress the text-entry area.
-- Text content uses a `Save` action. DATA parent editing places `Set Parent`
+- Text content and the DATA ID field use a `Save` action. DATA parent editing places `Set Parent`
   below the keyboard; Inventory places `Save`/`New` for Name and `Save` for
   Desc below the keyboard and uses the same shared `ParentInput` action row.
+  RootInputControl prevents its action button's pointer-down from blurring the
+  input, so mobile browsers cannot remove or move the button before its click.
 - `Keyboard` has one target-independent toolbar contract: its time/date button
   is always present for both `Input` and `Textarea`; no caller-specific flag
   controls that toolbar composition.
@@ -443,6 +484,21 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   bounds. Backspace composes the dedicated `BackspaceButton → PressButton`
   contract: it deletes once on press and repeats after a short hold delay until
   release or cancellation.
+- The Keyboard toolbar's smartphone-keyboard button is a selected-state toggle:
+  its first press enables and opens the native keyboard, while its next press
+  restores `inputMode=none` and closes it without closing the Flydeck keyboard.
+- Every Input, Textarea, and InputControl Keyboard starts its font-size selector
+  at the shared `M` stage; users can still cycle through `L` and `S`.
+- `Input` owns a noninteractive half-transparent label at its right edge;
+  `Textarea` owns the equivalent label at its top-right corner. Both labels use
+  the field's current scaled font size and disappear when the field content is
+  longer than ten characters. Inventory uses the embedded labels
+  `ID`, `Name`, `Desc`, and `Parent` instead of idle side buttons.
+- `Keyboard.buttonHeight` is the single persisted height for every toolbar and
+  character button owned by Keyboard. The Keyboard lab edits only this local
+  layout property and its Base contract; BackspaceButton, CycleButton,
+  DialButton, LongPressButton, and ShiftButton remain independently configured
+  in their own lab entries and are still passed explicitly for composition.
 - `LongPressButton` uses Button's controlled pressed appearance to drop back
   to its inactive colors as soon as the second/hold action fires. The short
   action remains suppressed until release, and selected semantics remain
@@ -455,9 +511,13 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   press after the 800ms dial timeout starts a new character.
 - The comma key is a DialButton with `, " '` and the period key is a DialButton
   with `. : ;`. In the symbol layout, the bracket keys are DialButtons with
-  `( <` and `) >`. The now-duplicate quote/colon/semicolon symbol positions are
-  non-writing placeholders labeled with their key numbers `23`–`26` pending a
-  final assignment.
+  `( <` and `) >`. Symbol positions 23–26 are three-value CycleButtons for
+  `! ? %`, `[ ] \\`, `{ } |`, and `^ ~ \``. A press inserts the currently
+  displayed primary character and advances the button to its next value.
+- Letter keys `a`, `o`, and `u` are DialButtons with `ä`, `ö`, and `ü` as their
+  second values. One-shot uppercase remains active for the complete 800ms dial
+  window so the second press can produce `Ä`, `Ö`, or `Ü`, then returns to
+  lowercase when the timer completes. Key 31 is Enter and inserts a newline.
 - Uppercase remains a one-shot Shift state, while the second Shift state
   (symbols) remains active after character input and Currency-cycle presses
   until Shift is pressed again.

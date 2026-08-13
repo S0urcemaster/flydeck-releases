@@ -18,7 +18,8 @@ export type ModuleMenuActionsProps = BaseStyleProps & {
   configButtonProps: ConfigModuleButtonProps;
   helpButtonProps: HelpModuleButtonProps;
   offlineButtonProps: Omit<ButtonProps, "children" | "onClick" | "selected">;
-  offlineMode: boolean;
+  forcedOfflineMode: boolean;
+  offline: boolean;
   pendingTransactions: number;
   onChange: (item: ModuleMenuItem) => void;
   onOfflineModeChange: (offline: boolean) => void;
@@ -29,7 +30,8 @@ export function ModuleMenuActions({
   configButtonProps,
   helpButtonProps,
   offlineButtonProps,
-  offlineMode,
+  forcedOfflineMode,
+  offline,
   pendingTransactions,
   onChange,
   onOfflineModeChange,
@@ -45,13 +47,13 @@ export function ModuleMenuActions({
     >
       <Button
         {...offlineButtonProps}
-        aria-label={offlineMode
-          ? `Offline test mode: on, ${pendingTransactions} pending transactions`
+        aria-label={offline
+          ? `${forcedOfflineMode ? "Offline test mode: on" : "Offline: no connection"}, ${pendingTransactions} pending transactions`
           : "Offline test mode: off"}
-        selected={offlineMode}
-        onClick={() => onOfflineModeChange(!offlineMode)}
+        selected={offline}
+        onClick={() => onOfflineModeChange(!forcedOfflineMode)}
       >
-        {offlineMode
+        {offline
           ? pendingTransactions
           : <WifiOff size="1em" strokeWidth={1.8} aria-hidden="true" />}
       </Button>

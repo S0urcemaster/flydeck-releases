@@ -3,117 +3,126 @@ import { describe, expect, it } from "vitest";
 
 import {
   CronDialer,
-  formatCronDurationDisplay,
-  formatCronDate,
-  getCronOuterScaleMarks,
-  getCronOuterIntervalMinutes,
-  getCronOuterMarkAngle,
-  getCronZoomedOuterPointer,
-  getCronScaleAngle,
-  getCronScaleMinutes,
-  getCronSelectedDurationMinutes,
+  cronRangeMinutes,
+  cronTimeMarks,
+  cronTimeSegment,
+  cronZoomAngle,
+  formatCronTime,
 } from "./CronDialer";
 
 describe("CronDialer", () => {
-  it("composes the independent scale and value rings", () => {
-    const markup = renderToStaticMarkup(<CronDialer />);
+  it("specializes the wheel Dialer with a time and zoom scale", () => {
+    const markup = renderToStaticMarkup(
+      <CronDialer
+        centerFontSize="18px"
+        centerFontWeight="700"
+        centerButtonProps={{ height: "50%", width: "50%" }}
+        initialTime={new Date(2026, 7, 12, 9, 5)}
+        innerDiscColor="#112233"
+        innerGradientEnd="blue"
+        innerGradientStart="red"
+        innerScaleFontSize="12px"
+        innerScaleFontWeight="600"
+        outerDiscColor="#445566"
+        outerGradientEnd="yellow"
+        outerGradientStart="green"
+        outerScaleFontSize="14px"
+        outerScaleFontWeight="500"
+      />,
+    );
 
     expect(markup).toContain('aria-label="Cron dialer"');
-    expect(markup).toContain('aria-label="Show date"');
-    expect(markup).toContain(">000.00.00 00:00</span>");
-    expect(markup.match(/data-layer=/g)).toHaveLength(2);
-    expect(markup).toContain("--dial-marker-angle:2.5deg");
-    expect(markup).toContain("--dial-marker-angle:0deg");
+    expect(markup).toContain("width:100%");
+    expect(markup).toContain("width:50%;height:50%");
+    expect(markup.match(/--dial-marker-angle:0deg/g)).toHaveLength(2);
     expect(markup).toContain(">1h</span>");
-    expect(markup).toContain(">24h</span>");
-    expect(markup).toContain(">7d</span>");
     expect(markup).toContain(">5y</span>");
-    expect(markup).toContain(">5m</span>");
-    expect(markup).toContain(">SCALE</button>");
-    expect(markup).toContain(">SEND</button>");
-    expect(markup).toContain(">RANGE</button>");
-    expect(markup).toContain(">ZOOM</button>");
+    expect(markup).not.toContain(">6h</span>");
+    expect(markup).not.toContain(">3m</span>");
+    expect(markup).not.toContain(">2y</span>");
+    expect(markup).toContain("--cron-mark-angle:0deg");
+    expect(markup).toContain("--cron-mark-angle:270deg");
+    expect(markup).toContain(">026.08.12 09:05</button>");
+    expect(markup).toContain("font-size:18px");
+    expect(markup).toContain("font-weight:700");
+    expect(markup).toContain("font-size:12px");
+    expect(markup).toContain("font-weight:600");
+    expect(markup).toContain("background:#112233");
+    expect(markup).toContain("--cron-gradient-start:red");
+    expect(markup).toContain("--cron-gradient-end:blue");
+    expect(markup).toContain("font-size:14px");
+    expect(markup).toContain("font-weight:500");
+    expect(markup).toContain("background:#445566");
+    expect(markup).toContain("--cron-gradient-start:green");
+    expect(markup).toContain("--cron-gradient-end:yellow");
   });
 
-  it("maps the inner ring logarithmically across a five-degree north dead zone", () => {
-    expect(getCronScaleAngle(0)).toBe(2.5);
-    expect(getCronScaleAngle(359)).toBe(357.5);
-    expect(getCronScaleMinutes(2.5)).toBeCloseTo(60);
-    expect(getCronScaleMinutes(357.5)).toBeCloseTo(5 * 365 * 24 * 60);
-    expect(getCronScaleMinutes(180)).toBeCloseTo(
-      Math.sqrt(60 * 5 * 365 * 24 * 60),
+  it("zooms logarithmically from one hour to five years", () => {
+    const anchors = [
+      60,
+      24 * 60,
+      7 * 24 * 60,
+      30 * 24 * 60,
+      365 * 24 * 60,
+      5 * 365 * 24 * 60,
+    ];
+    anchors.forEach((minutes, index) => {
+      expect(cronZoomAngle(minutes)).toBe(index * 54);
+      expect(cronRangeMinutes(index * 54)).toBeCloseTo(minutes);
+    });
+  });
+
+  it("keeps a useful mark density around the selected time", () => {
+    const marks = cronTimeMarks(new Date(2026, 7, 12, 9, 5), 60);
+    expect(marks.length).toBeGreaterThanOrEqual(6);
+    expect(marks.length).toBeLessThanOrEqual(15);
+    expect(formatCronTime(new Date(2026, 7, 12, 9, 5))).toBe(
+      "026.08.12 09:05",
     );
+
+    const dayLabels = cronTimeMarks(
+      new Date(2026, 7, 12, 12),
+      7 * 24 * 60,
+    ).map(({ label }) => label).filter(Boolean);
+    expect(new Set(dayLabels).size).toBe(dayLabels.length);
+    expect(dayLabels.filter((label) => label === "12.08")).toHaveLength(1);
   });
 
-  it("uses five-minute labels and values at the one-hour scale", () => {
-    expect(getCronSelectedDurationMinutes(2.5, 180)).toBeCloseTo(30);
-    expect(getCronOuterIntervalMinutes(60)).toBe(5);
-    const marks = getCronOuterScaleMarks(2.5, 0, 0);
-    expect(marks.map((mark) => mark.label)).toContain("5m");
-    expect(marks.map((mark) => mark.label)).toContain("1h");
-    expect(marks.find((mark) => mark.label === "1h")?.opacity).toBe(0);
-    expect(formatCronDurationDisplay(
-      (365 + 2 * 30 + 3) * 24 * 60 + 4 * 60 + 5,
-    )).toBe("001.02.03 04:05");
-    expect(formatCronDate(new Date(2026, 7, 8, 9, 5))).toBe("026.08.08 09:05");
+  it("marks the proportional selected calendar period on the time scale", () => {
+    const selected = new Date(2026, 7, 12, 12);
+    const hour = cronTimeSegment(selected, 60);
+    expect(hour?.period).toBe("hour");
+    expect(hour?.start).toEqual(new Date(2026, 7, 12, 12));
+    expect(hour?.end).toEqual(new Date(2026, 7, 12, 13));
+    expect(hour?.sweepAngle).toBe(360);
+    const twelveHours = cronTimeSegment(selected, 12 * 60);
+    expect(twelveHours?.period).toBe("hour");
+    expect(twelveHours?.start).toEqual(new Date(2026, 7, 12, 12));
+    expect(twelveHours?.end).toEqual(new Date(2026, 7, 12, 13));
+    expect(twelveHours?.sweepAngle).toBe(30);
+    const day = cronTimeSegment(selected, 3 * 24 * 60);
+    expect(day?.period).toBe("day");
+    expect(day?.start).toEqual(new Date(2026, 7, 12));
+    expect(day?.end).toEqual(new Date(2026, 7, 13));
+    expect(day?.startAngle).toBe(-60);
+    expect(day?.sweepAngle).toBe(120);
+    const week = cronTimeSegment(selected, 14 * 24 * 60);
+    expect(week?.period).toBe("week");
+    expect(week?.start).toEqual(new Date(2026, 7, 10));
+    expect(week?.end).toEqual(new Date(2026, 7, 17));
+    expect(cronTimeSegment(selected, 90 * 24 * 60)?.period).toBe("month");
+    expect(cronTimeSegment(selected, 5 * 365 * 24 * 60)?.period).toBe("year");
   });
 
-  it("rebuilds a similarly dense scale around the outer pointer", () => {
-    const selectedMinutes = 30;
-    const pointerAngle = 180;
-    const oneHourMarks = getCronOuterScaleMarks(2.5, pointerAngle, selectedMinutes);
-    const fiveYearRange = getCronScaleMinutes(357.5);
-    const largerScaleMarks = getCronOuterScaleMarks(
-      357.5,
-      pointerAngle,
-      fiveYearRange / 2,
+  it("keeps the selected calendar period on the visible scale", () => {
+    const segment = cronTimeSegment(
+      new Date(2026, 7, 20, 12),
+      6 * 24 * 60,
     );
-    const oneHourAnchor = oneHourMarks.find((mark) => mark.minutes === selectedMinutes);
-
-    expect(oneHourAnchor?.angle).toBe(pointerAngle);
-    expect(oneHourAnchor?.opacity).toBe(1);
-    expect(oneHourMarks).toHaveLength(13);
-    expect(Math.abs(oneHourMarks.length - largerScaleMarks.length)).toBeLessThanOrEqual(3);
-  });
-
-  it("stretches the time scale linearly around its value pointer", () => {
-    expect(getCronOuterMarkAngle(0, 120, 180, 30)).toBe(90);
-    expect(getCronOuterMarkAngle(15, 120, 180, 30)).toBe(135);
-    expect(getCronOuterMarkAngle(30, 120, 180, 30)).toBe(180);
-    expect(getCronOuterMarkAngle(60, 120, 180, 30)).toBe(270);
-  });
-
-  it("keeps zero at north and the selected mark under a left-side pointer", () => {
-    const selectedMinutes = getCronSelectedDurationMinutes(2.5, 240);
-    expect(selectedMinutes).toBeCloseTo(20);
-    expect(getCronOuterMarkAngle(
-      0,
-      60,
-      240,
-      selectedMinutes,
-      "counterclockwise",
-    )).toBe(360);
-    expect(getCronOuterMarkAngle(
-      selectedMinutes,
-      60,
-      240,
-      selectedMinutes,
-      "counterclockwise",
-    )).toBe(240);
-    expect(getCronOuterMarkAngle(
-      30,
-      60,
-      240,
-      selectedMinutes,
-      "counterclockwise",
-    )).toBe(180);
-  });
-
-  it("returns to the remembered pointer angle and anchors further zoom there", () => {
-    expect(getCronZoomedOuterPointer(120, 60, 120, "clockwise")).toBe(60);
-    expect(getCronZoomedOuterPointer(120, 60, 60, "clockwise")).toBe(120);
-    expect(getCronZoomedOuterPointer(120, 60, 30, "clockwise")).toBe(120);
-    expect(getCronZoomedOuterPointer(240, 60, 120, "counterclockwise")).toBe(300);
-    expect(getCronZoomedOuterPointer(240, 60, 30, "counterclockwise")).toBe(240);
+    expect(segment.period).toBe("day");
+    expect(segment.start).toEqual(new Date(2026, 7, 20));
+    expect(segment.end).toEqual(new Date(2026, 7, 21));
+    expect(segment.startAngle).toBe(-30);
+    expect(segment.sweepAngle).toBe(60);
   });
 });

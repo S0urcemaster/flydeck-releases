@@ -49,7 +49,7 @@ export type ComponentPropertiesConfig = {
   ShiftButton: { base: StoredBaseProperties };
   CycleButton: { base: StoredBaseProperties };
   DialButton: { base: StoredBaseProperties };
-  Keyboard: { base: StoredBaseProperties };
+  Keyboard: { buttonHeight: string; base: StoredBaseProperties };
   ModuleButton: {
     symbol: string;
     base: StoredBaseProperties;
@@ -77,7 +77,11 @@ export type ComponentPropertiesConfig = {
     base: StoredBaseProperties;
   };
   BrowserItemModeButton: { base: StoredBaseProperties };
-  Checkbox: { activeColor: string; base: StoredBaseProperties };
+  Checkbox: {
+    activeColor: string;
+    fontSize: string;
+    base: StoredBaseProperties;
+  };
   DeviceInfo: { base: StoredBaseProperties };
   DeviceInfoButton: { base: StoredBaseProperties };
   DeleteButton: { armedColor: string; base: StoredBaseProperties };
@@ -87,15 +91,19 @@ export type ComponentPropertiesConfig = {
   Dialer: { base: StoredBaseProperties };
   ColorDialer: { base: StoredBaseProperties };
   CronDialer: {
+    centerFontSize: string;
+    centerFontWeight: string;
+    innerDiscColor: string;
+    innerGradientEnd: string;
+    innerGradientStart: string;
+    innerScaleFontSize: string;
+    innerScaleFontWeight: string;
+    outerDiscColor: string;
+    outerGradientEnd: string;
+    outerGradientStart: string;
+    outerScaleFontSize: string;
+    outerScaleFontWeight: string;
     base: StoredBaseProperties;
-    innerBackground: string;
-    innerTextColor: string;
-    innerPointerColor: string;
-    innerFontSize: string;
-    outerBackground: string;
-    outerTextColor: string;
-    outerPointerColor: string;
-    outerFontSize: string;
   };
   MemoryBrowser: { base: StoredBaseProperties };
   TreeBrowser: { rowGap: string; base: StoredBaseProperties };
@@ -112,7 +120,7 @@ export type ComponentPropertiesConfig = {
   DeviceInfoView: { base: StoredBaseProperties };
   InventoryApp: { base: StoredBaseProperties };
   ShoppingListView: { base: StoredBaseProperties };
-  Form: { actionWidth: string; base: StoredBaseProperties };
+  Form: { base: StoredBaseProperties };
   FormRow: { base: StoredBaseProperties };
   Input: {
     fontSize: string;
@@ -120,6 +128,7 @@ export type ComponentPropertiesConfig = {
     base: StoredBaseProperties;
   };
   InputControl: { base: StoredBaseProperties };
+  NodeIdInput: { base: StoredBaseProperties };
   ListControl: { base: StoredBaseProperties };
   ListControlButton: { base: StoredBaseProperties };
   ListControlListSizeButton: {
@@ -240,6 +249,7 @@ export function parseComponentPropertiesConfig(
   const formRow = input.FormRow;
   const inputComponent = input.Input;
   const inputControl = input.InputControl;
+  const nodeIdInput = input.NodeIdInput;
   const listControl = input.ListControl;
   const listControlButton = input.ListControlButton;
   const listControlListSizeButton = input.ListControlListSizeButton;
@@ -317,6 +327,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(formRow)
     || !isRecord(inputComponent)
     || !isRecord(inputControl)
+    || !isRecord(nodeIdInput)
     || !isRecord(listControl)
     || !isRecord(listControlButton)
     || !isRecord(listControlListSizeButton)
@@ -398,6 +409,7 @@ export function parseComponentPropertiesConfig(
   const formRowBase = parseStoredBaseProperties(formRow.base);
   const inputBase = parseStoredBaseProperties(inputComponent.base);
   const inputControlBase = parseStoredBaseProperties(inputControl.base);
+  const nodeIdInputBase = parseStoredBaseProperties(nodeIdInput.base);
   const listControlBase = parseStoredBaseProperties(listControl.base);
   const listControlButtonBase = parseStoredBaseProperties(listControlButton.base);
   const listControlListSizeButtonBase = parseStoredBaseProperties(
@@ -428,6 +440,7 @@ export function parseComponentPropertiesConfig(
     || !pressButtonBase
     || !backspaceButtonBase
     || !longPressButtonBase
+    || !nodeIdInputBase
     || !shiftButtonBase
     || !cycleButtonBase
     || !dialButtonBase
@@ -509,17 +522,43 @@ export function parseComponentPropertiesConfig(
     || typeof inputComponent.fontSize !== "string"
     || inputComponent.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(inputComponent.fontSize)
+    || typeof cronDialer.centerFontSize !== "string"
+    || cronDialer.centerFontSize.trim() === ""
+    || isUnitlessNonZeroDimension(cronDialer.centerFontSize)
+    || typeof cronDialer.centerFontWeight !== "string"
+    || cronDialer.centerFontWeight.trim() === ""
+    || typeof cronDialer.innerDiscColor !== "string"
+    || cronDialer.innerDiscColor.trim() === ""
+    || typeof cronDialer.innerGradientEnd !== "string"
+    || cronDialer.innerGradientEnd.trim() === ""
+    || typeof cronDialer.innerGradientStart !== "string"
+    || cronDialer.innerGradientStart.trim() === ""
+    || typeof cronDialer.innerScaleFontSize !== "string"
+    || cronDialer.innerScaleFontSize.trim() === ""
+    || isUnitlessNonZeroDimension(cronDialer.innerScaleFontSize)
+    || typeof cronDialer.innerScaleFontWeight !== "string"
+    || cronDialer.innerScaleFontWeight.trim() === ""
+    || typeof cronDialer.outerDiscColor !== "string"
+    || cronDialer.outerDiscColor.trim() === ""
+    || typeof cronDialer.outerGradientEnd !== "string"
+    || cronDialer.outerGradientEnd.trim() === ""
+    || typeof cronDialer.outerGradientStart !== "string"
+    || cronDialer.outerGradientStart.trim() === ""
+    || typeof cronDialer.outerScaleFontSize !== "string"
+    || cronDialer.outerScaleFontSize.trim() === ""
+    || isUnitlessNonZeroDimension(cronDialer.outerScaleFontSize)
+    || typeof cronDialer.outerScaleFontWeight !== "string"
+    || cronDialer.outerScaleFontWeight.trim() === ""
     || typeof inputComponent.keyboard !== "boolean"
-    || typeof form.actionWidth !== "string"
-    || form.actionWidth.trim() === ""
-    || isUnitlessNonZeroDimension(form.actionWidth)
     || typeof textarea.fontSize !== "string"
     || textarea.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(textarea.fontSize)
     || typeof textarea.keyboard !== "boolean"
     || typeof deleteButton.armedColor !== "string"
     || deleteButton.armedColor.trim() === ""
-    || !isCronDialerConfig(cronDialer)
+    || typeof keyboard.buttonHeight !== "string"
+    || keyboard.buttonHeight.trim() === ""
+    || isUnitlessNonZeroDimension(keyboard.buttonHeight)
     || typeof browserItemLabelButton.fontSize !== "string"
     || browserItemLabelButton.fontSize.trim() === ""
     || isUnitlessNonZeroDimension(browserItemLabelButton.fontSize)
@@ -539,6 +578,9 @@ export function parseComponentPropertiesConfig(
     || typeof appStatusLine.message !== "string"
     || typeof checkbox.activeColor !== "string"
     || checkbox.activeColor.trim() === ""
+    || typeof checkbox.fontSize !== "string"
+    || checkbox.fontSize.trim() === ""
+    || isUnitlessNonZeroDimension(checkbox.fontSize)
     || typeof treeBrowser.rowGap !== "string"
     || treeBrowser.rowGap.trim() === ""
     || typeof buttonLink.href !== "string"
@@ -611,7 +653,10 @@ export function parseComponentPropertiesConfig(
     ShiftButton: { base: shiftButtonBase },
     CycleButton: { base: cycleButtonBase },
     DialButton: { base: dialButtonBase },
-    Keyboard: { base: keyboardBase },
+    Keyboard: {
+      buttonHeight: keyboard.buttonHeight,
+      base: keyboardBase,
+    },
     ModuleButton: {
       symbol: moduleButton.symbol,
       base: moduleButtonBase,
@@ -647,6 +692,7 @@ export function parseComponentPropertiesConfig(
     BrowserItemModeButton: { base: browserItemModeButtonBase },
     Checkbox: {
       activeColor: checkbox.activeColor,
+      fontSize: checkbox.fontSize,
       base: checkboxBase,
     },
     DeviceInfo: { base: deviceInfoBase },
@@ -661,15 +707,19 @@ export function parseComponentPropertiesConfig(
     Dialer: { base: dialerBase },
     ColorDialer: { base: colorDialerBase },
     CronDialer: {
+      centerFontSize: cronDialer.centerFontSize,
+      centerFontWeight: cronDialer.centerFontWeight,
+      innerDiscColor: cronDialer.innerDiscColor,
+      innerGradientEnd: cronDialer.innerGradientEnd,
+      innerGradientStart: cronDialer.innerGradientStart,
+      innerScaleFontSize: cronDialer.innerScaleFontSize,
+      innerScaleFontWeight: cronDialer.innerScaleFontWeight,
+      outerDiscColor: cronDialer.outerDiscColor,
+      outerGradientEnd: cronDialer.outerGradientEnd,
+      outerGradientStart: cronDialer.outerGradientStart,
+      outerScaleFontSize: cronDialer.outerScaleFontSize,
+      outerScaleFontWeight: cronDialer.outerScaleFontWeight,
       base: cronDialerBase,
-      innerBackground: cronDialer.innerBackground,
-      innerTextColor: cronDialer.innerTextColor,
-      innerPointerColor: cronDialer.innerPointerColor,
-      innerFontSize: cronDialer.innerFontSize,
-      outerBackground: cronDialer.outerBackground,
-      outerTextColor: cronDialer.outerTextColor,
-      outerPointerColor: cronDialer.outerPointerColor,
-      outerFontSize: cronDialer.outerFontSize,
     },
     MemoryBrowser: { base: memoryBrowserBase },
     TreeBrowser: {
@@ -689,7 +739,7 @@ export function parseComponentPropertiesConfig(
     DeviceInfoView: { base: deviceInfoViewBase },
     InventoryApp: { base: inventoryAppBase },
     ShoppingListView: { base: shoppingListViewBase },
-    Form: { actionWidth: form.actionWidth, base: formBase },
+    Form: { base: formBase },
     FormRow: { base: formRowBase },
     Input: {
       fontSize: inputComponent.fontSize,
@@ -697,6 +747,7 @@ export function parseComponentPropertiesConfig(
       base: inputBase,
     },
     InputControl: { base: inputControlBase },
+    NodeIdInput: { base: nodeIdInputBase },
     ListControl: { base: listControlBase },
     ListControlButton: { base: listControlButtonBase },
     ListControlListSizeButton: {
@@ -789,28 +840,6 @@ export function resolveDerivedBaseProperties(
 
 function inheritFromParent(value: string, parentValue: string): string {
   return value === "inherit" ? parentValue : value;
-}
-
-function isCronDialerConfig(
-  input: Record<string, unknown>,
-): input is Record<
-  "innerBackground" | "innerTextColor" | "innerPointerColor" | "innerFontSize"
-    | "outerBackground" | "outerTextColor" | "outerPointerColor" | "outerFontSize",
-  string
-> {
-  return [
-    "innerBackground",
-    "innerTextColor",
-    "innerPointerColor",
-    "outerBackground",
-    "outerTextColor",
-    "outerPointerColor",
-    "innerFontSize",
-    "outerFontSize",
-  ].every((name) => (
-    typeof input[name] === "string" && input[name].trim() !== ""
-  )) && !isUnitlessNonZeroDimension(input.innerFontSize as string)
-    && !isUnitlessNonZeroDimension(input.outerFontSize as string);
 }
 
 function parseStoredBaseProperties(input: unknown): StoredBaseProperties | null {

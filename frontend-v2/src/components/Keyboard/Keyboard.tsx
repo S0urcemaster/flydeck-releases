@@ -24,6 +24,7 @@ import styles from "./Keyboard.module.css";
 
 export type TextEntryElement = HTMLInputElement | HTMLTextAreaElement;
 export type InputFontStage = "small" | "medium" | "large";
+export const initialKeyboardFontStage: InputFontStage = "medium";
 type KeyboardKey = {
   id: string;
   position: "standard" | "row-two-edge" | "row-three-edge" | "row-four-edge" | "space";
@@ -52,6 +53,12 @@ export const symbolKeyboardCharacters = [
 ];
 export const commaDialCharacters = [",", '"', "'"] as const;
 export const periodDialCharacters = [".", ":", ";"] as const;
+export const symbolCycleCharacters = {
+  "23": ["!", "?", "%"],
+  "24": ["[", "]", "\\"],
+  "25": ["{", "}", "|"],
+  "26": ["^", "~", "`"],
+} as const;
 export const emojiKeyboardLayouts = [
   "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨".split(" "),
   "🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳".split(" "),
@@ -72,15 +79,20 @@ export type KeyboardProps = {
     LongPressButtonProps,
     "aria-label" | "children" | "onLongPress" | "onPress"
   >;
+  buttonHeight?: string;
   cycleButtonProps?: Omit<
     CycleButtonProps,
-    "onChange" | "options" | "value"
+    "onChange" | "onPress" | "options" | "value"
   >;
-  dialButtonProps?: Omit<DialButtonProps, "onDial" | "options">;
+  dialButtonProps?: Omit<
+    DialButtonProps,
+    "onDial" | "onDialComplete" | "options"
+  >;
   fontStage: InputFontStage;
   layout?: "inline" | "block";
   onFontStageChange: (stage: InputFontStage) => void;
   onSmartphoneKeyboardRequest?: () => void;
+  smartphoneKeyboardEnabled?: boolean;
   shiftButtonProps?: Omit<
     ShiftButtonProps,
     "locked" | "mode" | "onCycle" | "onLock"
@@ -95,6 +107,7 @@ export type KeyboardProps = {
 export function Keyboard({
   actions,
   backspaceButtonProps,
+  buttonHeight,
   buttonProps,
   cycleButtonProps,
   dialButtonProps,
@@ -102,6 +115,7 @@ export function Keyboard({
   layout = "inline",
   onFontStageChange,
   onSmartphoneKeyboardRequest,
+  smartphoneKeyboardEnabled = false,
   shiftButtonProps,
   targetRef,
   smartphoneButtonProps,
@@ -118,6 +132,14 @@ export function Keyboard({
   });
   const [emojiLayout, setEmojiLayout] =
     useState<EmojiKeyboardLayout | null>(null);
+  const [symbolCycleValues, setSymbolCycleValues] = useState<
+    Record<keyof typeof symbolCycleCharacters, string>
+  >({
+    "23": symbolCycleCharacters["23"][0],
+    "24": symbolCycleCharacters["24"][0],
+    "25": symbolCycleCharacters["25"][0],
+    "26": symbolCycleCharacters["26"][0],
+  });
   const longPressButtonClassName = buttonProps?.className
     ? `${styles.button} ${buttonProps.className}`
     : styles.button;
@@ -142,6 +164,7 @@ export function Keyboard({
           data-position={key.position}
           data-row={key.row}
           key={key.id}
+          height={buttonHeight}
           label={emojiLayout === null
             ? undefined
             : `Emoji layout ${emojiLayout + 1} of 3; press for next layout`}
@@ -171,6 +194,7 @@ export function Keyboard({
           data-position={key.position}
           data-row={key.row}
           key={key.id}
+          height={buttonHeight}
           onPress={() => deleteBackward(targetRef.current)}
         />,
       );
@@ -191,6 +215,7 @@ export function Keyboard({
           data-position={key.position}
           data-row={key.row}
           key={key.id}
+          height={buttonHeight}
           label={emojiMode
             ? "Emoji keyboard active; press for text keyboard"
             : "Emoji keyboard; press to activate"}
@@ -203,10 +228,57 @@ export function Keyboard({
       );
       continue;
     }
+    if (key.id === "31") {
+      renderedKeys.push(
+        <Button
+          {...smartphoneButtonProps}
+          aria-label="Enter"
+          className={styles.key}
+          data-key-id={key.id}
+          data-position={key.position}
+          data-row={key.row}
+          key={key.id}
+          height={buttonHeight}
+          onClick={() => insertKeyboardText(targetRef.current, "\n")}
+          onPointerDown={(event) => event.preventDefault()}
+        >
+          ↵
+        </Button>,
+      );
+      continue;
+    }
     const segments = key.position === "space" ? [1, 2, 3] : [null];
     const character = emojiLayout === null
       ? keyboardCharacter(key.id, shiftState.mode)
       : emojiKeyboardCharacter(key.id, emojiLayout);
+    const letterDialOptions = emojiLayout === null
+      ? keyboardLetterDialOptions(key.id, shiftState.mode)
+      : null;
+    if (letterDialOptions) {
+      renderedKeys.push(
+        <DialButton
+          {...dialButtonProps}
+          aria-label={`${letterDialOptions[0]} or ${letterDialOptions[1]}`}
+          className={styles.key}
+          data-key-id={key.id}
+          data-position={key.position}
+          data-row={key.row}
+          key={key.id}
+          height={buttonHeight}
+          options={letterDialOptions}
+          onDial={(dialCharacter, replacePrevious) => insertDialKeyboardText(
+            targetRef.current,
+            dialCharacter,
+            replacePrevious,
+            letterDialOptions,
+          )}
+          onDialComplete={() => {
+            setShiftState(releaseKeyboardShiftAfterCharacter);
+          }}
+        />,
+      );
+      continue;
+    }
     if (key.id === "22"
       && emojiLayout === null
       && shiftState.mode === "symbols") {
@@ -219,6 +291,7 @@ export function Keyboard({
           data-position={key.position}
           data-row={key.row}
           key={key.id}
+          height={buttonHeight}
           options={["€", "$"]}
           onDial={(character, replacePrevious) => insertDialKeyboardText(
             targetRef.current,
@@ -245,6 +318,7 @@ export function Keyboard({
           data-position={key.position}
           data-row={key.row}
           key={key.id}
+          height={buttonHeight}
           options={options}
           onDial={(dialCharacter, replacePrevious) => insertDialKeyboardText(
             targetRef.current,
@@ -259,20 +333,26 @@ export function Keyboard({
     if (["23", "24", "25", "26"].includes(key.id)
       && emojiLayout === null
       && shiftState.mode === "symbols") {
+      const cycleKeyId = key.id as keyof typeof symbolCycleCharacters;
+      const options = symbolCycleCharacters[cycleKeyId];
       renderedKeys.push(
-        <Button
-          {...smartphoneButtonProps}
-          aria-label={`Unassigned symbol key ${key.id}`}
+        <CycleButton
+          {...cycleButtonProps}
+          aria-label={`Symbols ${options.join(" ")}`}
           className={styles.key}
           data-key-id={key.id}
           data-position={key.position}
           data-row={key.row}
           key={key.id}
-          onClick={() => targetRef.current?.focus({ preventScroll: true })}
-          onPointerDown={(event) => event.preventDefault()}
-        >
-          {key.id}
-        </Button>,
+          height={buttonHeight}
+          options={options}
+          value={symbolCycleValues[cycleKeyId]}
+          onPress={(symbol) => insertKeyboardText(targetRef.current, symbol)}
+          onChange={(value) => setSymbolCycleValues((current) => ({
+            ...current,
+            [cycleKeyId]: value,
+          }))}
+        />,
       );
       continue;
     }
@@ -293,6 +373,7 @@ export function Keyboard({
             data-position={key.position}
             data-row={key.row}
             key={`${key.id}-${segment}`}
+            height={buttonHeight}
             options={options}
             onDial={(dialCharacter, replacePrevious) => insertDialKeyboardText(
               targetRef.current,
@@ -320,6 +401,7 @@ export function Keyboard({
           data-position={key.position}
           data-row={key.row}
           key={`${key.id}-${segment ?? "whole"}`}
+          height={buttonHeight}
           onClick={() => {
             const target = targetRef.current;
             if (key.position === "space" && segment === 1) {
@@ -366,16 +448,21 @@ export function Keyboard({
       <div className={styles.toolbar}>
         <Button
           {...smartphoneButtonProps}
-          aria-label="Show smartphone keyboard"
+          aria-label={smartphoneKeyboardEnabled
+            ? "Hide smartphone keyboard"
+            : "Show smartphone keyboard"}
           className={styles.button}
+          height={buttonHeight}
           onClick={onSmartphoneKeyboardRequest}
           onPointerDown={(event) => event.preventDefault()}
+          selected={smartphoneKeyboardEnabled}
         >
           <KeyboardIcon className={styles.symbol} aria-hidden="true" />
         </Button>
         <CycleButton
           {...cycleButtonProps}
           className={cycleButtonClassName}
+          height={buttonHeight}
           aria-label={`Input font size: ${fontStage}; press for next size`}
           options={["S", "M", "L"]}
           value={fontStageLabel(fontStage)}
@@ -384,6 +471,7 @@ export function Keyboard({
         <LongPressButton
           {...buttonProps}
           className={longPressButtonClassName}
+          height={buttonHeight}
           aria-label="Insert current time; hold to insert current date"
           onPress={() => insertCurrentTime(targetRef.current)}
           onLongPress={() => insertCurrentDate(targetRef.current)}
@@ -393,6 +481,7 @@ export function Keyboard({
         <LongPressButton
           {...buttonProps}
           className={longPressButtonClassName}
+          height={buttonHeight}
           aria-label="Move cursor left; hold to copy selection"
           onPress={() => moveCursor(targetRef.current, -1)}
           onLongPress={() => copySelection(targetRef.current)}
@@ -402,6 +491,7 @@ export function Keyboard({
         <LongPressButton
           {...buttonProps}
           className={longPressButtonClassName}
+          height={buttonHeight}
           aria-label="Move cursor right; hold to paste"
           onPress={() => moveCursor(targetRef.current, 1)}
           onLongPress={() => pasteSelection(targetRef.current)}
@@ -411,6 +501,7 @@ export function Keyboard({
         <LongPressButton
           {...buttonProps}
           className={longPressButtonClassName}
+          height={buttonHeight}
           aria-label="Select word at cursor; hold to select all"
           onPress={() => selectWordAtCursor(targetRef.current)}
           onLongPress={() => selectAll(targetRef.current)}
@@ -468,6 +559,22 @@ export function keyboardCharacter(
   if (layout === "symbols") return symbolKeyboardCharacters[index] ?? null;
   const character = lowerKeyboardCharacters[index] ?? null;
   return layout === "upper" ? character?.toLocaleUpperCase() ?? null : character;
+}
+
+export function keyboardLetterDialOptions(
+  keyId: string,
+  layout: ShiftButtonMode,
+): readonly [string, string] | null {
+  if (layout === "symbols") return null;
+  const options = keyId === "07"
+    ? ["u", "ü"] as const
+    : keyId === "09"
+      ? ["o", "ö"] as const
+      : keyId === "11"
+        ? ["a", "ä"] as const
+        : null;
+  if (!options || layout === "lower") return options;
+  return [options[0].toLocaleUpperCase(), options[1].toLocaleUpperCase()];
 }
 
 export function emojiKeyboardCharacter(

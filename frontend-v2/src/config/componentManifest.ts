@@ -73,6 +73,7 @@ export const componentManifest = defineComponentManifest({
   Input: { parent: "Base", source: "components/Input/Input.tsx", labGroup: "browser" },
   Keyboard: { parent: "Base", source: "components/Keyboard/Keyboard.tsx", labGroup: "individual" },
   InputControl: { parent: "Base", source: "components/InputControl/InputControl.tsx", labGroup: "browser" },
+  NodeIdInput: { parent: "InputControl", source: "components/NodeIdInput/NodeIdInput.tsx", labGroup: "individual" },
   ItemList: { parent: "Base", source: "components/ItemList/ItemList.tsx", labGroup: "individual" },
   ListControl: { parent: "Base", source: "components/ListControl/ListControl.tsx", labGroup: "browser" },
   Module: { parent: "Base", source: "components/Module/Module.tsx", labGroup: "module" },

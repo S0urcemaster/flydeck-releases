@@ -16,9 +16,9 @@ describe("AppBrowser", () => {
     expect(markup).toContain("Widgets");
     expect(markup).toContain("System");
     expect(markup).toContain("User");
-    expect(markup).toContain("Enable Widgets");
-    expect(markup).toContain("Enable System");
-    expect(markup).toContain("Enable User");
+    expect(markup).toContain("Select Widgets for actions");
+    expect(markup).toContain("Select System for actions");
+    expect(markup).toContain("Select User for actions");
     expect(markup).not.toContain('aria-label="DeviceInfo result"');
   });
 

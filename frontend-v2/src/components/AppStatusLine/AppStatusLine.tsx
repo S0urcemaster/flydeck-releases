@@ -5,6 +5,7 @@ export type AppStatusLineProps = Omit<
   BaseProps<"output">,
   "children" | "color"
 > & {
+  activity?: boolean;
   error?: boolean;
   fontSize?: string;
   fontWeight?: string;
@@ -13,6 +14,7 @@ export type AppStatusLineProps = Omit<
 };
 
 export function AppStatusLine({
+  activity = false,
   error = false,
   offline = false,
   message,
@@ -31,7 +33,7 @@ export function AppStatusLine({
       componentName="AppStatusLine"
       background={background}
       border={border}
-      color={offline
+      color={offline || activity
         ? "COLOR_ACCENT_ONE"
         : error ? "COLOR_ERROR" : "COLOR_SUCCESS"}
       role="status"

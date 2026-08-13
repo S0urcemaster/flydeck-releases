@@ -41,7 +41,7 @@ export function CompassApp({
     <AppView
       {...appViewProps}
       componentName="CompassApp"
-      defaultDataSource="_system/Compass"
+      defaultDataSource="_system/compass"
       title="COMPASS"
     >
       <ol className={styles.list}>

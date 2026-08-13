@@ -7,8 +7,9 @@ describe("BrowserItem", () => {
   it("shows guarded delete only for the selected item", () => {
     const markup = renderToStaticMarkup(
       <BrowserItem
-        enabled
+        checked
         label="USER"
+        itemNumber={1}
         selected
         activeColor="COLOR_ACCENT_TWO"
         background="ITEM_COLOR"
@@ -16,12 +17,13 @@ describe("BrowserItem", () => {
         deleteButtonProps={{ width: "53px" }}
         labelButtonProps={{ padding: "7px" }}
         onDelete={() => undefined}
-        onEnabledChange={() => undefined}
+        onCheckedChange={() => undefined}
       />,
     );
     expect(markup).not.toContain("Move USER up");
     expect(markup).not.toContain("Move USER down");
     expect(markup).toContain("Arm delete for USER");
+    expect(markup).toContain('aria-hidden="true">1</span>');
     expect(markup).toContain("width:53px");
     expect(markup).toContain("padding:7px");
     expect(markup).toContain(
@@ -37,11 +39,12 @@ describe("BrowserItem", () => {
   it("shows a disabled mode switch only when an unavailable item is selected", () => {
     const markup = renderToStaticMarkup(
       <BrowserItem
-        enabled
+        checked
         label="Leaf"
+        itemNumber={1}
         selected
         onDelete={() => undefined}
-        onEnabledChange={() => undefined}
+        onCheckedChange={() => undefined}
       />,
     );
 
@@ -52,10 +55,11 @@ describe("BrowserItem", () => {
 
     const unselectedMarkup = renderToStaticMarkup(
       <BrowserItem
-        enabled
+        checked
         label="Leaf"
+        itemNumber={1}
         onDelete={() => undefined}
-        onEnabledChange={() => undefined}
+        onCheckedChange={() => undefined}
       />,
     );
     expect(unselectedMarkup).not.toContain("BrowserItemModeButton");
@@ -64,11 +68,12 @@ describe("BrowserItem", () => {
   it("keeps the mode switch available when content rendering is connected", () => {
     const markup = renderToStaticMarkup(
       <BrowserItem
-        enabled
+        checked
         label="Entry"
+        itemNumber={1}
         selected
         onDelete={() => undefined}
-        onEnabledChange={() => undefined}
+        onCheckedChange={() => undefined}
         onModeChange={() => undefined}
       />,
     );

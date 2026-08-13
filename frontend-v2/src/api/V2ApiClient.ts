@@ -23,6 +23,7 @@ import {
   type SetTreeSelectionRequest,
   type UpdateCronTimerRequest,
   type UpdateTreeNodeContentRequest,
+  type UpdateTreeNodeLocalIdRequest,
 } from "@flydeck/shared/v2";
 import {
   workspaceSyncStatusStore,
@@ -82,6 +83,18 @@ export class V2ApiClient {
     return this.request(`${this.dataNodePath(workspaceId, nodeId)}/move`, createTreeNodeResponseSchema, {
       method: "POST", body: input,
     });
+  }
+
+  updateDataNodeLocalId(
+    workspaceId: string,
+    nodeId: string,
+    input: UpdateTreeNodeLocalIdRequest,
+  ) {
+    return this.request(
+      `${this.dataNodePath(workspaceId, nodeId)}/local-id`,
+      createTreeNodeResponseSchema,
+      { method: "PUT", body: input },
+    );
   }
 
   reparentDataNode(workspaceId: string, nodeId: string, input: ReparentTreeNodeRequest) {

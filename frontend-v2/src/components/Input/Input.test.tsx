@@ -13,6 +13,8 @@ describe("Input", () => {
     expect(markup).toContain('type="text"');
     expect(markup).toContain("width:100%");
     expect(markup).toContain("font-size:15px");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain(">Name</span>");
   });
 
   it("exposes a layout-transparent field for a block-wide Keyboard", () => {
@@ -22,5 +24,14 @@ describe("Input", () => {
 
     expect(markup).toContain('data-keyboard-layout="block"');
     expect(markup).toContain('inputMode="none"');
+  });
+
+  it("hides its embedded label after ten content characters", () => {
+    expect(renderToStaticMarkup(
+      <Input aria-label="Name" value="1234567890" readOnly />,
+    )).toContain(">Name</span>");
+    expect(renderToStaticMarkup(
+      <Input aria-label="Name" value="12345678901" readOnly />,
+    )).not.toContain(">Name</span>");
   });
 });

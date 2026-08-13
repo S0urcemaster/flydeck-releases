@@ -21,6 +21,7 @@ export function DataSourceInput({
         || rootInputProps.value === rootInputProps.current.path}
       actionLabel="Set Datasource"
       componentName="DataSourceInput"
+      label="Datasource"
       onAction={(value) => onSetDataSource?.(value)}
     />
   );

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import type { TreeLoadDto, TreeNodeDto } from "@flydeck/shared/v2";
+import {
+  createTreeNodeLocalId,
+  type TreeLoadDto,
+  type TreeNodeDto,
+} from "@flydeck/shared/v2";
 
 import sayings from "../../assets/apps/compass/sayings.json";
 import { v2Api } from "../../api/V2ApiClient";
@@ -75,6 +79,12 @@ async function importAppData(workspaceId: string) {
       afterNodeId: null,
       kind: "app-directory",
       label: "Compass",
+      localId: createTreeNodeLocalId(
+        "Compass",
+        load.document.nodes
+          .filter((node) => node.parentId === system.id)
+          .map((node) => node.localId),
+      ),
       expectedTreeRevision: load.document.revision,
     });
     changed = true;
@@ -113,6 +123,10 @@ async function importAppData(workspaceId: string) {
       afterNodeId: null,
       kind: "compass-category",
       label: category,
+      localId: createTreeNodeLocalId(
+        category,
+        [...categoryNodes.values()].map((node) => node.localId),
+      ),
       expectedTreeRevision: treeRevision,
     });
     categoryNodes.set(category, created.node);
@@ -125,11 +139,20 @@ async function importAppData(workspaceId: string) {
       .filter((node) => node.kind.startsWith("compass-saying-") && node.parentId !== null)
       .map((node) => `${node.parentId}:${node.kind}`),
   );
+  const localIdsByParent = new Map<string, Set<string>>();
+  for (const node of load.document.nodes) {
+    if (!node.parentId) continue;
+    const used = localIdsByParent.get(node.parentId) ?? new Set<string>();
+    used.add(node.localId);
+    localIdsByParent.set(node.parentId, used);
+  }
   for (const saying of sayings) {
     const kind = `compass-saying-${saying.id}`;
     for (const category of saying.categories) {
       const parent = categoryNodes.get(category);
       if (!parent || existingSayingKeys.has(`${parent.id}:${kind}`)) continue;
+      const usedLocalIds = localIdsByParent.get(parent.id) ?? new Set<string>();
+      const localId = createTreeNodeLocalId(shortLabel(saying.text), usedLocalIds);
       const created = await v2Api.createDataNode(workspaceId, {
         requestId: crypto.randomUUID(),
         nodeId: crypto.randomUUID(),
@@ -137,6 +160,7 @@ async function importAppData(workspaceId: string) {
         afterNodeId: null,
         kind,
         label: shortLabel(saying.text),
+        localId,
         expectedTreeRevision: treeRevision,
       });
       await v2Api.updateDataContent(workspaceId, created.node.id, {
@@ -145,6 +169,8 @@ async function importAppData(workspaceId: string) {
         expectedRevision: created.node.revision,
       });
       treeRevision = created.treeRevision;
+      usedLocalIds.add(localId);
+      localIdsByParent.set(parent.id, usedLocalIds);
       existingSayingKeys.add(`${parent.id}:${kind}`);
       changed = true;
     }

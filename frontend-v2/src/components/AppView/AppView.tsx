@@ -9,12 +9,10 @@ import {
 import { ConfigEditor, type ConfigEditorProps } from "./ConfigEditor";
 import styles from "./AppView.module.css";
 
-export type AppViewHeight = "S" | "M" | "L";
 export type AppAccessMode = "read" | "read-write";
 
 type PersistedAppView = {
   dataSource: string;
-  height: AppViewHeight;
 };
 
 type PersistedAppViews = Record<string, PersistedAppView>;
@@ -26,11 +24,7 @@ export type AppViewProps = BaseStyleProps & {
   configButtonProps?: Omit<ConfigModuleButtonProps, "symbol" | "onClick">;
   configEditorProps?: Omit<
     ConfigEditorProps,
-    | "appHeight"
-    | "dataSource"
-    | "dataSourceStatus"
-    | "onAppHeightChange"
-    | "onDataSourceChange"
+    "dataSource" | "dataSourceStatus" | "onDataSourceChange"
   >;
   dataSource?: string;
   defaultDataSource?: string;
@@ -61,7 +55,6 @@ export function AppView({
     appViewsSlice,
   );
   const persistedAppView = persistedAppViews[componentName];
-  const appHeight = persistedAppView?.height ?? "S";
   const currentDataSource = dataSource
     ?? persistedAppView?.dataSource
     ?? defaultDataSource
@@ -101,7 +94,6 @@ export function AppView({
       className={styles.root}
       componentName={componentName}
       data-access-mode={accessMode}
-      data-app-height={appHeight}
     >
       <div className={styles.titleBar}>
         <div className={styles.title} data-access-mode={accessMode}>{title}</div>
@@ -120,7 +112,6 @@ export function AppView({
         {configurationVisible ? (
           <ConfigEditor
             {...configEditorProps}
-            appHeight={appHeight}
             dataSource={currentDataSource}
             dataSourceStatus={dataSourceStatus}
             onDataSourceChange={(nextDataSource) => {
@@ -128,18 +119,10 @@ export function AppView({
                 ...current,
                 [componentName]: {
                   dataSource: nextDataSource,
-                  height: current[componentName]?.height ?? appHeight,
                 },
               }));
               onDataSourceChange?.(nextDataSource);
             }}
-            onAppHeightChange={(height) => setPersistedAppViews((current) => ({
-              ...current,
-              [componentName]: {
-                dataSource: current[componentName]?.dataSource ?? currentDataSource,
-                height,
-              },
-            }))}
           />
         ) : children}
       </div>
@@ -156,10 +139,7 @@ const appViewsSlice: ClientStateSlice<PersistedAppViews> = {
     && Object.values(value as Record<string, unknown>).every((entry) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
       const candidate = entry as Partial<PersistedAppView>;
-      return typeof candidate.dataSource === "string"
-        && (candidate.height === "S"
-          || candidate.height === "M"
-          || candidate.height === "L");
+      return typeof candidate.dataSource === "string";
     })
   ),
 };

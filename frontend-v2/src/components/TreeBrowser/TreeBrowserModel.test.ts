@@ -174,7 +174,7 @@ describe("TreeBrowserModel", () => {
     const firstState = firstModel.load();
     firstState.document.nodes[0].label = "Stored edit";
     firstState.semanticState.enabledByNodeId.theme = true;
-    firstState.viewState.pageSizes.theme = 10;
+    firstState.viewState.pageSizes.theme = 9;
     firstModel.save(firstState);
 
     const refreshedModel = new TreeBrowserModel({
@@ -192,6 +192,6 @@ describe("TreeBrowserModel", () => {
 
     expect(refreshed.document.nodes[0].label).toBe("Current definition");
     expect(refreshed.semanticState.enabledByNodeId.theme).toBe(false);
-    expect(refreshed.viewState.pageSizes.theme).toBe(10);
+    expect(refreshed.viewState.pageSizes.theme).toBe(9);
   });
 });

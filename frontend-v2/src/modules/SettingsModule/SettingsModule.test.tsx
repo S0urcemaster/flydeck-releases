@@ -27,7 +27,7 @@ describe("SettingsModule", () => {
     expect(markup).toContain("Flydeck V1");
     expect(markup).toContain("Greyscale");
     expect(markup).toContain('aria-label="5 items per page"');
-    expect(markup).toContain('aria-label="10 items per page"');
+    expect(markup).toContain('aria-label="9 items per page"');
     expect(markup).toContain(">RESET</button>");
     expect(markup).toContain(">SAVE</button>");
   });

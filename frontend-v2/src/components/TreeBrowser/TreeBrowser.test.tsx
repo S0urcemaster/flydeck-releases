@@ -3,11 +3,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   TreeBrowser,
+  createBatchRootTargets,
   createRootTargets,
   insertAt,
   moveInTree,
   removeFromTree,
+  removeNodesFromTree,
   reparentInTree,
+  reparentNodesInTree,
+  updateActionSelection,
   type TreeBrowserNode,
 } from "./TreeBrowser";
 import { TreeBrowserModel } from "./TreeBrowserModel";
@@ -39,9 +43,20 @@ describe("TreeBrowser", () => {
 
     expect(markup).toContain('aria-label="Tree browser"');
     expect(markup).toContain('aria-label="Root children"');
-    expect(markup).toContain(">1/1</button>");
+    expect(markup).toContain(">5</button>");
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).not.toContain("Children of plants");
+  });
+
+  it("checks the active item when a row is initially selected", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        initialSelectedPath={["plants"]}
+        model={createModel()}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Deselect Pflanzen for actions"');
   });
 
   it("applies its configurable row gap below list controls and between items", () => {
@@ -89,10 +104,51 @@ describe("TreeBrowser", () => {
     expect(moveInTree(nestedTree, "oak", -1)[0].children[0].id).toBe("oak");
   });
 
+  it("adds checkbox selections without allowing the active item to be unchecked", () => {
+    const selected = updateActionSelection(
+      { plants: ["rose"] },
+      "plants",
+      "oak",
+      true,
+      "rose",
+    );
+
+    expect(selected.plants).toEqual(["rose", "oak"]);
+    expect(updateActionSelection(
+      selected,
+      "plants",
+      "rose",
+      false,
+      "rose",
+    )).toBe(selected);
+    expect(updateActionSelection(
+      selected,
+      "plants",
+      "oak",
+      false,
+      "rose",
+    ).plants).toEqual(["rose"]);
+  });
+
+  it("removes several selected siblings and their subtrees at once", () => {
+    const nodes = [{
+      id: "parent",
+      children: [
+        { id: "one", children: [{ id: "nested", children: [] }] },
+        { id: "two", children: [] },
+        { id: "three", children: [] },
+      ],
+    }];
+
+    expect(removeNodesFromTree(nodes, ["one", "three"])[0].children)
+      .toEqual([{ id: "two", children: [] }]);
+  });
+
   it("moves a complete subtree to another root without losing its children", () => {
     const nodes = [{
       id: "source",
       label: "Source",
+      localId: "source-id",
       children: [{ id: "child", label: "Child", children: [] }],
     }, {
       id: "target",
@@ -108,6 +164,24 @@ describe("TreeBrowser", () => {
     expect(reparentInTree(nodes, "source", "child")).toBe(nodes);
   });
 
+  it("reparents all selected siblings in their list order", () => {
+    const nodes = [{ id: "one", label: "One", children: [] }, {
+      id: "two",
+      label: "Two",
+      children: [],
+    }, {
+      id: "target",
+      label: "Target",
+      children: [],
+    }];
+
+    expect(reparentNodesInTree(nodes, ["one", "two"], "target"))
+      .toEqual([{
+        ...nodes[2],
+        children: [nodes[0], nodes[1]],
+      }]);
+  });
+
   it("marks self, descendants, locked lists, and full lists as ineligible roots", () => {
     const nodes = [{
       id: "source",
@@ -116,11 +190,13 @@ describe("TreeBrowser", () => {
     }, {
       id: "locked",
       label: "Locked",
+      localId: "locked-id",
       listEditable: false,
       children: [],
     }, {
       id: "full",
       label: "Full",
+      localId: "full-id",
       listItemLimit: 0,
       children: [],
     }];
@@ -128,5 +204,50 @@ describe("TreeBrowser", () => {
 
     expect(Object.fromEntries(targets.map(({ label, eligible }) => [label, eligible])))
       .toMatchObject({ "": true, Source: false, Child: false, Locked: false, Full: false });
+    expect(targets.find(({ id }) => id === "locked")?.path).toBe("locked-id");
+  });
+
+  it("reserves enough target capacity for every selected sibling", () => {
+    const nodes = [{
+      id: "one",
+      label: "One",
+      children: [],
+    }, {
+      id: "two",
+      label: "Two",
+      children: [],
+    }, {
+      id: "target",
+      label: "Target",
+      listItemLimit: 2,
+      children: [{ id: "existing", label: "Existing", children: [] }],
+    }];
+    const targets = createBatchRootTargets(nodes, ["one", "two"]);
+
+    expect(targets.find(({ id }) => id === "target")?.eligible).toBe(false);
+    expect(targets.find(({ id }) => id === "one")?.eligible).toBe(false);
+    expect(targets.find(({ id }) => id === "two")?.eligible).toBe(false);
+  });
+
+  it("rejects a parent containing the same sibling-local ID", () => {
+    const nodes = [{
+      id: "source",
+      label: "Source",
+      localId: "entry",
+      children: [],
+    }, {
+      id: "target",
+      label: "Target",
+      localId: "target",
+      children: [{
+        id: "existing",
+        label: "Existing",
+        localId: "entry",
+        children: [],
+      }],
+    }];
+
+    expect(createBatchRootTargets(nodes, ["source"])
+      .find(({ id }) => id === "target")?.eligible).toBe(false);
   });
 });

@@ -49,3 +49,10 @@
   transform: translate(-50%, -50%);
   font-size: clamp(1.1rem, 5vw, 2rem);
 }
+
+.scaleRotation {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}

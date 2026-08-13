@@ -11,7 +11,9 @@ import {
   emojiKeyboardCharacter,
   emojiKeyboardLayouts,
   Keyboard,
+  initialKeyboardFontStage,
   keyboardCharacter,
+  keyboardLetterDialOptions,
   keyboardKeys,
   lockKeyboardShift,
   nextEmojiKeyboardLayout,
@@ -20,10 +22,15 @@ import {
   previousGrapheme,
   releaseKeyboardShiftAfterCharacter,
   scaledFontSize,
+  symbolCycleCharacters,
   wordRangeAtCursor,
 } from "./Keyboard";
 
 describe("Keyboard", () => {
+  it("starts its font-size selector at M", () => {
+    expect(initialKeyboardFontStage).toBe("medium");
+  });
+
   it("renders the three short and long press actions", () => {
     const markup = renderToStaticMarkup(
       <Keyboard
@@ -57,6 +64,11 @@ describe("Keyboard", () => {
     expect(markup).toContain('aria-label="Comma, double quote, or single quote"');
     expect(markup).toContain('aria-label="Space"');
     expect(markup).toContain('aria-label="Period, colon, or semicolon"');
+    expect(markup).toContain('aria-label="Enter"');
+    expect(markup).toContain(">↵</button>");
+    expect(markup).toContain("a <small>ä</small>");
+    expect(markup).toContain("o <small>ö</small>");
+    expect(markup).toContain("u <small>ü</small>");
     expect(markup).toContain(", <small>&quot; &#x27;</small>");
     expect(markup).toContain(". <small>: ;</small>");
   });
@@ -73,6 +85,33 @@ describe("Keyboard", () => {
 
     expect(markup).toContain('data-layout="block"');
     expect(markup).toContain("width:100%");
+  });
+
+  it("applies one owned height to all toolbar and key buttons", () => {
+    const markup = renderToStaticMarkup(
+      <Keyboard
+        buttonHeight="34px"
+        fontStage="medium"
+        onFontStageChange={() => undefined}
+        targetRef={createRef<HTMLInputElement>()}
+      />,
+    );
+
+    expect(markup.match(/height:34px/g)).toHaveLength(39);
+  });
+
+  it("shows when the smartphone keyboard toggle is active", () => {
+    const markup = renderToStaticMarkup(
+      <Keyboard
+        fontStage="medium"
+        onFontStageChange={() => undefined}
+        smartphoneKeyboardEnabled
+        targetRef={createRef<HTMLInputElement>()}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Hide smartphone keyboard"');
+    expect(markup).toContain('aria-pressed="true"');
   });
 
   it("renders supplied form actions in a row below its keys", () => {
@@ -152,6 +191,23 @@ describe("Keyboard", () => {
   it("defines the punctuation multi-tap order", () => {
     expect(commaDialCharacters).toEqual([",", '"', "'"]);
     expect(periodDialCharacters).toEqual([".", ":", ";"]);
+  });
+
+  it("fills symbol keys 23 through 26 with three-value CycleButtons", () => {
+    expect(symbolCycleCharacters).toEqual({
+      "23": ["!", "?", "%"],
+      "24": ["[", "]", "\\"],
+      "25": ["{", "}", "|"],
+      "26": ["^", "~", "`"],
+    });
+  });
+
+  it("maps umlaut DialButtons in lower and uppercase layouts", () => {
+    expect(keyboardLetterDialOptions("11", "lower")).toEqual(["a", "ä"]);
+    expect(keyboardLetterDialOptions("09", "upper")).toEqual(["O", "Ö"]);
+    expect(keyboardLetterDialOptions("07", "upper")).toEqual(["U", "Ü"]);
+    expect(keyboardLetterDialOptions("11", "symbols")).toBeNull();
+    expect(keyboardLetterDialOptions("12", "lower")).toBeNull();
   });
 
   it("cycles lowercase, uppercase, and symbol layouts", () => {

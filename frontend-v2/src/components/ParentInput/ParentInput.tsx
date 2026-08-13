@@ -23,6 +23,7 @@ export function ParentInput({
       actionLabel="Set Parent"
       componentName="ParentInput"
       inputLabel={inputLabel}
+      label="Parent"
       onAction={(_value, target) => {
         if (target) onSetParent?.(target);
       }}

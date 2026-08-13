@@ -20,12 +20,13 @@ import styles from "./BrowserItem.module.css";
 
 export type BrowserItemProps = BaseStyleProps & {
   activeColor?: string;
-  enabled: boolean;
+  checked: boolean;
   editable?: boolean;
   label: string;
+  itemNumber: number;
   selected?: boolean;
   onDelete: () => void | Promise<void>;
-  onEnabledChange: (enabled: boolean) => void;
+  onCheckedChange: (checked: boolean) => void;
   onSelect?: () => void;
   mode?: BrowserItemMode;
   onModeChange?: (mode: BrowserItemMode) => void;
@@ -51,12 +52,13 @@ export type BrowserItemProps = BaseStyleProps & {
 
 export function BrowserItem({
   activeColor = "COLOR_ACCENT_ONE",
-  enabled,
+  checked,
   editable = true,
   label,
+  itemNumber,
   selected = false,
   onDelete,
-  onEnabledChange,
+  onCheckedChange,
   onSelect,
   mode = "list",
   onModeChange,
@@ -92,10 +94,12 @@ export function BrowserItem({
               {...checkboxProps}
               activeColor={activeColor}
               background={background}
-              checked={enabled}
-              label={`${enabled ? "Disable" : "Enable"} ${label}`}
-              onChange={onEnabledChange}
-            />
+              checked={checked}
+              label={`${checked ? "Deselect" : "Select"} ${label} for actions`}
+              onChange={onCheckedChange}
+            >
+              {itemNumber}
+            </Checkbox>
           </div>
           <BrowserItemLabelButton
             {...buttonProps}

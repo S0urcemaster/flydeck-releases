@@ -2,7 +2,6 @@ import { useState, type FocusEvent, type ReactNode } from "react";
 
 import { Block, type BlockProps } from "../Block";
 import { Button, type ButtonProps } from "../Button";
-import { useFormActionWidth } from "../Form";
 import styles from "./FormRow.module.css";
 
 export type FormRowProps = Omit<
@@ -32,7 +31,6 @@ export function FormRow({
   ...baseProps
 }: FormRowProps) {
   const [editing, setEditing] = useState(false);
-  const actionWidth = useFormActionWidth();
 
   function leaveRow(event: FocusEvent<HTMLDivElement>) {
     if (!event.currentTarget.contains(event.relatedTarget)) setEditing(false);
@@ -48,15 +46,15 @@ export function FormRow({
       onFocusCapture={() => setEditing(true)}
     >
       <div className={styles.value}>{children}</div>
-      <div className={styles.actions}>
+      {editing && <div className={styles.actions}>
         <Button
           {...buttonProps}
-          aria-label={editing ? `Save ${label}` : label}
+          aria-label={`Save ${label}`}
           disabled={disabled}
-          width={editing ? "100%" : actionWidth}
+          width="100%"
           onClick={onSet}
         >
-          {editing ? "Save" : label}
+          Save
         </Button>
         {editing && onNew && (
           <Button
@@ -69,7 +67,7 @@ export function FormRow({
             New
           </Button>
         )}
-      </div>
+      </div>}
     </Block>
   );
 }

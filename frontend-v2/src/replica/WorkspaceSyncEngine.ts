@@ -38,10 +38,22 @@ export class WorkspaceSyncEngine {
     for (const scope of this.scopes.values()) void this.flush(scope);
   }
 
-  async submit(scope: WorkspaceReplicaScope, command: WorkspaceDataCommand) {
+  async submit(
+    scope: WorkspaceReplicaScope,
+    command: WorkspaceDataCommand,
+    userCommandId = command.input.requestId,
+  ) {
     const key = scopeKey(scope);
     this.scopes.set(key, scope);
-    const optimistic = await this.replica.enqueue(scope, command);
+    const optimistic = await this.replica.enqueue(
+      scope,
+      command,
+      undefined,
+      userCommandId,
+    );
+    if (command.type !== "set-selection") {
+      this.status.markCommandCached(userCommandId);
+    }
     this.status.setPendingCount(key, optimistic.outbox.length);
     void this.flush(scope).catch((error) => {
       this.status.markError(
@@ -68,6 +80,7 @@ export class WorkspaceSyncEngine {
     const key = scopeKey(scope);
     this.status.setPendingCount(key, record?.outbox.length ?? 0);
     if (!record?.outbox.length) return true;
+    const recoveringQueue = record.outbox.some(({ attempts }) => attempts > 0);
 
     while (record.outbox.length > 0) {
       this.status.setStatus({ state: "syncing", pending: record.outbox.length });
@@ -76,7 +89,20 @@ export class WorkspaceSyncEngine {
       try {
         await this.dispatch(scope, entry.command);
         await this.replica.acknowledge(scope, entry.id);
+        if (entry.command.type !== "set-selection") {
+          this.status.markCommandSaved(
+            entry.userCommandId ?? entry.id,
+            !recoveringQueue,
+          );
+        }
       } catch (error) {
+        if (isDiscardableSelectionConflict(error, entry.command)) {
+          await this.replica.acknowledge(scope, entry.id);
+          record = await this.replica.load(scope);
+          if (!record) return false;
+          this.status.setPendingCount(key, record.outbox.length);
+          continue;
+        }
         if (error instanceof V2ApiError) {
           const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
           this.status.setPendingCount(key, pending);
@@ -96,6 +122,7 @@ export class WorkspaceSyncEngine {
       return false;
     }
     this.status.markOnline();
+    if (recoveringQueue) this.status.markQueueSaved();
     return true;
   }
 
@@ -112,6 +139,13 @@ export class WorkspaceSyncEngine {
       }
       case "rename-node": {
         const result = await this.api.renameDataNode(
+          workspaceId, command.nodeId, command.input,
+        );
+        await this.replica.putNode(scope, result.node, result.treeRevision);
+        return;
+      }
+      case "update-local-id": {
+        const result = await this.api.updateDataNodeLocalId(
           workspaceId, command.nodeId, command.input,
         );
         await this.replica.putNode(scope, result.node, result.treeRevision);
@@ -150,6 +184,15 @@ export class WorkspaceSyncEngine {
       }
     }
   }
+}
+
+function isDiscardableSelectionConflict(
+  error: unknown,
+  command: WorkspaceDataCommand,
+) {
+  return command.type === "set-selection"
+    && error instanceof V2ApiError
+    && error.response.error === "REVISION_CONFLICT";
 }
 
 export const workspaceSyncEngine = new WorkspaceSyncEngine(

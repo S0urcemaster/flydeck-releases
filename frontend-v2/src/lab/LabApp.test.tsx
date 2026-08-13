@@ -95,6 +95,30 @@ describe("AppTitle lab", () => {
     expect(stored).toBe("Textarea");
   });
 
+  it("keeps Checkbox font size out of the inherited Button properties", () => {
+    persistSelectedAppComponent("Checkbox");
+    const markup = renderToStaticMarkup(<LabApp />);
+    const textarea = markup.indexOf(
+      '<textarea aria-label="Inherited Base properties"',
+    );
+    const start = markup.indexOf("# component: Checkbox", textarea);
+    const end = markup.indexOf("</textarea>", start);
+    const properties = markup.slice(start, end);
+    const inheritedButtonStart = properties.indexOf("# inherited: Button");
+    const inheritedBaseStart = properties.indexOf(
+      "# inherited: Base",
+      inheritedButtonStart,
+    );
+    const inheritedButtonProperties = properties.slice(
+      inheritedButtonStart,
+      inheritedBaseStart,
+    );
+
+    expect(properties).not.toContain("Inherited Button CSS font-size");
+    expect(inheritedButtonProperties).not.toContain("fontSize =");
+    persistSelectedAppComponent("AppTitle");
+  });
+
   it("renders isolated previews for the components added to the manifest", () => {
     const names = [
       "AppView",

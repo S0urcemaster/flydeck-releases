@@ -17,9 +17,11 @@ export {
   reportWorkspaceReplicaError,
   persistWorkspaceReplica,
   useWorkspaceSyncStatus,
+  useWorkspaceSyncActivity,
   useForcedOfflineMode,
   usePendingWorkspaceTransactions,
   workspaceSyncStatusStore,
+  type WorkspaceSyncActivity,
 } from "./WorkspaceSyncStatusStore";
 export {
   WorkspaceSyncEngine,

@@ -19,7 +19,6 @@ describe("InventoryApp", () => {
         buttonProps={{ width: "91px" }}
         breadcrumbProps={{ padding: "2px" }}
         compactButtonProps={{ height: "27px" }}
-        formProps={{ actionWidth: "94px" }}
         formRowProps={{ padding: "4px" }}
         inputProps={{ width: "92px" }}
         itemListProps={{ margin: "3px" }}
@@ -31,14 +30,17 @@ describe("InventoryApp", () => {
     expect(markup).toContain('data-access-mode="read-write"');
     expect(markup).toContain("INVENTORY");
     expect(markup).toContain('aria-label="Inventory item name"');
+    expect(markup).toContain('aria-label="Inventory item ID"');
     expect(markup).toContain('aria-label="Inventory item description"');
     expect(markup).toContain('aria-label="Inventory item parent"');
     expect(markup).toContain('data-component-name="Form"');
+    expect(markup).toContain('data-component-name="NodeIdInput"');
     expect(markup.match(/data-component-name="FormRow"/g)).toHaveLength(2);
     expect(markup).toContain('data-component-name="ParentInput"');
-    expect(markup).toContain('aria-label="Name"');
-    expect(markup).toContain('aria-label="Desc"');
-    expect(markup).toContain('aria-label="Set Parent"');
+    expect(markup).not.toContain(">Name</span>");
+    expect(markup).not.toContain(">Desc</span>");
+    expect(markup).toContain(">Parent</span>");
+    expect(markup).not.toContain('aria-label="Set Parent"');
     expect(markup).toContain('aria-label="Previous inventory item"');
     expect(markup).toContain('aria-label="Next inventory item"');
     expect(markup).toContain('aria-label="Open parent inventory item"');
@@ -66,7 +68,6 @@ describe("InventoryApp", () => {
     expect(markup).toContain("width:91px");
     expect(markup).toContain("width:92px");
     expect(markup).toContain("width:93px");
-    expect(markup.match(/width:94px/g)).toHaveLength(2);
     expect(markup).toContain("padding:4px");
     expect(markup).toContain("padding:2px");
     expect(markup).toContain("margin:3px");
@@ -74,18 +75,18 @@ describe("InventoryApp", () => {
 
   it("builds a path from the inventory hierarchy", () => {
     expect(inventoryPath(inventoryFixture, "toolbox")).toBe(
-      "Schublade 1/Werkzeugkoffer",
+      "schublade-1/werkzeugkoff",
     );
   });
 
   it("resolves valid parents and rejects hierarchy cycles", () => {
-    expect(resolveInventoryParent(inventoryFixture, "pen", "Regal")).toBe(
+    expect(resolveInventoryParent(inventoryFixture, "pen", "regal")).toBe(
       "shelf",
     );
     expect(resolveInventoryParent(
       inventoryFixture,
       "drawer-1",
-      "Schublade 1/Werkzeugkoffer",
+      "schublade-1/werkzeugkoff",
     ))
       .toBeUndefined();
     expect(resolveInventoryParent(inventoryFixture, "pen", "")).toBeNull();
@@ -96,24 +97,24 @@ describe("InventoryApp", () => {
 
     expect(targets.find(({ id }) => id === null)?.eligible).toBe(true);
     expect(targets.find(({ id }) => id === "toolbox")?.eligible).toBe(false);
-    expect(targets.find(({ id }) => id === "shelf")?.path).toBe("Regal");
+    expect(targets.find(({ id }) => id === "shelf")?.path).toBe("regal");
   });
 
   it("allows spaces in parent names and only uses slash as the separator", () => {
     expect(resolveInventoryParent(
       inventoryFixture,
       "pen",
-      "Schublade 1/Werkzeugkoffer",
+      "schublade-1/werkzeugkoff",
     )).toBe("toolbox");
     expect(resolveInventoryParent(
       inventoryFixture,
       "pen",
-      "Schublade 1 /Werkzeugkoffer",
+      "schublade-1 /werkzeugkoff",
     )).toBeUndefined();
     expect(resolveInventoryParent(
       inventoryFixture,
       "pen",
-      "Schublade 1/ Werkzeugkoffer",
+      "schublade-1/ werkzeugkoff",
     )).toBeUndefined();
   });
 
@@ -135,6 +136,7 @@ describe("InventoryApp", () => {
       parentId: null,
       kind: "data-directory",
       label: "Lagerraum",
+      localId: "lagerraum",
       position: 0,
       revision: 2,
       capabilities: { contentEditable: false, listEditable: true, listItemLimit: null },
@@ -145,6 +147,7 @@ describe("InventoryApp", () => {
       parentId: root.id,
       kind: "data-file",
       label: "Kiste",
+      localId: "kiste",
       revision: 3,
     };
 
@@ -153,13 +156,14 @@ describe("InventoryApp", () => {
       {
         item: { nodeId: "item", format: "text", content: "Kabel", revision: 4 },
       },
-      "Lagerraum",
+      "lagerraum",
       5,
     )).toEqual({
       items: [{
         contentRevision: 4,
         description: "Kabel",
         id: "item",
+        localId: "kiste",
         name: "Kiste",
         nodeRevision: 3,
         parentId: null,

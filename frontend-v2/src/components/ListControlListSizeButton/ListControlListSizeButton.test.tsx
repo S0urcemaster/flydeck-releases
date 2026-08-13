@@ -10,19 +10,17 @@ describe("ListControlListSizeButton", () => {
   it("renders controlled page state", () => {
     const markup = renderToStaticMarkup(
       <ListControlListSizeButton
-        currentPage={2}
         pageSize={5}
-        totalPages={3}
         onPageSizeChange={() => undefined}
       />,
     );
     expect(markup).toContain('data-component-name="ListControlListSizeButton"');
-    expect(markup).toContain(">2/3</button>");
+    expect(markup).toContain(">5</button>");
   });
 
   it("cycles list sizes", () => {
     expect(nextListControlListSize(3)).toBe(5);
-    expect(nextListControlListSize(5)).toBe(10);
-    expect(nextListControlListSize(10)).toBe(3);
+    expect(nextListControlListSize(5)).toBe(9);
+    expect(nextListControlListSize(9)).toBe(3);
   });
 });

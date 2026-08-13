@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TreeNodeContentDto, TreeNodeDto } from "@flydeck/shared/v2";
+import {
+  createTreeNodeLocalId,
+  type TreeNodeContentDto,
+  type TreeNodeDto,
+} from "@flydeck/shared/v2";
 
 import { v2Api } from "../../api/V2ApiClient";
 import {
@@ -17,6 +21,7 @@ import { Form, type FormProps } from "../Form";
 import { FormRow, type FormRowProps } from "../FormRow";
 import { Input, type InputProps } from "../Input";
 import { ItemList, type ItemListProps } from "../ItemList";
+import { NodeIdInput, type NodeIdInputProps } from "../NodeIdInput";
 import { ParentInput, type ParentInputProps } from "../ParentInput";
 import { Textarea, type TextareaProps } from "../Textarea";
 import type { TreeBrowserRootTarget } from "../TreeBrowser";
@@ -25,6 +30,7 @@ import styles from "./InventoryApp.module.css";
 export type InventoryItem = {
   contentRevision?: number;
   id: string;
+  localId?: string;
   name: string;
   description: string;
   nodeRevision?: number;
@@ -62,6 +68,10 @@ export type InventoryAppProps = Omit<
     ItemListProps,
     "buttonProps" | "items" | "onSelect" | "selectedId"
   >;
+  nodeIdInputProps?: Omit<
+    NodeIdInputProps,
+    "available" | "disabled" | "onChange" | "onSave" | "savedValue" | "value"
+  >;
   parentInputProps?: Omit<
     ParentInputProps,
     "current" | "onChange" | "onSetParent" | "targets" | "value"
@@ -95,6 +105,7 @@ export function InventoryApp({
   formRowButtonProps,
   inputProps,
   itemListProps,
+  nodeIdInputProps,
   parentInputProps,
   textareaProps,
   workspaceId,
@@ -106,9 +117,9 @@ export function InventoryApp({
   const [parentDrafts, setParentDrafts] = useState<Record<string, string>>({});
   const [itemDrafts, setItemDrafts] = useState<Record<
     string,
-    Pick<InventoryItem, "name" | "description">
+    Pick<InventoryItem, "localId" | "name" | "description">
   >>({});
-  const [dataSource, setDataSource] = useState("Lagerraum");
+  const [dataSource, setDataSource] = useState("lagerraum");
   const [saving, setSaving] = useState(false);
   const inventoryRootId = useRef<string | null>(null);
   const treeRevision = useRef(0);
@@ -174,6 +185,7 @@ export function InventoryApp({
     : "";
   const selectedDraft = selected
     ? itemDrafts[selected.id] ?? {
+        localId: inventoryLocalId(selected),
         name: selected.name,
         description: selected.description,
       }
@@ -192,6 +204,7 @@ export function InventoryApp({
     selectedDraft
     && newItemName
     && parentTarget !== undefined
+    && items.filter(({ parentId }) => parentId === parentTarget).length < 99
     && !items.some((item) => (
       item.parentId === parentTarget
       && item.name.trim().toLocaleLowerCase() === newItemName.toLocaleLowerCase()
@@ -206,7 +219,7 @@ export function InventoryApp({
   }
 
   function updateSelectedDraft(
-    patch: Partial<Pick<InventoryItem, "name" | "description">>,
+    patch: Partial<Pick<InventoryItem, "localId" | "name" | "description">>,
   ) {
     if (!selected || !selectedDraft) return;
     setItemDrafts((current) => ({
@@ -241,7 +254,7 @@ export function InventoryApp({
       {...appViewProps}
       accessMode="read-write"
       componentName="InventoryApp"
-      defaultDataSource="Lagerraum"
+      defaultDataSource="lagerraum"
       onDataSourceResolved={setDataSource}
       title="INVENTORY"
     >
@@ -304,6 +317,47 @@ export function InventoryApp({
             onSelect={setSelectedId}
           />
           <Form {...formProps}>
+            <NodeIdInput
+              {...nodeIdInputProps}
+              available={(value) => !items.some((item) => (
+                item.id !== selected.id
+                && item.parentId === selected.parentId
+                && inventoryLocalId(item) === value
+              ))}
+              disabled={saving}
+              inputProps={{
+                ...inputProps,
+                ...nodeIdInputProps?.inputProps,
+                "aria-label": "Inventory item ID",
+              }}
+              savedValue={inventoryLocalId(selected)}
+              value={selectedDraft?.localId ?? inventoryLocalId(selected)}
+              onChange={(localId) => updateSelectedDraft({ localId })}
+              onSave={async (localId) => {
+                if (!workspaceId || selected.nodeRevision === undefined) {
+                  updateSelected({ localId });
+                  return;
+                }
+                setSaving(true);
+                try {
+                  if (!replicaScope) return;
+                  await workspaceSyncEngine.submit(replicaScope, {
+                    type: "update-local-id",
+                    nodeId: selected.id,
+                    input: {
+                      requestId: globalThis.crypto.randomUUID(),
+                      localId,
+                      expectedRevision: selected.nodeRevision,
+                    },
+                  });
+                  await refreshFromReplica();
+                } catch {
+                  await reloadInventoryAfterFailure();
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            />
             <FormRow
               {...formRowProps}
               buttonProps={formRowButtonProps}
@@ -325,6 +379,10 @@ export function InventoryApp({
                     ));
                     if (!replicaScope) return;
                     const nodeId = globalThis.crypto.randomUUID();
+                    const localId = createTreeNodeLocalId(
+                      newItemName,
+                      targetSiblings.map(inventoryLocalId),
+                    );
                     await workspaceSyncEngine.submit(replicaScope, {
                       type: "create-node",
                       input: {
@@ -334,6 +392,7 @@ export function InventoryApp({
                       afterNodeId: targetSiblings.at(-1)?.id ?? null,
                       kind: "data-file",
                       label: newItemName,
+                      localId,
                       expectedTreeRevision: treeRevision.current,
                       },
                     });
@@ -358,8 +417,15 @@ export function InventoryApp({
                   return;
                 }
                 const id = globalThis.crypto.randomUUID();
+                const localId = createTreeNodeLocalId(
+                  newItemName,
+                  items
+                    .filter(({ parentId }) => parentId === parentTarget)
+                    .map(inventoryLocalId),
+                );
                 const item: InventoryItem = {
                   id,
+                  localId,
                   name: newItemName,
                   description: selectedDraft.description,
                   parentId: parentTarget,
@@ -368,7 +434,11 @@ export function InventoryApp({
                 setSelectedId(id);
                 setItemDrafts((current) => ({
                   ...current,
-                  [id]: { name: item.name, description: item.description },
+                  [id]: {
+                    localId,
+                    name: item.name,
+                    description: item.description,
+                  },
                 }));
                 setParentDrafts((current) => ({
                   ...current,
@@ -404,6 +474,7 @@ export function InventoryApp({
               <Input
                 {...inputProps}
                 aria-label="Inventory item name"
+                label="Name"
                 keyboardLayout="block"
                 value={selectedDraft?.name ?? selected.name}
                 onChange={(event) => updateSelectedDraft({
@@ -446,6 +517,7 @@ export function InventoryApp({
               <Textarea
                 {...textareaProps}
                 aria-label="Inventory item description"
+                label="Desc"
                 keyboardLayout="block"
                 resize={textareaProps?.resize ?? "none"}
                 value={selectedDraft?.description ?? selected.description}
@@ -517,17 +589,17 @@ export function InventoryApp({
 }
 
 export function inventoryPath(items: readonly InventoryItem[], itemId: string) {
-  const names: string[] = [];
+  const localIds: string[] = [];
   const visited = new Set<string>();
   let current = items.find(({ id }) => id === itemId);
   while (current && !visited.has(current.id)) {
     visited.add(current.id);
-    names.unshift(current.name);
+    localIds.unshift(inventoryLocalId(current));
     current = current.parentId
       ? items.find(({ id }) => id === current!.parentId)
       : undefined;
   }
-  return names.join("/");
+  return localIds.join("/");
 }
 
 export function inventoryParentTargets(
@@ -585,7 +657,19 @@ export function resolveInventoryParent(
   path: string,
 ): string | null | undefined {
   const normalizedPath = path.trim();
-  if (normalizedPath === "") return null;
+  const source = items.find(({ id }) => id === itemId);
+  if (!source) return undefined;
+  if (normalizedPath === "") {
+    const rootSiblings = items.filter(({ parentId, id }) => (
+      parentId === null && id !== itemId
+    ));
+    return rootSiblings.length < 99
+      && !rootSiblings.some((item) => (
+        inventoryLocalId(item) === inventoryLocalId(source)
+      ))
+      ? null
+      : undefined;
+  }
   const segments = normalizedPath.split("/");
   if (segments.some((segment) => segment === "" || segment !== segment.trim())) {
     return undefined;
@@ -594,7 +678,7 @@ export function resolveInventoryParent(
   let parentId: string | null = null;
   for (const segment of segments) {
     target = items.find((item) => (
-      item.parentId === parentId && item.name === segment
+      item.parentId === parentId && inventoryLocalId(item) === segment
     ));
     if (!target) return undefined;
     parentId = target.id;
@@ -609,6 +693,12 @@ export function resolveInventoryParent(
       ? items.find(({ id }) => id === current!.parentId)
       : undefined;
   }
+  const targetChildren = items.filter(({ parentId, id }) => (
+    parentId === target.id && id !== itemId
+  ));
+  if (targetChildren.length >= 99 || targetChildren.some((item) => (
+    inventoryLocalId(item) === inventoryLocalId(source)
+  ))) return undefined;
   return target.id;
 }
 
@@ -686,6 +776,7 @@ export function projectInventory(
     items: descendants.map((node): InventoryItem => ({
       contentRevision: contents[node.id]?.revision,
       id: node.id,
+      localId: node.localId,
       name: node.label,
       description: contents[node.id]?.content ?? "",
       nodeRevision: node.revision,
@@ -703,12 +794,16 @@ export function resolveTreePath(nodes: readonly TreeNodeDto[], path: string) {
   let current: TreeNodeDto | undefined;
   for (const segment of path.split("/").filter(Boolean)) {
     current = nodes.find((node) => (
-      node.parentId === parentId && node.label === segment
+      node.parentId === parentId && node.localId === segment
     ));
     if (!current) return undefined;
     parentId = current.id;
   }
   return current;
+}
+
+function inventoryLocalId(item: InventoryItem) {
+  return item.localId ?? createTreeNodeLocalId(item.name);
 }
 
 export function inventoryDescendants(

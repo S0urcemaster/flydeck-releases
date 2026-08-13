@@ -1,410 +1,379 @@
-import { useState, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 
 import {
   Dialer,
+  signedAngleDelta,
   type DialerCenterButtonProps,
   type DialerProps,
-  type DialerSelectionPhase,
 } from "../Dialer";
 import type { DialTangentialInput } from "../DialSurface";
 import styles from "./CronDialer.module.css";
 
-type CronDialerOwnedProps =
+type OwnedDialerProps =
   | "bottomLeftLabel"
   | "bottomRightLabel"
   | "centerButtonProps"
   | "centerLabel"
   | "getInnerAngle"
-  | "getValue"
-  | "initialInnerAngle"
+  | "innerAngle"
+  | "innerBackground"
   | "innerScale"
-  | "innerMarker"
+  | "interactionMode"
   | "onInnerInput"
   | "onOuterInput"
-  | "onValue"
   | "outerAngle"
-  | "initialOuterAngle"
+  | "outerBackground"
   | "outerScale"
-  | "outerMarker"
-  | "selectionPhase"
   | "topLeftLabel"
   | "topRightLabel";
 
-export type CronDialerProps = Omit<DialerProps<number>, CronDialerOwnedProps> & {
+export type CronDialerProps = Omit<DialerProps, OwnedDialerProps> & {
+  centerFontSize?: string;
+  centerFontWeight?: string;
   centerButtonProps?: DialerCenterButtonProps;
-  onInnerInput?: (input: DialTangentialInput) => void;
-  onOuterInput?: (input: DialTangentialInput) => void;
-  onValue?: (durationMinutes: number) => void;
-  selectionPhase?: DialerSelectionPhase;
+  initialTime?: Date;
+  innerDiscColor?: string;
+  innerGradientEnd?: string;
+  innerGradientStart?: string;
+  innerScaleFontSize?: string;
+  innerScaleFontWeight?: string;
+  onTimeChange?: (time: Date) => void;
+  outerDiscColor?: string;
+  outerGradientEnd?: string;
+  outerGradientStart?: string;
+  outerScaleFontSize?: string;
+  outerScaleFontWeight?: string;
 };
 
-export type CronDialerScaleProps = {
-  innerFontSize?: string;
-  innerPointerColor?: string;
-  innerTextColor?: string;
-  outerFontSize?: string;
-  outerPointerColor?: string;
-  outerTextColor?: string;
-};
-
-const deadZoneDegrees = 5;
-const scaleStartAngle = deadZoneDegrees / 2;
-const scaleEndAngle = 360 - deadZoneDegrees / 2;
-const minimumRangeMinutes = 60;
-const maximumRangeMinutes = 5 * 365 * 24 * 60;
-
-const cronScaleMarks = [
-  { minutes: 60, label: "1h" },
-  { minutes: 6 * 60, label: "6h" },
-  { minutes: 24 * 60, label: "24h" },
-  { minutes: 7 * 24 * 60, label: "7d" },
-  { minutes: 30 * 24 * 60, label: "1m" },
-  { minutes: 3 * 30 * 24 * 60, label: "3m" },
-  { minutes: 365 * 24 * 60, label: "1y" },
-  { minutes: 2 * 365 * 24 * 60, label: "2y" },
+const hourMinutes = 60;
+const yearMinutes = 365 * 24 * hourMinutes;
+const maximumRangeMinutes = 5 * yearMinutes;
+const minimumZoomAngle = 0;
+const maximumZoomAngle = 270;
+const zoomMarks = [
+  { minutes: hourMinutes, label: "1h" },
+  { minutes: 24 * hourMinutes, label: "1d" },
+  { minutes: 7 * 24 * hourMinutes, label: "7d" },
+  { minutes: 30 * 24 * hourMinutes, label: "1m" },
+  { minutes: yearMinutes, label: "1y" },
   { minutes: maximumRangeMinutes, label: "5y" },
 ] as const;
-
-const cronOuterIntervals = [
-  5, 10, 15, 30,
-  60, 2 * 60, 3 * 60, 6 * 60, 12 * 60,
-  24 * 60, 2 * 24 * 60, 3 * 24 * 60, 7 * 24 * 60, 14 * 24 * 60,
-  30 * 24 * 60, 2 * 30 * 24 * 60, 3 * 30 * 24 * 60,
-  6 * 30 * 24 * 60, 365 * 24 * 60,
+const zoomStepAngle = maximumZoomAngle / (zoomMarks.length - 1);
+const timeIntervals = [
+  5, 10, 15, 30, 60, 2 * 60, 3 * 60, 6 * 60, 12 * 60,
+  24 * 60, 2 * 24 * 60, 7 * 24 * 60, 14 * 24 * 60,
+  30 * 24 * 60, 3 * 30 * 24 * 60, 6 * 30 * 24 * 60, yearMinutes,
 ] as const;
 
-type CronMarkStyle = CSSProperties & {
+type MarkStyle = CSSProperties & {
   "--cron-mark-angle": string;
-  "--cron-mark-opacity"?: number;
+  "--cron-label-angle": string;
 };
 
-type CronScaleStyle = CSSProperties & {
-  "--cron-pointer-color"?: string;
-  "--cron-scale-color"?: string;
-  "--cron-scale-font-size"?: string;
+type SegmentStyle = CSSProperties & {
+  "--cron-segment-angle": string;
+  "--cron-segment-rotation": string;
 };
 
-type CronPointerSide = "clockwise" | "counterclockwise";
+type GradientStyle = CSSProperties & {
+  "--cron-gradient-end"?: string;
+  "--cron-gradient-start"?: string;
+};
 
-export function CronDialer(allProps: CronDialerProps & CronDialerScaleProps) {
-  const {
-    centerButtonProps,
-    innerFontSize,
-    innerPointerColor,
-    innerTextColor,
-    onInnerInput,
-    onOuterInput,
-    onValue,
-    outerFontSize,
-    outerPointerColor,
-    outerTextColor,
-    selectionPhase = "release",
-    ...props
-  } = allProps;
-  const [mode, setMode] = useState<"DATE" | "DURA">("DURA");
-  const [referenceTime] = useState(() => Date.now());
-  const [scaleAngle, setScaleAngle] = useState(scaleStartAngle);
-  const [selectedMinutes, setSelectedMinutes] = useState(0);
-  const [outerPointerAngle, setOuterPointerAngle] = useState(0);
-  const [outerPointerAnchor, setOuterPointerAnchor] = useState({
-    angle: 0,
-    rangeMinutes: minimumRangeMinutes,
-    side: "clockwise" as CronPointerSide,
-  });
-  const { onClick: onCenterClick, ...restCenterButtonProps } = centerButtonProps ?? {};
+export function CronDialer({
+  className,
+  centerFontSize,
+  centerFontWeight,
+  centerButtonProps,
+  initialTime = new Date(),
+  innerDiscColor,
+  innerGradientEnd,
+  innerGradientStart,
+  innerScaleFontSize,
+  innerScaleFontWeight,
+  onTimeChange,
+  outerDiscColor,
+  outerGradientEnd,
+  outerGradientStart,
+  outerScaleFontSize,
+  outerScaleFontWeight,
+  width,
+  ...dialerProps
+}: CronDialerProps) {
+  const [zoomAngle, setZoomAngle] = useState(minimumZoomAngle);
+  const [timeAngle, setTimeAngle] = useState(0);
+  const [selectedTime, setSelectedTime] = useState(initialTime);
+  const selectedTimeRef = useRef(selectedTime);
+  const lastTimeAngle = useRef<number | null>(null);
+  const rangeMinutes = cronRangeMinutes(zoomAngle);
+  const timeSegment = cronTimeSegment(selectedTime, rangeMinutes);
+  const classes = className ? `${styles.root} ${className}` : styles.root;
 
-  function handleInnerInput(input: DialTangentialInput) {
-    const nextRangeMinutes = getCronScaleMinutes(input.angle);
-    const nextPointerAngle = getCronZoomedOuterPointer(
-      outerPointerAnchor.angle,
-      outerPointerAnchor.rangeMinutes,
-      nextRangeMinutes,
-      outerPointerAnchor.side,
+  function changeTime(input: DialTangentialInput) {
+    if (input.phase === "press" || lastTimeAngle.current === null) {
+      lastTimeAngle.current = input.angle;
+      setTimeAngle(input.angle);
+      return;
+    }
+    const angleDelta = signedAngleDelta(lastTimeAngle.current, input.angle);
+    const nextTime = new Date(
+      selectedTimeRef.current.getTime()
+      + angleDelta * rangeMinutes / 360 * 60_000,
     );
-    setOuterPointerAngle(nextPointerAngle);
-    setScaleAngle(input.angle);
-    onInnerInput?.(input);
-  }
-
-  function handleOuterInput(input: DialTangentialInput) {
-    const nextMinutes = getCronSelectedDurationMinutes(scaleAngle, input.angle);
-    setOuterPointerAngle(input.angle);
-    setSelectedMinutes(nextMinutes);
-    setOuterPointerAnchor({
-      angle: input.angle,
-      rangeMinutes: getCronScaleMinutes(scaleAngle),
-      side: input.angle > 180 ? "counterclockwise" : "clockwise",
-    });
-    onOuterInput?.(input);
-    if (input.phase === selectionPhase) onValue?.(nextMinutes);
+    lastTimeAngle.current = input.angle;
+    selectedTimeRef.current = nextTime;
+    setSelectedTime(nextTime);
+    setTimeAngle(input.angle);
+    onTimeChange?.(nextTime);
+    if (input.phase === "release") lastTimeAngle.current = null;
   }
 
   return (
-    <Dialer<number>
-      {...props}
+    <Dialer
+      {...dialerProps}
       aria-label="Cron dialer"
-      topLeftLabel="SCALE"
-      topRightLabel="SEND"
       bottomLeftLabel="RANGE"
       bottomRightLabel="ZOOM"
-      centerLabel={(
-        <span className={styles.centerValue}>
-          {mode === "DURA"
-            ? formatCronDurationDisplay(selectedMinutes)
-            : formatCronDate(new Date(referenceTime + selectedMinutes * 60_000))}
-        </span>
-      )}
       centerButtonProps={{
-        ...restCenterButtonProps,
-        "aria-label": `Show ${mode === "DURA" ? "date" : "duration"}`,
-        onClick: (event) => {
-          onCenterClick?.(event);
-          setMode((current) => current === "DURA" ? "DATE" : "DURA");
-        },
+        ...centerButtonProps,
+        fontSize: centerFontSize ?? centerButtonProps?.fontSize,
+        fontWeight: centerFontWeight ?? centerButtonProps?.fontWeight,
       }}
-      getInnerAngle={getCronScaleAngle}
-      initialInnerAngle={scaleStartAngle}
-      outerAngle={outerPointerAngle}
-      onInnerInput={handleInnerInput}
-      onOuterInput={handleOuterInput}
-      innerScale={() => (
+      centerLabel={formatCronTime(selectedTime)}
+      className={classes}
+      getInnerAngle={(angle) => Math.max(
+        minimumZoomAngle,
+        Math.min(maximumZoomAngle, angle),
+      )}
+      innerAngle={zoomAngle}
+      innerBackground={innerDiscColor}
+      interactionMode="wheel"
+      outerAngle={timeAngle}
+      outerBackground={outerDiscColor}
+      topLeftLabel="SCALE"
+      topRightLabel="SEND"
+      width={width === undefined || width === "inherit" ? "100%" : width}
+      onInnerInput={(input) => setZoomAngle(input.angle)}
+      onOuterInput={changeTime}
+      innerScale={({ innerAngle }) => (
         <span
           className={styles.scale}
           aria-hidden="true"
-          style={scaleStyle(innerTextColor, innerFontSize)}
+          style={{
+            fontSize: innerScaleFontSize,
+            fontWeight: innerScaleFontWeight,
+          }}
         >
-          {cronScaleMarks.map((mark) => (
-            <span
-              className={styles.mark}
-              key={mark.label}
-              style={markStyle(getCronScaleMarkAngle(mark.minutes))}
-            >
-              <span className={styles.tick} />
-              <span className={styles.label}>{mark.label}</span>
-            </span>
-          ))}
+          <span
+            className={styles.zoomSegments}
+            style={gradientStyle(innerGradientStart, innerGradientEnd)}
+          />
+          {zoomMarks.map((mark, index) => {
+            const angle = index * zoomStepAngle;
+            return (
+              <span
+                className={styles.mark}
+                key={mark.label}
+                style={markStyle(angle, innerAngle)}
+              >
+                <span className={styles.tick} />
+                <span className={styles.label}>{mark.label}</span>
+              </span>
+            );
+          })}
         </span>
       )}
-      outerScale={({ innerAngle, outerAngle }) => (
+      outerScale={({ outerAngle }) => (
         <span
           className={styles.scale}
           aria-hidden="true"
-          style={scaleStyle(outerTextColor, outerFontSize)}
+          style={{
+            fontSize: outerScaleFontSize,
+            fontWeight: outerScaleFontWeight,
+          }}
         >
-          {getCronOuterScaleMarks(
-            innerAngle,
-            outerAngle,
-            selectedMinutes,
-            outerPointerAnchor.side,
-          ).map((mark) => (
+          {timeSegment && (
             <span
-              className={styles.mark}
-              key={mark.minutes}
-              style={markStyle(mark.angle, mark.opacity)}
-            >
-              <span className={styles.tick} />
-              <span className={styles.label}>{mark.label}</span>
-            </span>
-          ))}
+              className={styles.timeSegment}
+              style={{
+                ...segmentStyle(
+                  outerAngle + timeSegment.startAngle,
+                  timeSegment.sweepAngle,
+                ),
+                ...gradientStyle(outerGradientStart, outerGradientEnd),
+              }}
+            />
+          )}
+          {cronTimeMarks(selectedTime, rangeMinutes).map((mark) => {
+            const angle = outerAngle
+              + (mark.time.getTime() - selectedTime.getTime())
+              / 60_000 / rangeMinutes * 360;
+            return (
+              <span
+                className={styles.mark}
+                key={mark.time.toISOString()}
+                style={markStyle(angle, outerAngle)}
+              >
+                <span className={styles.tick} />
+                {mark.label && (
+                  <span className={styles.label}>{mark.label}</span>
+                )}
+              </span>
+            );
+          })}
         </span>
-      )}
-      innerMarker={() => (
-        <span className={styles.pointer} style={pointerStyle(innerPointerColor)} />
-      )}
-      outerMarker={() => (
-        <span className={styles.pointer} style={pointerStyle(outerPointerColor)} />
       )}
     />
   );
 }
 
-export function getCronScaleAngle(angle: number): number {
-  const normalizedAngle = normalizeAngle(angle);
-  if (normalizedAngle >= scaleStartAngle && normalizedAngle <= scaleEndAngle) {
-    return normalizedAngle;
+export function cronRangeMinutes(angle: number) {
+  const clampedAngle = Math.max(minimumZoomAngle, Math.min(maximumZoomAngle, angle));
+  const segmentIndex = Math.min(
+    zoomMarks.length - 2,
+    Math.floor(clampedAngle / zoomStepAngle),
+  );
+  const start = zoomMarks[segmentIndex].minutes;
+  const end = zoomMarks[segmentIndex + 1].minutes;
+  const progress = (clampedAngle - segmentIndex * zoomStepAngle) / zoomStepAngle;
+  return start * (end / start) ** progress;
+}
+
+export function cronZoomAngle(minutes: number) {
+  const clampedMinutes = Math.max(hourMinutes, Math.min(maximumRangeMinutes, minutes));
+  const upperIndex = zoomMarks.findIndex((mark) => clampedMinutes <= mark.minutes);
+  if (upperIndex <= 0) return minimumZoomAngle;
+  const start = zoomMarks[upperIndex - 1].minutes;
+  const end = zoomMarks[upperIndex].minutes;
+  const progress = Math.log(clampedMinutes / start) / Math.log(end / start);
+  return (upperIndex - 1 + progress) * zoomStepAngle;
+}
+
+export function cronTimeMarks(selectedTime: Date, rangeMinutes: number) {
+  const interval = timeIntervals.find((candidate) => (
+    rangeMinutes / candidate <= 14
+  )) ?? timeIntervals.at(-1)!;
+  const selectedMinutes = selectedTime.getTime() / 60_000;
+  const first = Math.ceil((selectedMinutes - rangeMinutes / 2) / interval) * interval;
+  const last = selectedMinutes + rangeMinutes / 2;
+  const marks = [];
+  const labels = new Set<string>();
+  for (let minutes = first; minutes <= last; minutes += interval) {
+    const time = new Date(minutes * 60_000);
+    const label = formatCronMark(time, rangeMinutes);
+    marks.push({ time, label: labels.has(label) ? "" : label });
+    labels.add(label);
   }
-  return normalizedAngle > 180 ? scaleEndAngle : scaleStartAngle;
+  return marks;
 }
 
-export function getCronScaleMinutes(angle: number): number {
-  const progress = (getCronScaleAngle(angle) - scaleStartAngle)
-    / (scaleEndAngle - scaleStartAngle);
-  return minimumRangeMinutes
-    * (maximumRangeMinutes / minimumRangeMinutes) ** progress;
-}
-
-function getCronScaleMarkAngle(minutes: number): number {
-  const progress = Math.log(minutes / minimumRangeMinutes)
-    / Math.log(maximumRangeMinutes / minimumRangeMinutes);
-  return scaleStartAngle + progress * (scaleEndAngle - scaleStartAngle);
-}
-
-export function getCronSelectedDurationMinutes(innerAngle: number, outerAngle: number) {
-  const normalizedAngle = normalizeAngle(outerAngle);
-  const distanceFromNorth = Math.min(normalizedAngle, 360 - normalizedAngle);
-  return getCronScaleMinutes(innerAngle) * distanceFromNorth / 360;
-}
-
-export function getCronZoomedOuterPointer(
-  anchorAngle: number,
-  anchorRangeMinutes: number,
-  nextRangeMinutes: number,
-  pointerSide: CronPointerSide,
-) {
-  const anchorDistanceFromNorth = Math.min(anchorAngle, 360 - anchorAngle);
-  const unconstrainedDistance = anchorDistanceFromNorth
-    * anchorRangeMinutes / nextRangeMinutes;
-  const distanceFromNorth = Math.min(
-    anchorDistanceFromNorth,
-    unconstrainedDistance,
-  );
-  const angle = pointerSide === "clockwise"
-    ? distanceFromNorth
-    : 360 - distanceFromNorth;
-  return normalizeAngle(angle);
-}
-
-export function getCronOuterScaleMarks(
-  innerAngle: number,
-  outerAngle: number,
-  selectedMinutes: number,
-  pointerSide: CronPointerSide = outerAngle > 180
-    ? "counterclockwise"
-    : "clockwise",
-) {
-  const rangeMinutes = getCronScaleMinutes(innerAngle);
-  const intervalMinutes = getCronOuterIntervalMinutes(rangeMinutes);
-  const firstIndex = Math.max(
-    0,
-    Math.floor((selectedMinutes - rangeMinutes) / intervalMinutes),
-  );
-  const lastIndex = Math.ceil(
-    (selectedMinutes + rangeMinutes) / intervalMinutes,
-  );
-
-  return Array.from(
-    { length: lastIndex - firstIndex + 1 },
-    (_, offset) => (firstIndex + offset) * intervalMinutes,
-  ).map((minutes) => {
-    const angle = getCronOuterMarkAngle(
-      minutes,
-      rangeMinutes,
-      outerAngle,
-      selectedMinutes,
-      pointerSide,
-    );
-    return {
-      angle,
-      minutes,
-      label: formatCronDuration(minutes),
-      opacity: getCronMarkOpacity(angle),
-    };
-  }).filter((mark) => mark.angle >= 0 && mark.angle <= 360);
-}
-
-export function getCronOuterMarkAngle(
-  minutes: number,
+export function cronTimeSegment(
+  selectedTime: Date,
   rangeMinutes: number,
-  pointerAngle: number,
-  selectedMinutes: number,
-  pointerSide: CronPointerSide = pointerAngle > 180
-    ? "counterclockwise"
-    : "clockwise",
 ) {
-  const direction = pointerSide === "clockwise" ? 1 : -1;
-  return pointerAngle
-    + direction * (minutes - selectedMinutes) / rangeMinutes * 360;
+  const period = rangeMinutes >= yearMinutes
+    ? "year"
+    : rangeMinutes >= 30 * 24 * 60
+      ? "month"
+      : rangeMinutes >= 7 * 24 * 60
+        ? "week"
+        : rangeMinutes >= 24 * 60
+          ? "day"
+          : "hour";
+
+  const start = currentPeriodStart(selectedTime, period);
+  const end = periodEnd(start, period);
+  const startMinutes = (start.getTime() - selectedTime.getTime()) / 60_000;
+  const endMinutes = (end.getTime() - selectedTime.getTime()) / 60_000;
+  return {
+    end,
+    period,
+    start,
+    startAngle: startMinutes / rangeMinutes * 360,
+    sweepAngle: (endMinutes - startMinutes) / rangeMinutes * 360,
+  };
 }
 
-export function getCronOuterIntervalMinutes(rangeMinutes: number) {
-  const targetInterval = rangeMinutes / 12;
-  return cronOuterIntervals.reduce((closest, interval) => (
-    Math.abs(Math.log(interval / targetInterval))
-      < Math.abs(Math.log(closest / targetInterval))
-      ? interval
-      : closest
-  ));
+export function formatCronTime(time: Date) {
+  const year = String(time.getFullYear()).slice(-3).padStart(3, "0");
+  const month = String(time.getMonth() + 1).padStart(2, "0");
+  const day = String(time.getDate()).padStart(2, "0");
+  const hour = String(time.getHours()).padStart(2, "0");
+  const minute = String(time.getMinutes()).padStart(2, "0");
+  return `${year}.${month}.${day} ${hour}:${minute}`;
 }
 
-function getCronMarkOpacity(angle: number) {
-  const fadeAngle = 18;
-  const distanceToNorth = Math.min(Math.abs(angle), Math.abs(360 - angle));
-  return Math.min(1, distanceToNorth / fadeAngle);
+function formatCronMark(time: Date, rangeMinutes: number) {
+  if (rangeMinutes <= 24 * 60) {
+    return `${String(time.getHours()).padStart(2, "0")}:${String(
+      time.getMinutes(),
+    ).padStart(2, "0")}`;
+  }
+  if (rangeMinutes <= yearMinutes) {
+    return `${String(time.getDate()).padStart(2, "0")}.${String(
+      time.getMonth() + 1,
+    ).padStart(2, "0")}`;
+  }
+  return String(time.getFullYear());
 }
 
-function markStyle(angle: number, opacity?: number): CronMarkStyle {
+function markStyle(angle: number, selectionAngle: number): MarkStyle {
   return {
     "--cron-mark-angle": `${angle}deg`,
-    "--cron-mark-opacity": opacity,
+    "--cron-label-angle": `${selectionAngle - angle}deg`,
   };
 }
 
-function scaleStyle(color?: string, fontSize?: string): CronScaleStyle | undefined {
-  if (!color && !fontSize) return undefined;
+function segmentStyle(rotation: number, sweepAngle: number): SegmentStyle {
   return {
-    "--cron-scale-color": color,
-    "--cron-scale-font-size": fontSize,
+    "--cron-segment-angle": `${sweepAngle}deg`,
+    "--cron-segment-rotation": `${rotation}deg`,
   };
 }
 
-function pointerStyle(color?: string): CronScaleStyle | undefined {
-  return color ? { "--cron-pointer-color": color } : undefined;
+function gradientStyle(start?: string, end?: string): GradientStyle {
+  return {
+    "--cron-gradient-end": end,
+    "--cron-gradient-start": start,
+  };
 }
 
-function normalizeAngle(angle: number) {
-  return (angle % 360 + 360) % 360;
-}
-
-function formatCronDuration(minutes: number) {
-  const roundedMinutes = Math.round(minutes);
-  if (roundedMinutes < 60) return `${roundedMinutes}m`;
-
-  const hours = roundedMinutes / 60;
-  if (hours < 24) {
-    return Number.isInteger(hours)
-      ? `${hours}h`
-      : `${Math.floor(hours)}h${Math.round((hours % 1) * 60)}m`;
+function currentPeriodStart(
+  time: Date,
+  period: "hour" | "day" | "week" | "month" | "year",
+) {
+  if (period === "year") return new Date(time.getFullYear(), 0, 1);
+  if (period === "month") return new Date(time.getFullYear(), time.getMonth(), 1);
+  if (period === "hour") {
+    return new Date(
+      time.getFullYear(),
+      time.getMonth(),
+      time.getDate(),
+      time.getHours(),
+    );
   }
-
-  const days = hours / 24;
-  if (days < 60) {
-    return Number.isInteger(days)
-      ? `${days}d`
-      : `${Math.floor(days)}d${Math.round((days % 1) * 24)}h`;
+  const start = new Date(time.getFullYear(), time.getMonth(), time.getDate());
+  if (period === "week") {
+    const daysSinceMonday = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - daysSinceMonday);
   }
-
-  const months = days / 30;
-  if (months < 12) return `${Math.round(months)}m`;
-
-  const years = days / 365;
-  return Number.isInteger(years) ? `${years}y` : `${years.toFixed(1)}y`;
+  return start;
 }
 
-export function formatCronDurationDisplay(minutes: number) {
-  const totalMinutes = Math.max(0, Math.round(minutes));
-  const minutesPerDay = 24 * 60;
-  const minutesPerMonth = 30 * minutesPerDay;
-  const minutesPerYear = 365 * minutesPerDay;
-  const years = Math.floor(totalMinutes / minutesPerYear);
-  const afterYears = totalMinutes % minutesPerYear;
-  const months = Math.floor(afterYears / minutesPerMonth);
-  const afterMonths = afterYears % minutesPerMonth;
-  const days = Math.floor(afterMonths / minutesPerDay);
-  const afterDays = afterMonths % minutesPerDay;
-  const hours = Math.floor(afterDays / 60);
-  const remainingMinutes = afterDays % 60;
-
-  return `${threeDigits(years)}.${twoDigits(months)}.${twoDigits(days)} ${twoDigits(hours)}:${twoDigits(remainingMinutes)}`;
-}
-
-export function formatCronDate(date: Date) {
-  return `${threeDigits(date.getFullYear() % 1_000)}.${twoDigits(date.getMonth() + 1)}.${twoDigits(date.getDate())} ${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
-}
-
-function twoDigits(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function threeDigits(value: number) {
-  return String(value).padStart(3, "0");
+function periodEnd(
+  start: Date,
+  period: "hour" | "day" | "week" | "month" | "year",
+) {
+  if (period === "year") return new Date(start.getFullYear() + 1, 0, 1);
+  if (period === "month") return new Date(start.getFullYear(), start.getMonth() + 1, 1);
+  if (period === "hour") {
+    return new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate(),
+      start.getHours() + 1,
+    );
+  }
+  const days = period === "week" ? 7 : 1;
+  return new Date(start.getFullYear(), start.getMonth(), start.getDate() + days);
 }

@@ -11,7 +11,8 @@ describe("ModuleMenuActions", () => {
         configButtonProps={{ symbol: "⚙" }}
         helpButtonProps={{ symbol: "?" }}
         offlineButtonProps={{}}
-        offlineMode={false}
+        forcedOfflineMode={false}
+        offline={false}
         pendingTransactions={0}
         onChange={() => undefined}
         onOfflineModeChange={() => undefined}
@@ -31,7 +32,8 @@ describe("ModuleMenuActions", () => {
         configButtonProps={{ symbol: "⚙" }}
         helpButtonProps={{ symbol: "?" }}
         offlineButtonProps={{}}
-        offlineMode
+        forcedOfflineMode
+        offline
         pendingTransactions={4}
         onChange={() => undefined}
         onOfflineModeChange={() => undefined}
@@ -40,5 +42,26 @@ describe("ModuleMenuActions", () => {
 
     expect(markup).toContain("4 pending transactions");
     expect(markup).toMatch(/4<\/button>/);
+  });
+
+  it("shows the pending count for a real connection failure", () => {
+    const markup = renderToStaticMarkup(
+      <ModuleMenuActions
+        activeItem="DATA"
+        configButtonProps={{ symbol: "⚙" }}
+        helpButtonProps={{ symbol: "?" }}
+        offlineButtonProps={{}}
+        forcedOfflineMode={false}
+        offline
+        pendingTransactions={2}
+        onChange={() => undefined}
+        onOfflineModeChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("Offline: no connection, 2 pending transactions");
+    expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toMatch(/2<\/button>/);
+    expect(markup).not.toContain("lucide-wifi-off");
   });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createTreeNodeLocalId } from "@flydeck/shared/v2";
 
 import { Base, resolveCssValue, type BaseStyleProps } from "../Base";
 import { BrowserItem, type BrowserItemProps } from "../BrowserItem";
@@ -19,6 +20,7 @@ export type TreeBrowserNode<TData = unknown> = {
   id: string;
   kind?: string;
   label: string;
+  localId?: string;
   enabled: boolean;
   contentVisible: boolean;
   contentEditable?: boolean;
@@ -46,6 +48,8 @@ export type TreeBrowserRootControl = {
 export type TreeBrowserContentRenderProps<TContent> = {
   height?: string;
   node: TreeBrowserNode<TContent>;
+  localIdAvailable: (localId: string) => boolean;
+  onLocalIdChange?: (localId: string) => Promise<boolean>;
   root?: TreeBrowserRootControl;
 };
 
@@ -61,11 +65,12 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   rowGap?: string;
   browserItemProps?: Omit<
     BrowserItemProps,
-    | "enabled"
+    | "checked"
     | "editable"
     | "label"
+    | "itemNumber"
     | "onDelete"
-    | "onEnabledChange"
+    | "onCheckedChange"
     | "onSelect"
     | "mode"
     | "onModeChange"
@@ -102,6 +107,10 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     nodeId: string,
     name: string,
   ) => boolean | void | Promise<boolean | void>;
+  onUpdateNodeLocalId?: (
+    nodeId: string,
+    localId: string,
+  ) => boolean | void | Promise<boolean | void>;
   onMoveNode?: (
     nodeId: string,
     afterNodeId: string | null,
@@ -109,11 +118,11 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   onReparentNode?: (
     nodeId: string,
     parentId: string | null,
+    userCommandId?: string,
   ) => boolean | void | Promise<boolean | void>;
-  onDeleteNode?: (nodeId: string) => boolean | void | Promise<boolean | void>;
-  onEnabledNode?: (
+  onDeleteNode?: (
     nodeId: string,
-    enabled: boolean,
+    userCommandId?: string,
   ) => boolean | void | Promise<boolean | void>;
   onSelectedPathChange?: (
     selectedPath: string[],
@@ -155,10 +164,10 @@ export function TreeBrowser<TContent = unknown>({
   createNode = createDefaultNode,
   onCreateNode,
   onRenameNode,
+  onUpdateNodeLocalId,
   onMoveNode,
   onReparentNode,
   onDeleteNode,
-  onEnabledNode,
   onSelectedPathChange,
   listControlProps,
   color,
@@ -178,6 +187,11 @@ export function TreeBrowser<TContent = unknown>({
   );
   const [selectedPath, setSelectedPath] = useState(
     initialSelectedPath ?? initialState.viewState.selectedPath,
+  );
+  const [actionSelectionByListId, setActionSelectionByListId] = useState(
+    () => createInitialActionSelection(
+      initialSelectedPath ?? initialState.viewState.selectedPath,
+    ),
   );
   const [pages, setPages] = useState(initialState.viewState.pages);
   const [pageSizes, setPageSizes] = useState(initialState.viewState.pageSizes);
@@ -211,7 +225,7 @@ export function TreeBrowser<TContent = unknown>({
     viewState,
   ]);
 
-  async function selectNode(depth: number, id: string) {
+  async function selectNode(depth: number, id: string, parentId: string) {
     const nextPath = [...selectedPath.slice(0, depth), id];
     if (nextPath.length === selectedPath.length
       && nextPath.every((value, index) => value === selectedPath[index])) return;
@@ -222,6 +236,13 @@ export function TreeBrowser<TContent = unknown>({
         const confirmed = await onSelectedPathChange(nextPath);
         if (confirmed !== false) {
           setSelectedPath(nextPath);
+          setActionSelectionByListId((current) => resetActionSelection(
+            current,
+            nextPath,
+            depth,
+            parentId,
+            id,
+          ));
           setDefaultMode(id);
         }
       } finally {
@@ -230,6 +251,13 @@ export function TreeBrowser<TContent = unknown>({
       return;
     }
     setSelectedPath(nextPath);
+    setActionSelectionByListId((current) => resetActionSelection(
+      current,
+      nextPath,
+      depth,
+      parentId,
+      id,
+    ));
     setDefaultMode(id);
   }
 
@@ -242,70 +270,101 @@ export function TreeBrowser<TContent = unknown>({
     }));
   }
 
-  async function removeNode(id: string) {
-    if (onDeleteNode) {
-      const confirmed = await onDeleteNode(id);
-      if (confirmed === false) return;
+  async function removeNodes(ids: string[]) {
+    const confirmedIds: string[] = [];
+    const userCommandId = globalThis.crypto.randomUUID();
+    for (const id of ids) {
+      if (!onDeleteNode || await onDeleteNode(id, userCommandId) !== false) {
+        confirmedIds.push(id);
+      }
     }
-    const removedIds = findSubtreeIds(tree, id);
-    const removedPath = findTreePath(tree, id) ?? [];
-    const parentId = removedPath.at(-2);
-    const parentBecomesEmpty = parentId
-      ? findTreeNode(tree, parentId)?.children.length === 1
-      : false;
-    setTree((current) => removeFromTree(current, id));
-    setRevision((current) => current + 1);
+    if (confirmedIds.length === 0) return;
+
+    const removedIds = new Set(confirmedIds.flatMap((id) => [
+      ...findSubtreeIds(tree, id),
+    ]));
+    const nextTree = removeNodesFromTree(tree, confirmedIds);
+    const affectedParentIds = new Set(confirmedIds
+      .map((id) => findTreePath(tree, id)?.at(-2))
+      .filter((id): id is string => Boolean(id)));
+    setTree(nextTree);
+    setRevision((current) => current + confirmedIds.length);
     setEnabledByNodeId((current) => omitRecordKeys(current, removedIds));
     setContentVisibleByNodeId((current) => {
       const next = omitRecordKeys(current, removedIds);
-      if (parentId && parentBecomesEmpty) next[parentId] = true;
+      for (const parentId of affectedParentIds) {
+        if (findTreeNode(nextTree, parentId)?.children.length === 0) {
+          next[parentId] = true;
+        }
+      }
       return next;
     });
+    setActionSelectionByListId((current) => omitActionSelection(
+      current,
+      removedIds,
+    ));
     setSelectedPath((current) => {
-      const removedDepth = current.indexOf(id);
+      const removedDepth = current.findIndex((id) => removedIds.has(id));
       return removedDepth < 0 ? current : current.slice(0, removedDepth);
     });
   }
 
-  async function reparentNode(nodeId: string, parentId: string | null) {
+  async function reparentNodes(
+    nodeIds: string[],
+    activeNodeId: string,
+    parentId: string | null,
+  ) {
     if (!onReparentNode) return false;
-    const confirmed = await onReparentNode(nodeId, parentId);
-    if (confirmed === false) return false;
-    const target = parentId ? findTreeNode(tree, parentId) : null;
-    const sourcePath = findTreePath(tree, nodeId) ?? [];
-    const sourceParentId = sourcePath.at(-2);
-    const sourceBecomesEmpty = sourceParentId && sourceParentId !== parentId
-      ? findTreeNode(tree, sourceParentId)?.children.length === 1
-      : false;
-    const nextPath = parentId
-      ? [...(findTreePath(tree, parentId) ?? []), nodeId]
-      : [nodeId];
-    const targetItemCount = target ? target.children.length : tree.length;
-    setTree((current) => reparentInTree(current, nodeId, parentId));
-    setRevision((current) => current + 1);
-    if (parentId || sourceBecomesEmpty) {
-      setContentVisibleByNodeId((current) => ({
-        ...current,
-        ...(parentId ? { [parentId]: false } : {}),
-        ...(sourceParentId && sourceBecomesEmpty
-          ? { [sourceParentId]: true }
-          : {}),
-      }));
+    const confirmedIds: string[] = [];
+    const userCommandId = globalThis.crypto.randomUUID();
+    for (const nodeId of nodeIds) {
+      if (await onReparentNode(nodeId, parentId, userCommandId) !== false) {
+        confirmedIds.push(nodeId);
+      }
     }
+    if (confirmedIds.length === 0) return false;
+
+    const sourcePath = findTreePath(tree, activeNodeId) ?? [];
+    const sourceParentId = sourcePath.at(-2);
+    const sourceListId = sourceParentId ?? rootId;
     const targetListId = parentId ?? rootId;
+    const target = parentId ? findTreeNode(tree, parentId) : null;
+    const targetItemCount = target ? target.children.length : tree.length;
+    const nextTree = reparentNodesInTree(tree, confirmedIds, parentId);
+    const activeMoved = confirmedIds.includes(activeNodeId);
+    const nextPath = activeMoved
+      ? findTreePath(nextTree, activeNodeId) ?? []
+      : selectedPath;
+    setTree(nextTree);
+    setRevision((current) => current + confirmedIds.length);
+    setContentVisibleByNodeId((current) => ({
+      ...current,
+      ...(parentId ? { [parentId]: false } : {}),
+      ...(sourceParentId
+        && findTreeNode(nextTree, sourceParentId)?.children.length === 0
+        ? { [sourceParentId]: true }
+        : {}),
+    }));
+    setActionSelectionByListId((current) => {
+      const next = { ...current };
+      next[sourceListId] = (next[sourceListId] ?? [])
+        .filter((id) => !confirmedIds.includes(id));
+      if (activeMoved) next[targetListId] = confirmedIds;
+      return next;
+    });
     setPages((current) => ({
       ...current,
       [targetListId]: Math.floor(
-        targetItemCount / (pageSizes[targetListId]
+        (targetItemCount + Math.max(0, confirmedIds.indexOf(activeNodeId)))
+        / (pageSizes[targetListId]
           ?? (targetListId === rootId ? rootPageSize : defaultPageSize)),
       ),
     }));
-    if (onSelectedPathChange) {
-      const selectionConfirmed = await onSelectedPathChange(nextPath);
-      if (selectionConfirmed === false) return false;
+    if (activeMoved) {
+      if (onSelectedPathChange) await onSelectedPathChange(nextPath);
+      setSelectedPath(nextPath);
     }
-    setSelectedPath(nextPath);
-    return true;
+    return activeMoved;
   }
 
   function renderLevel(
@@ -315,6 +374,7 @@ export function TreeBrowser<TContent = unknown>({
     listEditable: boolean,
     listItemLimit?: number,
   ) {
+    const effectiveListItemLimit = Math.min(listItemLimit ?? 99, 99);
     const pageSize = pageSizes[parentId]
       ?? (parentId === rootId ? rootPageSize : defaultPageSize);
     const pageCount = Math.max(1, Math.ceil(nodes.length / pageSize));
@@ -326,6 +386,10 @@ export function TreeBrowser<TContent = unknown>({
     const selectedId = selectedPath[depth];
     const selectedNode = nodes.find(({ id }) => id === selectedId);
     const parentNode = parentId === rootId ? null : findTreeNode(tree, parentId) ?? null;
+    const actionSelectedIds = actionSelectionByListId[parentId]
+      ?? (selectedId ? [selectedId] : []);
+    const actionSelectedSet = new Set(actionSelectedIds);
+    const actionNodes = nodes.filter(({ id }) => actionSelectedSet.has(id));
     const selectedIndex = nodes.findIndex(({ id }) => id === selectedId);
     const canMoveUp = selectedNode ? canMoveNode(selectedNode, -1, nodes) : false;
     const canMoveDown = selectedNode ? canMoveNode(selectedNode, 1, nodes) : false;
@@ -352,7 +416,7 @@ export function TreeBrowser<TContent = unknown>({
     }
 
     async function addNode(name: string) {
-      if (!listEditable || nodes.length >= (listItemLimit ?? Infinity)) return;
+      if (!listEditable || nodes.length >= effectiveListItemLimit) return;
       if (onCreateNode) {
         const confirmedNode = await onCreateNode(
           name,
@@ -361,14 +425,20 @@ export function TreeBrowser<TContent = unknown>({
         );
         if (!confirmedNode) return;
         insertNode(confirmedNode);
-        await selectNode(depth, confirmedNode.id);
+        await selectNode(depth, confirmedNode.id, parentId);
         return;
       }
       insertNode(createNode(name, parentId));
     }
 
     function insertNode(node: TreeBrowserNode<TContent>) {
-      const documentNode = toDocumentNode(node);
+      const documentNode = toDocumentNode({
+        ...node,
+        localId: node.localId ?? createTreeNodeLocalId(
+          node.label,
+          nodes.map((sibling) => sibling.localId ?? sibling.id),
+        ),
+      });
       const nextIndex = selectedIndex < 0 ? nodes.length : selectedIndex + 1;
       setTree((current) =>
         parentId === rootId
@@ -392,6 +462,10 @@ export function TreeBrowser<TContent = unknown>({
         [parentId]: Math.floor(nextIndex / pageSize),
       }));
       setSelectedPath((current) => [...current.slice(0, depth), node.id]);
+      setActionSelectionByListId((current) => ({
+        ...current,
+        [parentId]: [node.id],
+      }));
     }
 
     async function renameSelected(name: string) {
@@ -427,7 +501,7 @@ export function TreeBrowser<TContent = unknown>({
           page={page}
           pageSize={pageSize}
           editable={listEditable}
-          itemLimit={listItemLimit}
+          itemLimit={effectiveListItemLimit}
           onNew={listEditable && canCreateNode(parentId) ? addNode : undefined}
           onRename={listEditable && selectedNode ? renameSelected : undefined}
           onPageSizeChange={(nextPageSize) => {
@@ -456,23 +530,27 @@ export function TreeBrowser<TContent = unknown>({
           className={styles.list}
           style={{ rowGap: resolveCssValue(rowGap) }}
         >
-          {visibleNodes.map((node) => {
-            const enabled = enabledByNodeId[node.id] ?? false;
+          {visibleNodes.map((node, visibleIndex) => {
+            const checked = actionSelectedSet.has(node.id);
             const contentVisible = contentVisibleByNodeId[node.id] ?? false;
             return (
               <BrowserItem
                 {...browserItemProps}
-                enabled={enabled}
-                editable={canDeleteNode?.(node, parentNode) ?? listEditable}
+                checked={checked}
+                editable={actionNodes.length > 0 && actionNodes.every(
+                  (actionNode) => canDeleteNode?.(actionNode, parentNode)
+                    ?? listEditable,
+                )}
                 key={node.id}
                 label={node.label}
+                itemNumber={(page * pageSize) + visibleIndex + 1}
                 selected={node.id === selectedId}
                 activeColor={
                   depth % 2 === 0
                     ? "COLOR_ACCENT_ONE"
                     : "COLOR_ACCENT_TWO"
                 }
-                onDelete={() => removeNode(node.id)}
+                onDelete={() => removeNodes(actionNodes.map(({ id }) => id))}
                 mode={contentVisible ? "content" : "list"}
                 onModeChange={renderContent
                   ? (mode) => setContentVisibleByNodeId((current) => ({
@@ -480,23 +558,17 @@ export function TreeBrowser<TContent = unknown>({
                       [node.id]: mode === "content",
                     }))
                   : undefined}
-                onEnabledChange={async () => {
-                  if (onEnabledNode) {
-                    const confirmed = await onEnabledNode(node.id, !enabled);
-                    if (confirmed !== false) {
-                      setEnabledByNodeId((current) => ({
-                        ...current,
-                        [node.id]: !enabled,
-                      }));
-                    }
-                    return;
-                  }
-                  setEnabledByNodeId((current) => ({
-                    ...current,
-                    [node.id]: !enabled,
-                  }));
+                onCheckedChange={(nextChecked) => {
+                  setActionSelectionByListId((current) =>
+                    updateActionSelection(
+                      current,
+                      parentId,
+                      node.id,
+                      nextChecked,
+                      selectedId,
+                    ));
                 }}
-                onSelect={() => selectNode(depth, node.id)}
+                onSelect={() => selectNode(depth, node.id, parentId)}
               />
             );
           })}
@@ -525,6 +597,26 @@ export function TreeBrowser<TContent = unknown>({
                   enabledByNodeId,
                   contentVisibleByNodeId,
                 ),
+                localIdAvailable: (localId) => !nodes.some((node) => (
+                  node.id !== selectedNode.id && node.localId === localId
+                )),
+                onLocalIdChange: onUpdateNodeLocalId
+                  ? async (localId) => {
+                      if (!localId || !onUpdateNodeLocalId) return false;
+                      const confirmed = await onUpdateNodeLocalId(
+                        selectedNode.id,
+                        localId,
+                      );
+                      if (confirmed === false) return false;
+                      setTree((current) => mapTree(
+                        current,
+                        selectedNode.id,
+                        (node) => ({ ...node, localId }),
+                      ));
+                      setRevision((current) => current + 1);
+                      return true;
+                    }
+                  : undefined,
                 height: createContentHeight(
                   pageSizes[selectedNode.id] ?? defaultPageSize,
                   browserItemProps?.buttonProps?.height,
@@ -536,15 +628,16 @@ export function TreeBrowser<TContent = unknown>({
                     : {
                         id: parentId,
                         label: findTreeNode(tree, parentId)?.label ?? "",
-                        path: findTreeLabelPath(tree, parentId)?.join("/") ?? "",
+                        path: findTreeLocalIdPath(tree, parentId)?.join("/") ?? "",
                         eligible: true,
                       },
-                  targets: createRootTargets(
+                  targets: createBatchRootTargets(
                     tree,
-                    selectedNode.id,
+                    actionNodes.map(({ id }) => id),
                     rootListItemLimit,
                   ),
-                  onChange: (nextParentId) => reparentNode(
+                  onChange: (nextParentId) => reparentNodes(
+                    actionNodes.map(({ id }) => id),
                     selectedNode.id,
                     nextParentId,
                   ),
@@ -645,6 +738,12 @@ export function removeFromTree<
     }));
 }
 
+export function removeNodesFromTree<
+  TNode extends { id: string; children: TNode[] },
+>(nodes: TNode[], ids: readonly string[]): TNode[] {
+  return ids.reduce((current, id) => removeFromTree(current, id), nodes);
+}
+
 export function moveInTree<
   TNode extends { id: string; children: TNode[] },
 >(
@@ -684,6 +783,15 @@ export function reparentInTree<
   }));
 }
 
+export function reparentNodesInTree<
+  TNode extends { id: string; children: TNode[] },
+>(nodes: TNode[], nodeIds: readonly string[], parentId: string | null): TNode[] {
+  return nodeIds.reduce(
+    (current, nodeId) => reparentInTree(current, nodeId, parentId),
+    nodes,
+  );
+}
+
 export function createRootTargets<
   TNode extends {
     id: string;
@@ -693,21 +801,109 @@ export function createRootTargets<
     children: TNode[];
   },
 >(nodes: TNode[], nodeId: string, rootItemLimit?: number): TreeBrowserRootTarget[] {
-  const source = findTreeNode(nodes, nodeId);
-  const forbidden = source ? collectTreeIds(source) : new Set<string>();
+  return createBatchRootTargets(nodes, [nodeId], rootItemLimit);
+}
+
+export function createBatchRootTargets<
+  TNode extends {
+    id: string;
+    label: string;
+    localId?: string;
+    listEditable?: boolean;
+    listItemLimit?: number;
+    children: TNode[];
+  },
+>(
+  nodes: TNode[],
+  nodeIds: readonly string[],
+  rootItemLimit?: number,
+): TreeBrowserRootTarget[] {
+  const forbidden = new Set(nodeIds.flatMap((nodeId) => {
+    const source = findTreeNode(nodes, nodeId);
+    return source ? [...collectTreeIds(source)] : [];
+  }));
+  const itemCount = nodeIds.length;
+  const movingLocalIds = new Set(nodeIds.flatMap((nodeId) => {
+    const node = findTreeNode(nodes, nodeId);
+    return node ? [node.localId ?? node.id] : [];
+  }));
+  const rootHasCollision = nodes.some((node) => (
+    !forbidden.has(node.id) && movingLocalIds.has(node.localId ?? node.id)
+  ));
   return [{
     id: null,
     label: "",
     path: "",
-    eligible: nodes.length < (rootItemLimit ?? Infinity),
+    eligible: !rootHasCollision
+      && nodes.length + itemCount <= Math.min(rootItemLimit ?? 99, 99),
   }, ...flattenTreeWithPaths(nodes).map(({ node, path }) => ({
     id: node.id,
     label: node.label,
     path: path.join("/"),
     eligible: !forbidden.has(node.id)
       && node.listEditable !== false
-      && node.children.length < (node.listItemLimit ?? Infinity),
+      && !node.children.some((child) => (
+        !forbidden.has(child.id)
+        && movingLocalIds.has(child.localId ?? child.id)
+      ))
+      && node.children.length + itemCount
+        <= Math.min(node.listItemLimit ?? 99, 99),
   }))];
+}
+
+export function createInitialActionSelection(
+  selectedPath: readonly string[],
+): Record<string, string[]> {
+  const selection: Record<string, string[]> = {};
+  let listId = rootId;
+  for (const nodeId of selectedPath) {
+    selection[listId] = [nodeId];
+    listId = nodeId;
+  }
+  return selection;
+}
+
+export function updateActionSelection(
+  current: Record<string, string[]>,
+  listId: string,
+  nodeId: string,
+  checked: boolean,
+  activeNodeId?: string,
+): Record<string, string[]> {
+  if (!checked && nodeId === activeNodeId) return current;
+  const selected = current[listId] ?? (activeNodeId ? [activeNodeId] : []);
+  const nextSelected = checked
+    ? [...new Set([...selected, nodeId])]
+    : selected.filter((id) => id !== nodeId);
+  return { ...current, [listId]: nextSelected };
+}
+
+function resetActionSelection(
+  current: Record<string, string[]>,
+  selectedPath: readonly string[],
+  depth: number,
+  listId: string,
+  nodeId: string,
+): Record<string, string[]> {
+  const visibleListIds = new Set([rootId, ...selectedPath.slice(0, depth)]);
+  return {
+    ...Object.fromEntries(
+      Object.entries(current).filter(([id]) => visibleListIds.has(id)),
+    ),
+    [listId]: [nodeId],
+  };
+}
+
+function omitActionSelection(
+  current: Record<string, string[]>,
+  removedIds: Set<string>,
+): Record<string, string[]> {
+  return Object.fromEntries(Object.entries(current)
+    .filter(([listId]) => !removedIds.has(listId))
+    .map(([listId, ids]) => [
+      listId,
+      ids.filter((id) => !removedIds.has(id)),
+    ]));
 }
 
 function findTreeNode<TNode extends { id: string; children: TNode[] }>(
@@ -733,22 +929,22 @@ function findTreePath<TNode extends { id: string; children: TNode[] }>(
   return null;
 }
 
-function findTreeLabelPath<
-  TNode extends { id: string; label: string; children: TNode[] },
+function findTreeLocalIdPath<
+  TNode extends { id: string; localId?: string; children: TNode[] },
 >(nodes: TNode[], id: string): string[] | null {
   for (const node of nodes) {
-    if (node.id === id) return [node.label];
-    const nested = findTreeLabelPath(node.children, id);
-    if (nested) return [node.label, ...nested];
+    if (node.id === id) return [node.localId ?? node.id];
+    const nested = findTreeLocalIdPath(node.children, id);
+    if (nested) return [node.localId ?? node.id, ...nested];
   }
   return null;
 }
 
 function flattenTreeWithPaths<
-  TNode extends { label: string; children: TNode[] },
+  TNode extends { id: string; label: string; localId?: string; children: TNode[] },
 >(nodes: TNode[], parentPath: string[] = []): { node: TNode; path: string[] }[] {
   return nodes.flatMap((node) => {
-    const path = [...parentPath, node.label];
+    const path = [...parentPath, node.localId ?? node.id];
     return [{ node, path }, ...flattenTreeWithPaths(node.children, path)];
   });
 }
@@ -769,6 +965,7 @@ function toDocumentNode<TContent>(
     id: node.id,
     kind: node.kind,
     label: node.label,
+    localId: node.localId,
     contentEditable: node.contentEditable ?? true,
     listEditable: node.listEditable ?? true,
     listItemLimit: node.listItemLimit,

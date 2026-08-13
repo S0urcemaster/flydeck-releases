@@ -140,9 +140,7 @@ export function ListControl({
         {...buttonProps}
         {...listSizeButtonProps}
         className={styles.status}
-        currentPage={safePage + 1}
         pageSize={pageSize}
-        totalPages={pageCount}
         onPageSizeChange={onPageSizeChange}
       />
       <InputControl
@@ -157,6 +155,7 @@ export function ListControl({
         inputProps={{
           ...inputProps,
           "aria-label": "New item name",
+          label: "Name",
           className: styles.input,
           type: "text",
           disabled: !editable,

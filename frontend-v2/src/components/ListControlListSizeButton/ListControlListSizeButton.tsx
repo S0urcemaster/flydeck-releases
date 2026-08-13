@@ -1,21 +1,17 @@
 import { PressButton, type PressButtonProps } from "../PressButton";
 
-export type ListControlListSize = 3 | 5 | 10;
+export type ListControlListSize = 3 | 5 | 9;
 
 export type ListControlListSizeButtonProps = Omit<
   PressButtonProps,
   "aria-label" | "children" | "onClick"
 > & {
-  currentPage: number;
   pageSize: ListControlListSize;
-  totalPages: number;
   onPageSizeChange: (pageSize: ListControlListSize) => void;
 };
 
 export function ListControlListSizeButton({
-  currentPage,
   pageSize,
-  totalPages,
   onPageSizeChange,
   componentName = "ListControlListSizeButton",
   ...buttonProps
@@ -27,7 +23,7 @@ export function ListControlListSizeButton({
       aria-label={`List size ${pageSize}; change to ${nextListControlListSize(pageSize)}`}
       onClick={() => onPageSizeChange(nextListControlListSize(pageSize))}
     >
-      {currentPage}/{totalPages}
+      {pageSize}
     </PressButton>
   );
 }
@@ -36,6 +32,6 @@ export function nextListControlListSize(
   currentPageSize: ListControlListSize,
 ): ListControlListSize {
   if (currentPageSize === 3) return 5;
-  if (currentPageSize === 5) return 10;
+  if (currentPageSize === 5) return 9;
   return 3;
 }

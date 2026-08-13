@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorkspaceSyncStatusStore } from "./WorkspaceSyncStatusStore";
 
 describe("WorkspaceSyncStatusStore", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("publishes global offline and recovery transitions", () => {
     const store = new WorkspaceSyncStatusStore(false);
     const listener = vi.fn();
@@ -56,5 +58,49 @@ describe("WorkspaceSyncStatusStore", () => {
 
     store.setPendingCount("one", 0);
     expect(store.getPendingCount()).toBe(3);
+  });
+
+  it("shows cached for at least half a second before saved", () => {
+    vi.useFakeTimers();
+    const store = new WorkspaceSyncStatusStore(false);
+
+    store.markCommandCached("command-1");
+    store.markCommandSaved("command-1");
+
+    expect(store.getActivitySnapshot()).toEqual({ message: "cached..." });
+    vi.advanceTimersByTime(499);
+    expect(store.getActivitySnapshot()).toEqual({ message: "cached..." });
+    vi.advanceTimersByTime(1);
+    expect(store.getActivitySnapshot()).toEqual({ message: "saved" });
+  });
+
+  it("groups multiple mutations of one user command", () => {
+    vi.useFakeTimers();
+    const store = new WorkspaceSyncStatusStore(false);
+
+    store.markCommandCached("batch-1");
+    store.markCommandCached("batch-1");
+    store.markCommandSaved("batch-1");
+    vi.advanceTimersByTime(500);
+    expect(store.getActivitySnapshot()).toEqual({ message: "cached..." });
+
+    store.markCommandSaved("batch-1");
+    vi.runOnlyPendingTimers();
+    expect(store.getActivitySnapshot()).toEqual({ message: "saved" });
+  });
+
+  it("shows queued work offline and one recovery confirmation", () => {
+    vi.useFakeTimers();
+    const store = new WorkspaceSyncStatusStore(false);
+
+    store.markCommandCached("command-1");
+    store.markOffline("network failed");
+    vi.advanceTimersByTime(500);
+    expect(store.getActivitySnapshot()).toEqual({ message: "in queue" });
+
+    store.markCommandSaved("command-1", false);
+    store.markOnline();
+    store.markQueueSaved();
+    expect(store.getActivitySnapshot()).toEqual({ message: "queue saved" });
   });
 });

@@ -11,6 +11,7 @@ describe("Checkbox", () => {
         color="COLOR_TEXT"
         width="50px"
         height="50px"
+        fontSize="2rem"
         label="Enable USER"
         onChange={() => undefined}
       />,
@@ -21,6 +22,7 @@ describe("Checkbox", () => {
     expect(markup).toContain("color:var(--color-surface)");
     expect(markup).toContain("width:50px");
     expect(markup).toContain("height:50px");
+    expect(markup).toContain("font-size:2rem");
     expect(markup).toContain('aria-hidden="true">·</span>');
   });
 

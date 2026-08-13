@@ -53,6 +53,7 @@ import { V2ApiError, v2Api } from "../api/V2ApiClient";
 import {
   useForcedOfflineMode,
   usePendingWorkspaceTransactions,
+  useWorkspaceSyncActivity,
   useWorkspaceSyncStatus,
   workspaceSyncEngine,
   workspaceSyncStatusStore,
@@ -70,6 +71,7 @@ const cachedClientIdentity = getLastClientIdentity();
 
 export function App() {
   const workspaceSyncStatus = useWorkspaceSyncStatus();
+  const workspaceSyncActivity = useWorkspaceSyncActivity();
   const forcedOfflineMode = useForcedOfflineMode();
   const pendingWorkspaceTransactions = usePendingWorkspaceTransactions();
   const offline = workspaceSyncStatus.state === "offline";
@@ -157,6 +159,7 @@ export function App() {
   const keyboardBase = resolveBaseProperties(properties.Keyboard.base);
   const keyboardProps = {
     ...keyboardBase,
+    buttonHeight: properties.Keyboard.buttonHeight,
     backspaceButtonProps: backspaceButtonBase,
     buttonProps: longPressButtonBase,
     cycleButtonProps: cycleButtonBase,
@@ -228,17 +231,21 @@ export function App() {
     dialerBase,
     properties.CronDialer.base,
   );
-  const cronDialerProps = {
+  const dialerProps = {
     ...cronDialerBase,
+    centerFontSize: properties.CronDialer.centerFontSize,
+    centerFontWeight: properties.CronDialer.centerFontWeight,
     dialSurfaceProps: dialSurfaceBase,
-    innerBackground: properties.CronDialer.innerBackground,
-    innerTextColor: properties.CronDialer.innerTextColor,
-    innerPointerColor: properties.CronDialer.innerPointerColor,
-    innerFontSize: properties.CronDialer.innerFontSize,
-    outerBackground: properties.CronDialer.outerBackground,
-    outerTextColor: properties.CronDialer.outerTextColor,
-    outerPointerColor: properties.CronDialer.outerPointerColor,
-    outerFontSize: properties.CronDialer.outerFontSize,
+    innerDiscColor: properties.CronDialer.innerDiscColor,
+    innerGradientEnd: properties.CronDialer.innerGradientEnd,
+    innerGradientStart: properties.CronDialer.innerGradientStart,
+    innerScaleFontSize: properties.CronDialer.innerScaleFontSize,
+    innerScaleFontWeight: properties.CronDialer.innerScaleFontWeight,
+    outerDiscColor: properties.CronDialer.outerDiscColor,
+    outerGradientEnd: properties.CronDialer.outerGradientEnd,
+    outerGradientStart: properties.CronDialer.outerGradientStart,
+    outerScaleFontSize: properties.CronDialer.outerScaleFontSize,
+    outerScaleFontWeight: properties.CronDialer.outerScaleFontWeight,
   };
   const treeBrowserBase = resolveBaseProperties(properties.TreeBrowser.base);
   const dataBrowserBase = resolveDerivedBaseProperties(
@@ -331,6 +338,10 @@ export function App() {
       : properties.ListControlListSizeButton.fontWeight,
   };
   const inputControlBase = resolveBaseProperties(properties.InputControl.base);
+  const nodeIdInputBase = resolveDerivedBaseProperties(
+    inputControlBase,
+    properties.NodeIdInput.base,
+  );
   const contentEditorBase = resolveDerivedBaseProperties(
     inputControlBase,
     properties.ContentEditor.base,
@@ -360,6 +371,7 @@ export function App() {
       ...buttonBase,
       activeColor: properties.Button.activeColor,
     },
+    inputProps: configuredInputProps,
     textareaProps: configuredTextareaProps,
   };
   const sharedTreeChildProps = {
@@ -374,6 +386,9 @@ export function App() {
       checkboxProps: {
         ...checkboxBase,
         activeColor: properties.Checkbox.activeColor,
+        fontSize: properties.Checkbox.fontSize === "inherit"
+          ? properties.Button.fontSize
+          : properties.Checkbox.fontSize,
       },
       deleteButtonProps: {
         ...deleteButtonBase,
@@ -499,10 +514,12 @@ export function App() {
     }
   }
 
-  const statusMessage = offline
-    ? "Offline"
-    : replicaError || accessReason || "Online";
+  const statusMessage = replicaError
+    || accessReason
+    || workspaceSyncActivity?.message
+    || (offline ? "Offline" : "Online");
   const statusIsError = !offline && Boolean(replicaError || accessReason);
+  const statusIsActivity = !statusIsError && Boolean(workspaceSyncActivity);
 
   function selectPrimaryModule(item: ModuleMenuItem) {
     if (!isPrimaryModuleItem(item)) {
@@ -583,6 +600,7 @@ export function App() {
           status={(
             <AppStatusLine
               {...appStatusLineBase}
+              activity={statusIsActivity}
               error={statusIsError}
               offline={offline}
               fontSize={properties.AppStatusLine.fontSize}
@@ -598,7 +616,8 @@ export function App() {
                 ...sideModuleButtonBase,
                 activeColor: properties.Button.activeColor,
               }}
-              offlineMode={forcedOfflineMode}
+              forcedOfflineMode={forcedOfflineMode}
+              offline={offline}
               pendingTransactions={pendingWorkspaceTransactions}
               helpButtonProps={{
                 ...helpModuleButtonBase,
@@ -661,6 +680,11 @@ export function App() {
               ...contentEditorBase,
             },
             inputControlProps: sharedInputControlProps,
+            nodeIdInputProps: {
+              ...nodeIdInputBase,
+              buttonProps: sharedInputControlProps.buttonProps,
+              inputProps: configuredInputProps,
+            },
             parentInputProps: {
               ...parentInputBase,
               buttonProps: {
@@ -680,6 +704,13 @@ export function App() {
         <FunctionsModule
           {...functionsModuleBase}
           workspaceId={workspaceId}
+          appTabPanelProps={{
+            ...submodulePanelBase,
+            buttonProps: {
+              ...submoduleButtonBase,
+              activeColor: "COLOR_ACCENT_TWO",
+            },
+          }}
           appViewConfigButtonProps={{
             ...configModuleButtonBase,
             activeColor: properties.Button.activeColor,
@@ -688,10 +719,6 @@ export function App() {
           }}
           appViewConfigEditorProps={{
             ...configEditorBase,
-            cycleButtonProps: {
-              ...cycleButtonBase,
-              activeColor: properties.Button.activeColor,
-            },
             dataSourceButtonProps: {
               ...buttonBase,
               activeColor: properties.Button.activeColor,
@@ -712,10 +739,7 @@ export function App() {
           inventoryAppBaseProps={inventoryAppBase}
           inventoryBreadcrumbProps={breadcrumbBase}
           inventoryCompactButtonProps={compactButtonProps}
-          inventoryFormProps={{
-            ...formBase,
-            actionWidth: properties.Form.actionWidth,
-          }}
+          inventoryFormProps={formBase}
           inventoryFormRowProps={formRowBase}
           inventoryInputProps={configuredInputProps}
           inventoryParentInputProps={{
@@ -727,6 +751,11 @@ export function App() {
             inputProps: configuredInputProps,
           }}
           inventoryItemListProps={itemListBase}
+          inventoryNodeIdInputProps={{
+            ...nodeIdInputBase,
+            buttonProps: sharedInputControlProps.buttonProps,
+            inputProps: configuredInputProps,
+          }}
           inventoryTextareaProps={configuredTextareaProps}
           shoppingListViewBaseProps={shoppingListViewBase}
           appBrowserProps={{
@@ -746,7 +775,7 @@ export function App() {
             activeColor: properties.Button.activeColor,
           }}
           dialerCenterButtonProps={dialerCenterButtonBase}
-          dialerProps={cronDialerProps}
+          dialerProps={dialerProps}
         />
       )}
       {activeMenuItem === "HELP" && <HelpModule {...helpModuleBase} />}

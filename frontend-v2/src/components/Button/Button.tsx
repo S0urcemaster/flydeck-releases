@@ -12,6 +12,7 @@ type ButtonConfiguration = {
   activeColor?: string;
   fontSize?: string;
   fontWeight?: string;
+  height?: string;
 };
 
 const ButtonConfigurationContext = createContext<ButtonConfiguration>({});
@@ -24,11 +25,12 @@ export function ButtonConfigurationProvider({
   activeColor,
   fontSize,
   fontWeight,
+  height,
   children,
 }: ButtonConfigurationProviderProps) {
   return (
     <ButtonConfigurationContext.Provider
-      value={{ activeColor, fontSize, fontWeight }}
+      value={{ activeColor, fontSize, fontWeight, height }}
     >
       {children}
     </ButtonConfigurationContext.Provider>
@@ -57,6 +59,7 @@ export function Button({
   color,
   background,
   border,
+  height,
   onClick,
   onPointerDown,
   onPointerUp,
@@ -89,6 +92,7 @@ export function Button({
       color={active ? "COLOR_SURFACE" : color}
       background={active ? resolvedActiveColor : background}
       border={border}
+      height={height ?? configuredDefaults.height}
       style={{
         ...style,
         fontSize: resolveCssValue(resolvedFontSize),

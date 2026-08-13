@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Dialer, positionFromAngle } from "./Dialer";
+import { Dialer, positionFromAngle, signedAngleDelta } from "./Dialer";
 
 describe("Dialer", () => {
   it("owns five buttons and two dial surfaces", () => {
@@ -74,5 +74,31 @@ describe("Dialer", () => {
     expect(markup.match(/<button/g)).toHaveLength(3);
     expect(markup).not.toContain('data-component-name="DialerButton"');
     expect(markup).toContain('data-component-name="DialerCenterButton"');
+  });
+
+  it("keeps both markers north and rotates both scales in wheel mode", () => {
+    const markup = renderToStaticMarkup(
+      <Dialer
+        bottomLeftLabel="C"
+        bottomRightLabel="D"
+        centerLabel="E"
+        innerAngle={45}
+        interactionMode="wheel"
+        outerAngle={120}
+        topLeftLabel="A"
+        topRightLabel="B"
+        innerScale={() => <span>INNER</span>}
+        outerScale={() => <span>OUTER</span>}
+      />,
+    );
+
+    expect(markup.match(/--dial-marker-angle:0deg/g)).toHaveLength(2);
+    expect(markup).toContain("transform:rotate(-45deg)");
+    expect(markup).toContain("transform:rotate(-120deg)");
+  });
+
+  it("measures wheel gestures across the north seam", () => {
+    expect(signedAngleDelta(350, 10)).toBe(20);
+    expect(signedAngleDelta(10, 350)).toBe(-20);
   });
 });

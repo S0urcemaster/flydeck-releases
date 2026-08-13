@@ -8,6 +8,7 @@ export type DialButtonProps = Omit<
 > & {
   dialTimeout?: number;
   onDial: (value: string, replacePrevious: boolean) => void;
+  onDialComplete?: () => void;
   options: readonly string[];
 };
 
@@ -15,6 +16,7 @@ export function DialButton({
   componentName = "DialButton",
   dialTimeout = 800,
   onDial,
+  onDialComplete,
   options,
   ...buttonProps
 }: DialButtonProps) {
@@ -39,6 +41,7 @@ export function DialButton({
     timer.current = setTimeout(() => {
       timer.current = null;
       optionIndex.current = -1;
+      onDialComplete?.();
     }, Math.max(0, dialTimeout));
   }
 

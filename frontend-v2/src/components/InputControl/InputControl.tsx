@@ -12,6 +12,7 @@ import { Button, type ButtonProps } from "../Button";
 import { Input, type InputProps } from "../Input";
 import {
   Keyboard,
+  initialKeyboardFontStage,
   scaledFontSize,
   type InputFontStage,
   type TextEntryElement,
@@ -59,7 +60,7 @@ export function InputControl({
   const [controlHeight, setControlHeight] = useState<string>();
   const [smartphoneKeyboardEnabled, setSmartphoneKeyboardEnabled] = useState(false);
   const [fontStage, setFontStage] = useState<InputFontStage>(
-    control === "input" ? "medium" : "small",
+    initialKeyboardFontStage,
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -99,11 +100,12 @@ export function InputControl({
     onEditingChange?.(editing);
   }
 
-  function showSmartphoneKeyboard() {
-    setSmartphoneKeyboardEnabled(true);
+  function toggleSmartphoneKeyboard() {
+    const enabled = !smartphoneKeyboardEnabled;
+    setSmartphoneKeyboardEnabled(enabled);
     const target = targetRef.current;
     if (!target) return;
-    target.inputMode = configuredProps?.inputMode ?? "text";
+    target.inputMode = enabled ? configuredProps?.inputMode ?? "text" : "none";
     smartphoneKeyboardRequest.current = true;
     target.blur();
     target.focus({ preventScroll: true });
@@ -145,6 +147,7 @@ export function InputControl({
         <Input
           {...inputProps}
           aria-label={inputProps?.["aria-label"] ?? "Content input"}
+          label={inputProps?.label ?? (control === "input" ? "Input" : "Content")}
           controlRef={inputRef}
           fontSize={scaledFontSize(
             inputProps?.fontSize,
@@ -166,6 +169,7 @@ export function InputControl({
         <Textarea
           {...textareaProps}
           aria-label={textareaProps?.["aria-label"] ?? "Content input"}
+          label={textareaProps?.label ?? "Content"}
           controlRef={textareaRef}
           fontSize={scaledFontSize(
             textareaProps?.fontSize,
@@ -193,7 +197,8 @@ export function InputControl({
           fontStage={fontStage}
           layout={layout}
           onFontStageChange={setFontStage}
-          onSmartphoneKeyboardRequest={showSmartphoneKeyboard}
+          onSmartphoneKeyboardRequest={toggleSmartphoneKeyboard}
+          smartphoneKeyboardEnabled={smartphoneKeyboardEnabled}
           targetRef={targetRef}
         />
       )}

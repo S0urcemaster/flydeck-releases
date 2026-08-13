@@ -62,10 +62,10 @@ DialSurface
 `DialSurface` converts pointer input into a normalized angle and phase.
 `Dialer` owns inner/outer dial state, corner buttons, the center button, and
 value selection. `ColorDialer` supplies its own scales and value conversion.
-`CronDialer` currently prototypes a fixed logarithmic inner zoom scale and a
-dynamically divided outer time scale that maintains similar mark density
-around its independent value pointer. Its four corner labels and center
-duration/date-time conversion remain. It does not yet create timers.
+`Dialer` supports movable-pointer and fixed-north/rotating-wheel interaction
+without changing its logical angle model. `CronDialer` specializes the wheel
+mode with a time scale and a logarithmic one-hour to five-year range zoom that
+keeps the selected timestamp at north.
 
 ### TreeBrowser
 
@@ -97,7 +97,7 @@ migration protocol beyond the single model version.
 | AGNT | CHAT placeholder; MEMO shows a locally persisted plant fixture | Chat API, conversations, prompt drafts, agent state, real memo tree and content |
 | DATA | Generic tree with dummy categories and local UI state | Server projection, records/content, revisions, CRUD error/loading states |
 | FUNC | Tree-backed DeviceInfo, Compass, and ShoppingList prototypes | Server catalog, persisted user functions/content, execution contract |
-| CRON | Generic dial basis and logarithmic CronDialer interaction prototype | Title/editor, production date/duration model, timer API, timer list, notifications |
+| CRON | North-anchored CronDialer time scale with logarithmic range zoom | Timer API, timer list, notifications, final action semantics |
 | HELP | Bundled manual | Versioned help content if server-controlled help is later required |
 | CONFIG | Connected empty module | Typed runtime settings projected through TreeBrowser |
 
@@ -369,7 +369,7 @@ Foundation tables:
 Tree and content tables:
 
 - `trees(id, workspace_id, kind, revision, ...)`;
-- `tree_nodes(id, tree_id, parent_id, kind, label, position, revision, ...)`;
+- `tree_nodes(id, tree_id, parent_id, kind, label, local_id, position, revision, ...)`;
 - `node_contents(node_id, format, content, revision, ...)`;
 - `node_user_states(node_id, user_id, enabled, revision, ...)`;
 - `tree_user_states(tree_id, user_id, selected_path, revision, ...)`;
@@ -378,6 +378,10 @@ Tree and content tables:
 Use an integer `position` initially and reorder siblings in one transaction.
 Only adopt fractional ordering if measurements show that whole-sibling updates
 are a problem. A recursive CTE can validate paths and subtree operations.
+The UUID `id` remains the immutable relationship key. `local_id` is a maximum
+12-character, sibling-unique user address with separate unique indexes for root
+and nested lists. User-facing parent and data-source paths resolve `local_id`
+segments, so label edits never invalidate them.
 
 Chat tables:
 
@@ -576,7 +580,7 @@ drafts survive locally and completed history is server-authoritative.
 
 ### Phase 5 — CRON and notifications
 
-- Complete CronDialer's date/duration value model and accessible alternatives.
+- Design the production CRON interaction model and accessible alternatives from the generic Dialer basis.
 - Add title input and the timer list next to/below the creation control at phone
   width according to the established module composition.
 - Implement durable timers, job claiming, ntfy outbox, retries, editing,

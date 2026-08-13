@@ -31,7 +31,7 @@ describe("RootInputControl", () => {
     expect(markup).not.toContain('aria-label="Send root"');
   });
 
-  it("shows the configured action button when updates are supported", () => {
+  it("hides the configured action button while the input is idle", () => {
     const markup = renderToStaticMarkup(
       <RootInputControl
         current={current}
@@ -44,9 +44,8 @@ describe("RootInputControl", () => {
       />,
     );
 
-    expect(markup).toContain('aria-label="Set Parent"');
-    expect(markup).toContain(">Set Parent</button>");
-    expect(markup).toContain("width:91px");
+    expect(markup).not.toContain('aria-label="Set Parent"');
+    expect(markup).not.toContain(">Set Parent</button>");
   });
 
   it("resolves only one exact and eligible changed root", () => {

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TreeLoadDto, TreeNodeContentDto, TreeNodeDto } from "@flydeck/shared/v2";
+import {
+  createTreeNodeLocalId,
+  type TreeLoadDto,
+  type TreeNodeContentDto,
+  type TreeNodeDto,
+} from "@flydeck/shared/v2";
 
 import { V2ApiError, v2Api } from "../../api/V2ApiClient";
 import {
@@ -20,6 +25,7 @@ import {
   type TreeBrowserRootControl,
 } from "../TreeBrowser";
 import { InputControl, type InputControlProps } from "../InputControl";
+import { NodeIdInput, type NodeIdInputProps } from "../NodeIdInput";
 import {
   ParentInput,
   type ParentInputProps,
@@ -32,6 +38,10 @@ export type DataBrowserProps = Omit<
 > & {
   contentEditorProps?: ContentEditorProps;
   inputControlProps?: InputControlProps;
+  nodeIdInputProps?: Omit<
+    NodeIdInputProps,
+    "available" | "disabled" | "onChange" | "onSave" | "savedValue" | "value"
+  >;
   parentInputProps?: Omit<
     ParentInputProps,
     | "current"
@@ -56,6 +66,7 @@ export function DataBrowser({
   componentName = "DataBrowser",
   contentEditorProps,
   inputControlProps,
+  nodeIdInputProps,
   parentInputProps,
   workspaceId,
   onSynchronizationError,
@@ -81,6 +92,7 @@ export function DataBrowser({
       componentName={componentName}
       contentEditorProps={contentEditorProps}
       inputControlProps={inputControlProps}
+      nodeIdInputProps={nodeIdInputProps}
       parentInputProps={parentInputProps}
       workspaceId={workspaceId}
       userId={userId}
@@ -93,6 +105,7 @@ function ServerDataBrowser({
   componentName,
   contentEditorProps,
   inputControlProps,
+  nodeIdInputProps,
   parentInputProps,
   workspaceId,
   userId,
@@ -117,9 +130,14 @@ function ServerDataBrowser({
 
   const submitCommand = useCallback(async (
     command: Parameters<typeof workspaceSyncEngine.submit>[1],
+    userCommandId?: string,
   ) => {
     try {
-      const record = await workspaceSyncEngine.submit(replicaScope, command);
+      const record = await workspaceSyncEngine.submit(
+        replicaScope,
+        command,
+        userCommandId,
+      );
       if (record.tree) {
         treeRevision.current = record.tree.document.revision;
         switch (command.type) {
@@ -128,6 +146,7 @@ function ServerDataBrowser({
             enabledRevisions.current[command.input.nodeId] = 1;
             break;
           case "rename-node":
+          case "update-local-id":
             nodeRevisions.current.set(
               command.nodeId,
               command.input.expectedRevision + 1,
@@ -212,6 +231,13 @@ function ServerDataBrowser({
       initialSelectedPath={treeLoad.selection.selectedPath}
       onCreateNode={async (label, parentId, afterNodeId) => {
         const nodeId = crypto.randomUUID();
+        const cachedTree = (await workspaceReplica.load(replicaScope))?.tree;
+        const localId = createTreeNodeLocalId(
+          label,
+          (cachedTree?.document.nodes ?? treeLoad.document.nodes)
+            .filter((node) => node.parentId === parentId)
+            .map((node) => node.localId),
+        );
         const record = await submitCommand({
           type: "create-node",
           input: {
@@ -221,6 +247,7 @@ function ServerDataBrowser({
             afterNodeId,
             kind: "data-file",
             label,
+            localId,
             expectedTreeRevision: treeRevision.current,
           },
         });
@@ -238,6 +265,17 @@ function ServerDataBrowser({
           },
         }));
       }}
+      onUpdateNodeLocalId={async (nodeId, localId) => {
+        return Boolean(await submitCommand({
+          type: "update-local-id",
+          nodeId,
+          input: {
+            requestId: crypto.randomUUID(),
+            localId,
+            expectedRevision: nodeRevisions.current.get(nodeId) ?? 0,
+          },
+        }));
+      }}
       onMoveNode={async (nodeId, afterNodeId) => {
         return Boolean(await submitCommand({
           type: "move-node",
@@ -249,7 +287,7 @@ function ServerDataBrowser({
           },
         }));
       }}
-      onReparentNode={async (nodeId, parentId) => {
+      onReparentNode={async (nodeId, parentId, userCommandId) => {
         return Boolean(await submitCommand({
           type: "reparent-node",
           nodeId,
@@ -258,9 +296,9 @@ function ServerDataBrowser({
             parentId,
             expectedTreeRevision: treeRevision.current,
           },
-        }));
+        }, userCommandId));
       }}
-      onDeleteNode={async (nodeId) => {
+      onDeleteNode={async (nodeId, userCommandId) => {
         return Boolean(await submitCommand({
           type: "delete-node",
           nodeId,
@@ -268,18 +306,7 @@ function ServerDataBrowser({
             requestId: crypto.randomUUID(),
             expectedTreeRevision: treeRevision.current,
           },
-        }));
-      }}
-      onEnabledNode={async (nodeId, enabled) => {
-        return Boolean(await submitCommand({
-          type: "set-node-enabled",
-          nodeId,
-          input: {
-            requestId: crypto.randomUUID(),
-            enabled,
-            expectedRevision: enabledRevisions.current[nodeId] ?? 0,
-          },
-        }));
+        }, userCommandId));
       }}
       onSelectedPathChange={async (selectedPath) => {
         return Boolean(await submitCommand({
@@ -291,12 +318,22 @@ function ServerDataBrowser({
           },
         }));
       }}
-      renderContent={({ height, node, root }) => (
+      renderContent={({
+        height,
+        localIdAvailable,
+        node,
+        onLocalIdChange,
+        root,
+      }) => (
         <ServerDataContent
           {...inputControlProps}
           contentEditorProps={contentEditorProps}
+          nodeIdInputProps={nodeIdInputProps}
           height={height}
           nodeId={node.id}
+          localId={node.localId ?? ""}
+          localIdAvailable={localIdAvailable}
+          onLocalIdChange={onLocalIdChange}
           root={root}
           rootInputProps={treeBrowserProps.listControlProps?.inputProps}
           parentInputProps={parentInputProps}
@@ -311,9 +348,13 @@ function ServerDataBrowser({
 
 function ServerDataContent({
   nodeId,
+  localId,
+  localIdAvailable,
+  onLocalIdChange,
   root,
   rootInputProps,
   parentInputProps,
+  nodeIdInputProps,
   contentEditorProps,
   workspaceId,
   replicaScope,
@@ -321,7 +362,11 @@ function ServerDataContent({
   ...inputControlProps
 }: InputControlProps & {
   contentEditorProps?: ContentEditorProps;
+  nodeIdInputProps?: DataBrowserProps["nodeIdInputProps"];
   nodeId: string;
+  localId: string;
+  localIdAvailable: (localId: string) => boolean;
+  onLocalIdChange?: (localId: string) => Promise<boolean>;
   root?: TreeBrowserRootControl;
   rootInputProps?: ParentInputProps["inputProps"];
   parentInputProps?: DataBrowserProps["parentInputProps"];
@@ -331,6 +376,15 @@ function ServerDataContent({
 }) {
   const [document, setDocument] = useState<TreeNodeContentDto | null>(null);
   const [draft, setDraft] = useState("");
+  const [localIdDraft, setLocalIdDraft] = useState({
+    nodeId,
+    saved: localId,
+    value: localId,
+  });
+  const effectiveLocalIdDraft = localIdDraft.nodeId === nodeId
+    && localIdDraft.saved === localId
+    ? localIdDraft.value
+    : localId;
   const [rootDraft, setRootDraft] = useState({
     nodeId,
     currentId: root?.current.id,
@@ -373,6 +427,36 @@ function ServerDataContent({
 
   return (
     <div className={styles.content} style={{ height: inputControlProps.height }}>
+      <NodeIdInput
+        {...inputControlProps}
+        {...nodeIdInputProps}
+        available={localIdAvailable}
+        value={effectiveLocalIdDraft}
+        buttonProps={{
+          ...inputControlProps.buttonProps,
+          ...nodeIdInputProps?.buttonProps,
+        }}
+        inputProps={{
+          ...inputControlProps.inputProps,
+          ...nodeIdInputProps?.inputProps,
+        }}
+        disabled={!onLocalIdChange}
+        savedValue={localId}
+        onChange={(value) => setLocalIdDraft({
+          nodeId,
+          saved: localId,
+          value,
+        })}
+        onSave={async (value) => {
+          if (!onLocalIdChange) return;
+          const confirmed = await onLocalIdChange(value);
+          if (confirmed) setLocalIdDraft({
+            nodeId,
+            saved: value,
+            value,
+          });
+        }}
+      />
       {root && (
         <ParentInput
           {...parentInputProps}
@@ -457,6 +541,7 @@ function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
         id: node.id,
         kind: node.kind,
         label: node.label,
+        localId: node.localId,
         enabled: enabled.has(node.id),
         contentEditable: node.capabilities.contentEditable,
         contentVisible: false,
@@ -489,6 +574,7 @@ function toCreatedTreeNode(node: TreeNodeDto) {
     id: node.id,
     kind: node.kind,
     label: node.label,
+    localId: node.localId,
     enabled: true,
     contentVisible: true,
     contentEditable: node.capabilities.contentEditable,

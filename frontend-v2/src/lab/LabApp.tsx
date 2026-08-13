@@ -58,6 +58,7 @@ import { InventoryApp } from "../components/InventoryApp";
 import { ItemList } from "../components/ItemList";
 import { LoginDialog } from "../components/LoginDialog";
 import { LongPressButton } from "../components/LongPressButton";
+import { NodeIdInput } from "../components/NodeIdInput";
 import { HelpModuleButton } from "../components/HelpModuleButton";
 import type { ModuleMenuItem } from "../components/ModuleMenu";
 import { ModuleMenuActions } from "../components/ModuleMenuActions";
@@ -219,6 +220,7 @@ const manifestPreviewComponentNames = [
   "FormRow",
   "InventoryApp",
   "ItemList",
+  "NodeIdInput",
   "ParentInput",
   "RootInputControl",
   "ShoppingListView",
@@ -237,6 +239,7 @@ const treeInputFamilyComponentNames = [
   "ContentEditor",
   "DataSourceInput",
   "DataTree",
+  "NodeIdInput",
   "ParentInput",
   "RootInputControl",
 ] as const;
@@ -357,6 +360,7 @@ export function LabApp() {
     ContentEditor: storedComponentProperties.ContentEditor.base,
     DataSourceInput: storedComponentProperties.DataSourceInput.base,
     DataTree: storedComponentProperties.DataTree.base,
+    NodeIdInput: storedComponentProperties.NodeIdInput.base,
     ParentInput: storedComponentProperties.ParentInput.base,
     RootInputControl: storedComponentProperties.RootInputControl.base,
   });
@@ -367,9 +371,6 @@ export function LabApp() {
     Form: storedComponentProperties.Form.base,
     FormRow: storedComponentProperties.FormRow.base,
   });
-  const [formActionWidth, setFormActionWidth] = useState(
-    storedComponentProperties.Form.actionWidth,
-  );
   const [compactNavigationBaseValues, setCompactNavigationBaseValues] = useState<
     Record<CompactNavigationComponentName, BaseLabValues>
   >({
@@ -393,18 +394,55 @@ export function LabApp() {
     useState<BaseLabValues>(storedComponentProperties.DialButton.base);
   const [cycleButtonPreviewValue, setCycleButtonPreviewValue] = useState("S");
   const [colorDialerPreviewValue, setColorDialerPreviewValue] = useState("#2468b2ff");
+  const [cronDialerCenterFontSize, setCronDialerCenterFontSize] = useState(
+    storedComponentProperties.CronDialer.centerFontSize,
+  );
+  const [cronDialerCenterFontWeight, setCronDialerCenterFontWeight] = useState(
+    storedComponentProperties.CronDialer.centerFontWeight,
+  );
+  const [cronDialerInnerDiscColor, setCronDialerInnerDiscColor] = useState(
+    storedComponentProperties.CronDialer.innerDiscColor,
+  );
+  const [cronDialerInnerGradientEnd, setCronDialerInnerGradientEnd] = useState(
+    storedComponentProperties.CronDialer.innerGradientEnd,
+  );
+  const [cronDialerInnerGradientStart, setCronDialerInnerGradientStart] = useState(
+    storedComponentProperties.CronDialer.innerGradientStart,
+  );
+  const [cronDialerInnerScaleFontSize, setCronDialerInnerScaleFontSize] = useState(
+    storedComponentProperties.CronDialer.innerScaleFontSize,
+  );
+  const [cronDialerInnerScaleFontWeight, setCronDialerInnerScaleFontWeight] = useState(
+    storedComponentProperties.CronDialer.innerScaleFontWeight,
+  );
+  const [cronDialerOuterDiscColor, setCronDialerOuterDiscColor] = useState(
+    storedComponentProperties.CronDialer.outerDiscColor,
+  );
+  const [cronDialerOuterGradientEnd, setCronDialerOuterGradientEnd] = useState(
+    storedComponentProperties.CronDialer.outerGradientEnd,
+  );
+  const [cronDialerOuterGradientStart, setCronDialerOuterGradientStart] = useState(
+    storedComponentProperties.CronDialer.outerGradientStart,
+  );
+  const [cronDialerOuterScaleFontSize, setCronDialerOuterScaleFontSize] = useState(
+    storedComponentProperties.CronDialer.outerScaleFontSize,
+  );
+  const [cronDialerOuterScaleFontWeight, setCronDialerOuterScaleFontWeight] = useState(
+    storedComponentProperties.CronDialer.outerScaleFontWeight,
+  );
   const [dialBaseValues, setDialBaseValues] = useState<
-    Record<DialBaseComponentName | "ColorDialer", BaseLabValues>
+    Record<DialBaseComponentName | "ColorDialer" | "CronDialer", BaseLabValues>
   >({
     DialSurface: storedComponentProperties.DialSurface.base,
     Dialer: storedComponentProperties.Dialer.base,
     ColorDialer: storedComponentProperties.ColorDialer.base,
+    CronDialer: storedComponentProperties.CronDialer.base,
   });
-  const [cronDialerValues, setCronDialerValues] = useState(
-    storedComponentProperties.CronDialer,
-  );
   const [keyboardBaseValues, setKeyboardBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.Keyboard.base);
+  const [keyboardButtonHeight, setKeyboardButtonHeight] = useState(
+    storedComponentProperties.Keyboard.buttonHeight,
+  );
   const [moduleButtonBaseValues, setModuleButtonBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.ModuleButton.base);
   const [symbolButtonBaseValues, setSymbolButtonBaseValues] =
@@ -506,6 +544,9 @@ export function LabApp() {
   );
   const [checkboxActiveColor, setCheckboxActiveColor] = useState(
     storedComponentProperties.Checkbox.activeColor,
+  );
+  const [checkboxFontSize, setCheckboxFontSize] = useState(
+    storedComponentProperties.Checkbox.fontSize,
   );
   const [buttonLinkLabel, setButtonLinkLabel] =
     useState(storedComponentProperties.ButtonLink.label);
@@ -718,9 +759,10 @@ export function LabApp() {
       ContentEditor: { base: treeInputFamilyBaseValues.ContentEditor },
       DataSourceInput: { base: treeInputFamilyBaseValues.DataSourceInput },
       DataTree: { base: treeInputFamilyBaseValues.DataTree },
+      NodeIdInput: { base: treeInputFamilyBaseValues.NodeIdInput },
       ParentInput: { base: treeInputFamilyBaseValues.ParentInput },
       RootInputControl: { base: treeInputFamilyBaseValues.RootInputControl },
-      Form: { actionWidth: formActionWidth, base: formBaseValues.Form },
+      Form: { base: formBaseValues.Form },
       FormRow: { base: formBaseValues.FormRow },
       Block: { base: formBaseValues.Block },
       Breadcrumb: { base: compactNavigationBaseValues.Breadcrumb },
@@ -734,7 +776,10 @@ export function LabApp() {
       ShiftButton: { base: shiftButtonBaseValues },
       CycleButton: { base: cycleButtonBaseValues },
       DialButton: { base: dialButtonBaseValues },
-      Keyboard: { base: keyboardBaseValues },
+      Keyboard: {
+        buttonHeight: keyboardButtonHeight,
+        base: keyboardBaseValues,
+      },
       ModuleButton: {
         symbol: moduleButtonSymbol,
         base: moduleButtonBaseValues,
@@ -778,6 +823,7 @@ export function LabApp() {
       },
       Checkbox: {
         activeColor: checkboxActiveColor,
+        fontSize: checkboxFontSize,
         base: browserComponentBaseValues.Checkbox,
       },
       DeviceInfo: { base: deviceInfoBaseValues },
@@ -813,7 +859,21 @@ export function LabApp() {
       DialSurface: { base: dialBaseValues.DialSurface },
       Dialer: { base: dialBaseValues.Dialer },
       ColorDialer: { base: dialBaseValues.ColorDialer },
-      CronDialer: cronDialerValues,
+      CronDialer: {
+        centerFontSize: cronDialerCenterFontSize,
+        centerFontWeight: cronDialerCenterFontWeight,
+        innerDiscColor: cronDialerInnerDiscColor,
+        innerGradientEnd: cronDialerInnerGradientEnd,
+        innerGradientStart: cronDialerInnerGradientStart,
+        innerScaleFontSize: cronDialerInnerScaleFontSize,
+        innerScaleFontWeight: cronDialerInnerScaleFontWeight,
+        outerDiscColor: cronDialerOuterDiscColor,
+        outerGradientEnd: cronDialerOuterGradientEnd,
+        outerGradientStart: cronDialerOuterGradientStart,
+        outerScaleFontSize: cronDialerOuterScaleFontSize,
+        outerScaleFontWeight: cronDialerOuterScaleFontWeight,
+        base: dialBaseValues.CronDialer,
+      },
       DeviceInfoButton: {
         base: browserComponentBaseValues.DeviceInfoButton,
       },
@@ -1053,6 +1113,50 @@ export function LabApp() {
     }));
   }
 
+  const configuredLabKeyboardProps = {
+    ...toBaseStyleProps(keyboardBaseValues),
+    buttonHeight: keyboardButtonHeight,
+    backspaceButtonProps: {
+      ...resolveDerivedBaseProperties(
+        resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+        backspaceButtonBaseValues,
+      ),
+      activeColor: buttonActiveColor,
+    },
+    buttonProps: {
+      ...resolveDerivedBaseProperties(buttonBaseValues, longPressButtonBaseValues),
+      activeColor: buttonActiveColor,
+    },
+    cycleButtonProps: {
+      ...resolveDerivedBaseProperties(
+        resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+        cycleButtonBaseValues,
+      ),
+      activeColor: buttonActiveColor,
+    },
+    dialButtonProps: {
+      ...resolveDerivedBaseProperties(
+        resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+        dialButtonBaseValues,
+      ),
+      activeColor: buttonActiveColor,
+    },
+    shiftButtonProps: {
+      ...resolveDerivedBaseProperties(
+        resolveDerivedBaseProperties(buttonBaseValues, longPressButtonBaseValues),
+        shiftButtonBaseValues,
+      ),
+      activeColor: buttonActiveColor,
+    },
+    smartphoneButtonProps: toBaseStyleProps(buttonBaseValues),
+  };
+  const configuredLabInputProps = {
+    ...toBaseStyleProps(browserComponentBaseValues.Input),
+    fontSize: inputFontSize,
+    keyboard: inputKeyboard,
+    keyboardProps: configuredLabKeyboardProps,
+  };
+
   function renderBrowserComponentPreview(
     componentName: BrowserLabComponentName,
   ) {
@@ -1137,10 +1241,14 @@ export function LabApp() {
         browserComponentBaseValues.Checkbox,
       )),
       activeColor: checkboxActiveColor,
+      fontSize: checkboxFontSize === "inherit"
+        ? buttonFontSize
+        : checkboxFontSize,
     };
     const inputControlProps = {
       ...toBaseStyleProps(browserComponentBaseValues.InputControl),
       buttonProps,
+      inputProps: configuredLabInputProps,
       textareaProps: toBaseStyleProps(textareaBaseValues),
     };
     const treeChildProps = {
@@ -1239,9 +1347,7 @@ export function LabApp() {
         return (
           <ListControlListSizeButton
             {...listControlListSizeButtonProps}
-            currentPage={2}
             pageSize={listControlPreviewPageSize}
-            totalPages={3}
             onPageSizeChange={setListControlPreviewPageSize}
           />
         );
@@ -1255,11 +1361,12 @@ export function LabApp() {
             checkboxProps={checkboxProps}
             deleteButtonProps={deleteButtonProps}
             labelButtonProps={browserItemLabelButtonProps}
-            enabled
+            checked
             label="Browser item"
+            itemNumber={1}
             selected
             onDelete={() => undefined}
-            onEnabledChange={() => undefined}
+            onCheckedChange={() => undefined}
           />
         );
       case "BrowserItemLabelButton":
@@ -1494,10 +1601,10 @@ export function LabApp() {
         treeInputFamilyBaseValues[componentName],
       );
     }
-    if (componentName === "ContentEditor") {
+    if (componentName === "ContentEditor" || componentName === "NodeIdInput") {
       return resolveDerivedBaseProperties(
         browserComponentBaseValues.InputControl,
-        treeInputFamilyBaseValues.ContentEditor,
+        treeInputFamilyBaseValues[componentName],
       );
     }
     return resolveDerivedBaseProperties(
@@ -1515,6 +1622,7 @@ export function LabApp() {
       activeColor={buttonActiveColor}
       fontSize={buttonFontSize}
       fontWeight={buttonFontWeight}
+      height={buttonBaseValues.height}
     >
     <main
       className={styles.root}
@@ -1700,7 +1808,6 @@ export function LabApp() {
                             ]
                 : undefined,
               dialBaseValues.DialSurface,
-              formActionWidth,
               resolveDerivedBaseProperties(
                 formBaseValues.Block,
                 formBaseValues.FormRow,
@@ -1727,21 +1834,14 @@ export function LabApp() {
               },
               compactNavigationBaseValues.Breadcrumb,
               compactNavigationBaseValues.ItemList,
-              {
-                ...toBaseStyleProps(browserComponentBaseValues.Input),
-                fontSize: inputFontSize,
-                keyboard: inputKeyboard,
-                keyboardProps: {
-                  ...toBaseStyleProps(keyboardBaseValues),
-                  smartphoneButtonProps: toBaseStyleProps(buttonBaseValues),
-                },
-              },
+              configuredLabInputProps,
               {
                 ...toBaseStyleProps(textareaBaseValues),
                 fontSize: textareaFontSize,
                 keyboard: textareaKeyboard,
                 keyboardProps: {
                   ...toBaseStyleProps(keyboardBaseValues),
+                  buttonHeight: keyboardButtonHeight,
                   smartphoneButtonProps: toBaseStyleProps(buttonBaseValues),
                 },
               },
@@ -1809,7 +1909,7 @@ export function LabApp() {
                   componentName: "RootInputControl",
                   properties: treeInputFamilyBaseValues.RootInputControl,
                 }]
-              : componentName === "ContentEditor"
+              : componentName === "ContentEditor" || componentName === "NodeIdInput"
                 ? [{
                     componentName: "InputControl",
                     properties: browserComponentBaseValues.InputControl,
@@ -1924,12 +2024,6 @@ export function LabApp() {
             return (
               <BasePropertyControls
                 componentName={componentName}
-                ownPropertyComments={componentName === "Form"
-                  ? { actionWidth: "Shared width of every FormRow Set button" }
-                  : undefined}
-                ownProperties={componentName === "Form"
-                  ? { actionWidth: formActionWidth }
-                  : undefined}
                 inheritedPropertySections={componentName === "FormRow"
                   ? [{
                       componentName: "Block",
@@ -1944,15 +2038,6 @@ export function LabApp() {
                     [name]: value,
                   },
                 }))}
-                onOwnPropertyChange={(name, value) => {
-                  if (
-                    componentName === "Form"
-                    && name === "actionWidth"
-                    && typeof value === "string"
-                  ) {
-                    setFormActionWidth(value);
-                  }
-                }}
                 onInheritedPropertyChange={(parentName, name, value) => {
                   if (componentName !== "FormRow" || parentName !== "Block") return;
                   setFormBaseValues((current) => ({
@@ -1975,9 +2060,6 @@ export function LabApp() {
                     ...storedComponentProperties[componentName].base,
                   },
                 }));
-                if (componentName === "Form") {
-                  setFormActionWidth(storedComponentProperties.Form.actionWidth);
-                }
               }}>
                 RESET
               </Button>
@@ -2690,7 +2772,7 @@ export function LabApp() {
             <div>
               <h2 className={styles.componentName}>CronDialer</h2>
               <p className={styles.description}>
-                Raw two-ring Dialer with a center value that switches between duration and date/time.
+                North-anchored time scale with logarithmic range zoom.
               </p>
             </div>
             <code className={styles.path}>components/CronDialer</code>
@@ -2699,31 +2781,94 @@ export function LabApp() {
             <CronDialer
               {...toBaseStyleProps(resolveDerivedBaseProperties(
                 dialBaseValues.Dialer,
-                cronDialerValues.base,
+                dialBaseValues.CronDialer,
               ))}
-              dialSurfaceProps={toBaseStyleProps(dialBaseValues.DialSurface)}
-              innerBackground={cronDialerValues.innerBackground}
-              innerTextColor={cronDialerValues.innerTextColor}
-              innerPointerColor={cronDialerValues.innerPointerColor}
-              innerFontSize={cronDialerValues.innerFontSize}
-              outerBackground={cronDialerValues.outerBackground}
-              outerTextColor={cronDialerValues.outerTextColor}
-              outerPointerColor={cronDialerValues.outerPointerColor}
-              outerFontSize={cronDialerValues.outerFontSize}
               buttonProps={{ activeColor: buttonActiveColor }}
+              centerFontSize={cronDialerCenterFontSize}
+              centerFontWeight={cronDialerCenterFontWeight}
+              dialSurfaceProps={toBaseStyleProps(dialBaseValues.DialSurface)}
+              innerDiscColor={cronDialerInnerDiscColor}
+              innerGradientEnd={cronDialerInnerGradientEnd}
+              innerGradientStart={cronDialerInnerGradientStart}
+              innerScaleFontSize={cronDialerInnerScaleFontSize}
+              innerScaleFontWeight={cronDialerInnerScaleFontWeight}
+              outerDiscColor={cronDialerOuterDiscColor}
+              outerGradientEnd={cronDialerOuterGradientEnd}
+              outerGradientStart={cronDialerOuterGradientStart}
+              outerScaleFontSize={cronDialerOuterScaleFontSize}
+              outerScaleFontWeight={cronDialerOuterScaleFontWeight}
             />
           </div>
           <BasePropertyControls
             componentName="CronDialer"
+            ownPropertyComments={{
+              centerFontSize: "Center button CSS font-size",
+              centerFontWeight: "Center button CSS font-weight",
+              innerDiscColor: "Inner disc CSS color",
+              innerGradientEnd: "End color reused by every inner segment",
+              innerGradientStart: "Start color reused by every inner segment",
+              innerScaleFontSize: "Inner zoom-scale CSS font-size",
+              innerScaleFontWeight: "Inner zoom-scale CSS font-weight",
+              outerDiscColor: "Outer disc CSS color",
+              outerGradientEnd: "Outer time-segment end color",
+              outerGradientStart: "Outer time-segment start color",
+              outerScaleFontSize: "Outer time-scale CSS font-size",
+              outerScaleFontWeight: "Outer time-scale CSS font-weight",
+            }}
+            ownProperties={{
+              centerFontSize: cronDialerCenterFontSize,
+              centerFontWeight: cronDialerCenterFontWeight,
+              innerDiscColor: cronDialerInnerDiscColor,
+              innerGradientEnd: cronDialerInnerGradientEnd,
+              innerGradientStart: cronDialerInnerGradientStart,
+              innerScaleFontSize: cronDialerInnerScaleFontSize,
+              innerScaleFontWeight: cronDialerInnerScaleFontWeight,
+              outerDiscColor: cronDialerOuterDiscColor,
+              outerGradientEnd: cronDialerOuterGradientEnd,
+              outerGradientStart: cronDialerOuterGradientStart,
+              outerScaleFontSize: cronDialerOuterScaleFontSize,
+              outerScaleFontWeight: cronDialerOuterScaleFontWeight,
+            }}
             inheritedPropertySections={[{
               componentName: "Dialer",
               properties: dialBaseValues.Dialer,
             }]}
-            values={cronDialerValues.base}
-            onChange={(name, value) => setCronDialerValues((current) => ({
+            values={dialBaseValues.CronDialer}
+            onChange={(name, value) => setDialBaseValues((current) => ({
               ...current,
-              base: { ...current.base, [name]: value },
+              CronDialer: { ...current.CronDialer, [name]: value },
             }))}
+            onOwnPropertyChange={(name, value) => {
+              if (typeof value !== "string") return;
+              if (name === "centerFontSize") setCronDialerCenterFontSize(value);
+              if (name === "centerFontWeight") setCronDialerCenterFontWeight(value);
+              if (name === "innerDiscColor") setCronDialerInnerDiscColor(value);
+              if (name === "innerGradientEnd") {
+                setCronDialerInnerGradientEnd(value);
+              }
+              if (name === "innerGradientStart") {
+                setCronDialerInnerGradientStart(value);
+              }
+              if (name === "innerScaleFontSize") {
+                setCronDialerInnerScaleFontSize(value);
+              }
+              if (name === "innerScaleFontWeight") {
+                setCronDialerInnerScaleFontWeight(value);
+              }
+              if (name === "outerDiscColor") setCronDialerOuterDiscColor(value);
+              if (name === "outerGradientEnd") {
+                setCronDialerOuterGradientEnd(value);
+              }
+              if (name === "outerGradientStart") {
+                setCronDialerOuterGradientStart(value);
+              }
+              if (name === "outerScaleFontSize") {
+                setCronDialerOuterScaleFontSize(value);
+              }
+              if (name === "outerScaleFontWeight") {
+                setCronDialerOuterScaleFontWeight(value);
+              }
+            }}
             onInheritedPropertyChange={(parentName, name, value) => {
               if (parentName !== "Dialer" || typeof value !== "string") return;
               setDialBaseValues((current) => ({
@@ -2732,88 +2877,49 @@ export function LabApp() {
               }));
             }}
           />
-          <div className={styles.colorMapPreview}>
-            <RgbColorField
-              label="Inner ring background"
-              value={cronDialerValues.innerBackground}
-              onChange={(innerBackground) => setCronDialerValues((current) => ({
-                ...current,
-                innerBackground,
-              }))}
-            />
-            <RgbColorField
-              label="Inner scale text"
-              value={cronDialerValues.innerTextColor}
-              onChange={(innerTextColor) => setCronDialerValues((current) => ({
-                ...current,
-                innerTextColor,
-              }))}
-            />
-            <RgbColorField
-              label="Inner pointer"
-              value={cronDialerValues.innerPointerColor}
-              onChange={(innerPointerColor) => setCronDialerValues((current) => ({
-                ...current,
-                innerPointerColor,
-              }))}
-            />
-            <label>
-              Inner scale font size
-              <Input
-                aria-label="Inner scale font size"
-                value={cronDialerValues.innerFontSize}
-                onChange={(event) => {
-                  const innerFontSize = event.currentTarget.value;
-                  setCronDialerValues((current) => ({
-                    ...current,
-                    innerFontSize,
-                  }));
-                }}
-              />
-            </label>
-            <RgbColorField
-              label="Outer ring background"
-              value={cronDialerValues.outerBackground}
-              onChange={(outerBackground) => setCronDialerValues((current) => ({
-                ...current,
-                outerBackground,
-              }))}
-            />
-            <RgbColorField
-              label="Outer scale text"
-              value={cronDialerValues.outerTextColor}
-              onChange={(outerTextColor) => setCronDialerValues((current) => ({
-                ...current,
-                outerTextColor,
-              }))}
-            />
-            <RgbColorField
-              label="Outer pointer"
-              value={cronDialerValues.outerPointerColor}
-              onChange={(outerPointerColor) => setCronDialerValues((current) => ({
-                ...current,
-                outerPointerColor,
-              }))}
-            />
-            <label>
-              Outer scale font size
-              <Input
-                aria-label="Outer scale font size"
-                value={cronDialerValues.outerFontSize}
-                onChange={(event) => {
-                  const outerFontSize = event.currentTarget.value;
-                  setCronDialerValues((current) => ({
-                    ...current,
-                    outerFontSize,
-                  }));
-                }}
-              />
-            </label>
-          </div>
           <div className={styles.actions}>
-            <Button onClick={() => setCronDialerValues(
-              storedComponentProperties.CronDialer,
-            )}>
+            <Button onClick={() => {
+              setDialBaseValues((current) => ({
+                ...current,
+                CronDialer: { ...storedComponentProperties.CronDialer.base },
+              }));
+              setCronDialerCenterFontSize(
+                storedComponentProperties.CronDialer.centerFontSize,
+              );
+              setCronDialerCenterFontWeight(
+                storedComponentProperties.CronDialer.centerFontWeight,
+              );
+              setCronDialerInnerDiscColor(
+                storedComponentProperties.CronDialer.innerDiscColor,
+              );
+              setCronDialerInnerGradientEnd(
+                storedComponentProperties.CronDialer.innerGradientEnd,
+              );
+              setCronDialerInnerGradientStart(
+                storedComponentProperties.CronDialer.innerGradientStart,
+              );
+              setCronDialerInnerScaleFontSize(
+                storedComponentProperties.CronDialer.innerScaleFontSize,
+              );
+              setCronDialerInnerScaleFontWeight(
+                storedComponentProperties.CronDialer.innerScaleFontWeight,
+              );
+              setCronDialerOuterDiscColor(
+                storedComponentProperties.CronDialer.outerDiscColor,
+              );
+              setCronDialerOuterGradientEnd(
+                storedComponentProperties.CronDialer.outerGradientEnd,
+              );
+              setCronDialerOuterGradientStart(
+                storedComponentProperties.CronDialer.outerGradientStart,
+              );
+              setCronDialerOuterScaleFontSize(
+                storedComponentProperties.CronDialer.outerScaleFontSize,
+              );
+              setCronDialerOuterScaleFontWeight(
+                storedComponentProperties.CronDialer.outerScaleFontWeight,
+              );
+            }}>
               RESET
             </Button>
             <Button onClick={applyComponentProperties} disabled={isApplying}>
@@ -3223,6 +3329,7 @@ export function LabApp() {
             />
             <Keyboard
               {...toBaseStyleProps(keyboardBaseValues)}
+              buttonHeight={keyboardButtonHeight}
               backspaceButtonProps={{
                 ...resolveDerivedBaseProperties(
                   resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
@@ -3269,63 +3376,27 @@ export function LabApp() {
           </div>
           <BasePropertyControls
             componentName="Keyboard"
-            inheritedPropertySections={[
-              {
-                componentName: "BackspaceButton",
-                properties: backspaceButtonBaseValues,
-              },
-              {
-                componentName: "CycleButton",
-                properties: cycleButtonBaseValues,
-              },
-              {
-                componentName: "DialButton",
-                properties: dialButtonBaseValues,
-              },
-              {
-                componentName: "LongPressButton",
-                properties: longPressButtonBaseValues,
-              },
-              {
-                componentName: "ShiftButton",
-                properties: shiftButtonBaseValues,
-              },
-            ]}
+            ownPropertyComments={{
+              buttonHeight: "CSS height applied to every Keyboard-owned button",
+            }}
+            ownProperties={{ buttonHeight: keyboardButtonHeight }}
             values={keyboardBaseValues}
             onChange={(name, value) => updateBaseValue("keyboard", name, value)}
-            onInheritedPropertyChange={(componentName, name, value) => {
-              if (componentName === "BackspaceButton" && typeof value === "string") {
-                setBackspaceButtonBaseValues((current) => ({
-                  ...current,
-                  [name]: value,
-                }));
-              } else if (componentName === "LongPressButton" && typeof value === "string") {
-                setLongPressButtonBaseValues((current) => ({
-                  ...current,
-                  [name]: value,
-                }));
-              } else if (componentName === "ShiftButton" && typeof value === "string") {
-                setShiftButtonBaseValues((current) => ({
-                  ...current,
-                  [name]: value,
-                }));
-              } else if (componentName === "CycleButton" && typeof value === "string") {
-                setCycleButtonBaseValues((current) => ({
-                  ...current,
-                  [name]: value,
-                }));
-              } else if (componentName === "DialButton" && typeof value === "string") {
-                setDialButtonBaseValues((current) => ({
-                  ...current,
-                  [name]: value,
-                }));
+            onOwnPropertyChange={(name, value) => {
+              if (name === "buttonHeight" && typeof value === "string") {
+                setKeyboardButtonHeight(value);
               }
             }}
           />
           <div className={styles.actions}>
-            <Button onClick={() => setKeyboardBaseValues({
-              ...storedComponentProperties.Keyboard.base,
-            })}>
+            <Button onClick={() => {
+              setKeyboardBaseValues({
+                ...storedComponentProperties.Keyboard.base,
+              });
+              setKeyboardButtonHeight(
+                storedComponentProperties.Keyboard.buttonHeight,
+              );
+            }}>
               RESET
             </Button>
             <Button onClick={applyComponentProperties} disabled={isApplying}>
@@ -3357,7 +3428,7 @@ export function LabApp() {
         <BasePropertyControls
           componentName="Textarea"
           ownPropertyComments={{
-            fontSize: "small-stage CSS font-size, for example 0.82rem",
+            fontSize: "medium-stage CSS font-size for content and label",
             keyboard: "show Keyboard while the field is focused",
           }}
           ownProperties={{
@@ -3443,6 +3514,8 @@ export function LabApp() {
               ? {
                   activeColor:
                     "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                  fontSize:
+                    "Checkbox mark CSS font-size; inherit uses Button.fontSize",
                 }
               : undefined}
             ownProperties={componentName === "DeleteButton"
@@ -3469,7 +3542,10 @@ export function LabApp() {
               : componentName === "TreeBrowser"
               ? { rowGap: treeBrowserRowGap }
               : componentName === "Checkbox"
-              ? { activeColor: checkboxActiveColor }
+              ? {
+                  activeColor: checkboxActiveColor,
+                  fontSize: checkboxFontSize,
+                }
               : undefined}
             inheritedPropertySections={
               componentName === "Checkbox"
@@ -3493,7 +3569,8 @@ export function LabApp() {
                   comments: {
                     activeColor:
                       "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
-                    ...(componentName === "BrowserItemLabelButton"
+                    ...(componentName === "Checkbox"
+                      || componentName === "BrowserItemLabelButton"
                       || componentName === "ListControlListSizeButton"
                       ? {}
                       : {
@@ -3505,7 +3582,8 @@ export function LabApp() {
                   },
                   properties: {
                     activeColor: buttonActiveColor,
-                    ...(componentName === "BrowserItemLabelButton"
+                    ...(componentName === "Checkbox"
+                      || componentName === "BrowserItemLabelButton"
                       || componentName === "ListControlListSizeButton"
                       ? {}
                       : {
@@ -3629,6 +3707,13 @@ export function LabApp() {
               ) {
                 setCheckboxActiveColor(value);
               }
+              if (
+                componentName === "Checkbox"
+                && name === "fontSize"
+                && typeof value === "string"
+              ) {
+                setCheckboxFontSize(value);
+              }
             }}
             onInheritedPropertyChange={(parentName, name, value) => {
               if (
@@ -3700,7 +3785,12 @@ export function LabApp() {
                   setTreeBrowserRowGap("SPACE_XS");
                 }
                 if (componentName === "Checkbox") {
-                  setCheckboxActiveColor("COLOR_ACCENT_TWO");
+                  setCheckboxActiveColor(
+                    storedComponentProperties.Checkbox.activeColor,
+                  );
+                  setCheckboxFontSize(
+                    storedComponentProperties.Checkbox.fontSize,
+                  );
                 }
                 if (componentName === "Input") {
                   setInputKeyboard(true);
@@ -3881,7 +3971,8 @@ export function LabApp() {
                 ...resolvedSideModuleButtonBaseValues,
                 activeColor: buttonActiveColor,
               }}
-              offlineMode={offlineModePreview}
+              forcedOfflineMode={offlineModePreview}
+              offline={offlineModePreview}
               pendingTransactions={offlineModePreview ? 3 : 0}
               helpButtonProps={{
                 ...resolveDerivedBaseProperties(
@@ -4571,7 +4662,6 @@ function renderManifestComponentPreview(
   name: typeof manifestPreviewComponentNames[number],
   baseValues?: BaseLabValues,
   dialSurfaceBaseValues?: BaseLabValues,
-  formActionWidth?: string,
   formRowBaseValues?: BaseLabValues,
   formBaseValues?: BaseLabValues,
   formButtonProps?: ButtonProps,
@@ -4616,6 +4706,19 @@ function renderManifestComponentPreview(
       return <ConfigEditor {...baseProps} dataSource="Identity" />;
     case "ContentEditor":
       return <ContentEditor {...baseProps} initialValue="Editable content" />;
+    case "NodeIdInput":
+      return (
+        <NodeIdInput
+          {...baseProps}
+          available={() => true}
+          buttonProps={formButtonProps}
+          inputProps={inputProps}
+          savedValue="item"
+          value="item-2"
+          onChange={() => undefined}
+          onSave={() => undefined}
+        />
+      );
     case "DataSourceInput":
       return (
         <DataSourceInput
@@ -4655,7 +4758,7 @@ function renderManifestComponentPreview(
       );
     case "Form":
       return (
-        <Form {...baseProps} actionWidth={formActionWidth}>
+        <Form {...baseProps}>
           <FormRow
             {...(formRowBaseValues
               ? toBaseStyleProps(formRowBaseValues)
@@ -4700,7 +4803,6 @@ function renderManifestComponentPreview(
           compactButtonProps={compactButtonProps}
           formProps={{
             ...(formBaseValues ? toBaseStyleProps(formBaseValues) : {}),
-            actionWidth: formActionWidth,
           }}
           formRowButtonProps={formButtonProps}
           formRowProps={formRowBaseValues

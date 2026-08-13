@@ -4,13 +4,13 @@ import { describe, expect, it } from "vitest";
 import { AppView } from "./AppView";
 
 describe("AppView", () => {
-  it("provides the bounded function result base", () => {
+  it("provides the unbounded function result base", () => {
     const markup = renderToStaticMarkup(
       <AppView title="OUTPUT">Result</AppView>,
     );
 
     expect(markup).toContain('data-component-name="AppView"');
-    expect(markup).toContain('data-app-height="S"');
+    expect(markup).not.toContain("data-app-height");
     expect(markup).toContain('data-access-mode="read"');
     expect(markup).toContain("OUTPUT");
     expect(markup).toContain("Result");

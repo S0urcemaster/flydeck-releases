@@ -1,10 +1,6 @@
 import { Module, type ModuleProps } from "../../components/Module";
+import { CronDialer, type CronDialerProps } from "../../components/CronDialer";
 import {
-  CronDialer,
-  type CronDialerProps,
-  type CronDialerScaleProps,
-} from "../../components/CronDialer";
-import type {
   DialerButtonProps,
   DialerCenterButtonProps,
 } from "../../components/Dialer";
@@ -13,7 +9,7 @@ export type CronModuleProps = ModuleProps & {
   dialerButtonProps?: DialerButtonProps;
   dialerCenterButtonProps?: DialerCenterButtonProps;
   dialerProps?: Omit<
-    CronDialerProps & CronDialerScaleProps,
+    CronDialerProps,
     "buttonProps" | "centerButtonProps"
   >;
 };

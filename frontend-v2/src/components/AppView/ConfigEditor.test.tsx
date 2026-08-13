@@ -10,11 +10,9 @@ describe("ConfigEditor", () => {
     );
 
     expect(markup).toContain('value="_system/Compass"');
-    expect(markup).toContain('aria-label="Set Datasource"');
-    expect(markup).toContain(">Set Datasource</button>");
-    expect(markup).toContain("App Height");
-    expect(markup).toContain('aria-label="App Height S"');
-    expect(markup).toContain("S <small>M L</small>");
+    expect(markup).not.toContain(">Datasource</span>");
+    expect(markup).not.toContain('aria-label="Set Datasource"');
+    expect(markup).not.toContain("App Height");
   });
 
   it("shows the datasource branch result below the input row", () => {
@@ -38,13 +36,11 @@ describe("ConfigEditor", () => {
         dataSourceButtonProps={{ width: "91px" }}
         dataSourceBaseProps={{ padding: "17px" }}
         dataSourceInputProps={{ width: "92px" }}
-        cycleButtonProps={{ width: "93px" }}
       />,
     );
 
-    expect(markup).toContain("width:91px");
+    expect(markup).not.toContain("width:91px");
     expect(markup).toContain("padding:17px");
     expect(markup).toContain("width:92px");
-    expect(markup).toContain("width:93px");
   });
 });

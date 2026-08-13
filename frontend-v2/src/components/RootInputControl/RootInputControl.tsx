@@ -1,3 +1,5 @@
+import { useState, type FocusEvent } from "react";
+
 import { Base, type BaseStyleProps } from "../Base";
 import { Button, type ButtonProps } from "../Button";
 import { Input, type InputProps } from "../Input";
@@ -13,6 +15,7 @@ export type RootInputControlProps = BaseStyleProps & {
   actionDisabled?: boolean;
   actionLabel?: string;
   inputLabel?: string;
+  label?: string;
   onAction?: (value: string, target: TreeBrowserRootTarget | null) => void;
   buttonProps?: Omit<ButtonProps, "aria-label" | "children" | "onClick">;
   inputProps?: Omit<
@@ -30,6 +33,7 @@ export function RootInputControl({
   actionDisabled,
   actionLabel,
   inputLabel = "Root node",
+  label = "Root",
   onAction,
   buttonProps,
   inputProps,
@@ -38,7 +42,12 @@ export function RootInputControl({
   border,
   ...baseProps
 }: RootInputControlProps) {
+  const [editing, setEditing] = useState(false);
   const target = resolveRootTarget(current, targets, value);
+
+  function leaveControl(event: FocusEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget)) setEditing(false);
+  }
 
   return (
     <Base
@@ -48,10 +57,14 @@ export function RootInputControl({
       color={color}
       background={background}
       border={border}
+      data-editing={editing || undefined}
+      onBlurCapture={leaveControl}
+      onFocusCapture={() => setEditing(true)}
     >
       <Input
         {...inputProps}
         aria-label={inputLabel}
+        label={label}
         color={target ? "COLOR_SUCCESS" : "COLOR_ERROR"}
         keyboardLayout="block"
         placeholder="Set parent path (empty for root)"
@@ -59,12 +72,16 @@ export function RootInputControl({
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}
       />
-      {onAction && actionLabel && (
+      {editing && onAction && actionLabel && (
         <Button
           {...buttonProps}
           aria-label={actionLabel}
           className={styles.action}
           disabled={actionDisabled || !target || target.id === current.id}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            buttonProps?.onPointerDown?.(event);
+          }}
           onClick={() => onAction(value, target)}
         >
           {actionLabel}

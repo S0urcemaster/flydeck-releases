@@ -7,16 +7,18 @@ import styles from "./SubmodulePanel.module.css";
 
 export type AgentSubmodule = "CHAT" | "MEMO";
 
-export type SubmodulePanelProps = BaseStyleProps & {
-  activeItem: AgentSubmodule;
-  items?: readonly AgentSubmodule[];
-  onChange: (item: AgentSubmodule) => void;
+export type SubmodulePanelProps<TItem extends string = AgentSubmodule> = BaseStyleProps & {
+  activeItem: TItem;
+  items?: readonly TItem[];
+  onChange: (item: TItem) => void;
   buttonProps?: Omit<SubmoduleButtonProps, "children" | "onClick" | "selected">;
 };
 
-export function SubmodulePanel({
+const defaultItems: readonly AgentSubmodule[] = ["CHAT", "MEMO"];
+
+export function SubmodulePanel<TItem extends string = AgentSubmodule>({
   activeItem,
-  items = ["CHAT", "MEMO"],
+  items = defaultItems as readonly TItem[],
   onChange,
   buttonProps,
   color,
@@ -24,7 +26,9 @@ export function SubmodulePanel({
   border,
   padding,
   ...baseProps
-}: SubmodulePanelProps) {
+}: SubmodulePanelProps<TItem>) {
+  const rows = distributeSubmoduleItems(items);
+
   return (
     <Base
       {...baseProps}
@@ -37,16 +41,36 @@ export function SubmodulePanel({
       padding={padding}
       aria-label="Submodule panel"
     >
-      {items.map((item) => (
-        <SubmoduleButton
-          key={item}
-          {...buttonProps}
-          selected={activeItem === item}
-          onClick={() => onChange(item)}
+      {rows.map((row, rowIndex) => (
+        <div
+          key={`${rowIndex}-${row.join("-")}`}
+          className={styles.row}
+          data-columns={row.length}
         >
-          {item}
-        </SubmoduleButton>
+          {row.map((item) => (
+            <SubmoduleButton
+              key={item}
+              {...buttonProps}
+              selected={activeItem === item}
+              onClick={() => onChange(item)}
+            >
+              {item}
+            </SubmoduleButton>
+          ))}
+        </div>
       ))}
     </Base>
   );
+}
+
+export function distributeSubmoduleItems<T>(items: readonly T[]): T[][] {
+  const rows: T[][] = [];
+  let index = 0;
+  while (index < items.length) {
+    const remaining = items.length - index;
+    const rowSize = remaining === 4 ? 2 : Math.min(3, remaining);
+    rows.push(items.slice(index, index + rowSize));
+    index += rowSize;
+  }
+  return rows;
 }

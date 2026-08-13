@@ -95,6 +95,17 @@
       "height": "inherit"
     }
   },
+  "BackspaceButton": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "LongPressButton": {
     "base": {
       "color": "inherit",
@@ -107,17 +118,6 @@
     }
   },
   "ShiftButton": {
-    "base": {
-      "color": "inherit",
-      "background": "inherit",
-      "border": "inherit",
-      "padding": "inherit",
-      "margin": "inherit",
-      "width": "inherit",
-      "height": "inherit"
-    }
-  },
-  "BackspaceButton": {
     "base": {
       "color": "inherit",
       "background": "inherit",
@@ -151,6 +151,7 @@
     }
   },
   "Keyboard": {
+    "buttonHeight": "60px",
     "base": {
       "color": "COLOR_TEXT",
       "background": "transparent",
@@ -303,7 +304,8 @@
     }
   },
   "Checkbox": {
-    "activeColor": "COLOR_ACCENT_TWO",
+    "activeColor": "COLOR_ACCENT_ONE",
+    "fontSize": "14px",
     "base": {
       "color": "COLOR_TEXT",
       "background": "COLOR_SURFACE",
@@ -366,8 +368,8 @@
       "border": "inherit",
       "padding": "0",
       "margin": "inherit",
-      "width": "25%",
-      "height": "25%"
+      "width": "35%",
+      "height": "35%"
     }
   },
   "DialSurface": {
@@ -384,12 +386,12 @@
   "Dialer": {
     "base": {
       "color": "inherit",
-      "background": "transparent",
-      "border": "0",
-      "padding": "0",
-      "margin": "0",
-      "width": "unset",
-      "height": "unset"
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
     }
   },
   "ColorDialer": {
@@ -404,6 +406,18 @@
     }
   },
   "CronDialer": {
+    "centerFontSize": "28px",
+    "centerFontWeight": "400",
+    "innerDiscColor": "var(--item-color)",
+    "innerGradientEnd": "var(--color-page)",
+    "innerGradientStart": "var(--color-app)",
+    "innerScaleFontSize": "24px",
+    "innerScaleFontWeight": "400",
+    "outerDiscColor": "var(--item-color)",
+    "outerGradientEnd": "var(--color-page)",
+    "outerGradientStart": "var(--color-app)",
+    "outerScaleFontSize": "25px",
+    "outerScaleFontWeight": "400",
     "base": {
       "color": "inherit",
       "background": "inherit",
@@ -412,15 +426,7 @@
       "margin": "inherit",
       "width": "inherit",
       "height": "inherit"
-    },
-    "innerBackground": "#ecf3ffff",
-    "innerTextColor": "#181818ff",
-    "innerPointerColor": "#287a3fff",
-    "innerFontSize": "0.72rem",
-    "outerBackground": "#b9b9b9ff",
-    "outerTextColor": "#181818ff",
-    "outerPointerColor": "#287a3fff",
-    "outerFontSize": "0.72rem"
+    }
   },
   "MemoryBrowser": {
     "base": {
@@ -589,7 +595,6 @@
     }
   },
   "Form": {
-    "actionWidth": "120px",
     "base": {
       "color": "inherit",
       "background": "transparent",
@@ -633,6 +638,17 @@
       "margin": "0",
       "width": "unset",
       "height": "unset"
+    }
+  },
+  "NodeIdInput": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
     }
   },
   "ListControl": {

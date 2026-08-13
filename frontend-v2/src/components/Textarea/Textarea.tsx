@@ -1,8 +1,15 @@
-import { useRef, useState, type CSSProperties, type RefObject } from "react";
+import {
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import { Base, resolveCssValue, type BaseProps } from "../Base";
 import {
   Keyboard,
+  initialKeyboardFontStage,
   scaledFontSize,
   type KeyboardProps,
   type InputFontStage,
@@ -14,6 +21,7 @@ export type TextareaProps = Omit<BaseProps<"textarea">, "as"> & {
   fontSize?: string;
   keyboard?: boolean;
   keyboardLayout?: "inline" | "block";
+  label?: ReactNode;
   keyboardProps?: Omit<
     KeyboardProps,
     "fontStage" | "layout" | "onFontStageChange" | "targetRef"
@@ -25,6 +33,7 @@ export type TextareaProps = Omit<BaseProps<"textarea">, "as"> & {
 export function Textarea({
   componentName = "Textarea",
   controlRef,
+  defaultValue,
   fontSize,
   resize = "vertical",
   size = "standard",
@@ -32,15 +41,25 @@ export function Textarea({
   keyboardLayout = "inline",
   keyboardProps,
   inputMode,
+  label,
   className,
   margin,
   width,
   height,
+  style,
+  value,
+  onChange,
+  "aria-label": ariaLabel,
   ...props
 }: TextareaProps) {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [smartphoneKeyboardEnabled, setSmartphoneKeyboardEnabled] = useState(false);
-  const [fontStage, setFontStage] = useState<InputFontStage>("small");
+  const [fontStage, setFontStage] = useState<InputFontStage>(
+    initialKeyboardFontStage,
+  );
+  const [uncontrolledContentLength, setUncontrolledContentLength] = useState(
+    () => textLength(defaultValue),
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [controlHeight, setControlHeight] = useState<string>();
@@ -48,6 +67,11 @@ export function Textarea({
   const resolvedTextareaRef = controlRef ?? textareaRef;
   const classes = className ? `${styles.control} ${className}` : styles.control;
   const keyboardExpandsControl = keyboardVisible && keyboardLayout === "inline";
+  const resolvedFontSize = scaledFontSize(fontSize, fontStage, "medium");
+  const visibleLabel = label ?? ariaLabel;
+  const contentLength = value === undefined
+    ? uncontrolledContentLength
+    : textLength(value);
   const controlStyle = {
     width: optionalCssDimension(width),
     height: keyboardExpandsControl ? undefined : optionalCssDimension(height),
@@ -99,14 +123,27 @@ export function Textarea({
         height={keyboardLayout === "block"
           ? height
           : height === undefined || height === "unset" ? "unset" : "100%"}
-        style={{
-          ...props.style,
-          fontSize: resolveCssValue(scaledFontSize(fontSize, fontStage, "small")),
-        }}
+        style={{ ...style, fontSize: resolveCssValue(resolvedFontSize) }}
+        aria-label={ariaLabel}
         inputMode={keyboard
           ? smartphoneKeyboardEnabled ? inputMode ?? "text" : "none"
           : inputMode}
+        defaultValue={defaultValue}
+        value={value}
+        onChange={(event) => {
+          setUncontrolledContentLength(event.currentTarget.value.length);
+          onChange?.(event);
+        }}
       />
+      {visibleLabel && contentLength <= 10 && (
+        <span
+          aria-hidden="true"
+          className={styles.label}
+          style={{ fontSize: resolveCssValue(resolvedFontSize) }}
+        >
+          {visibleLabel}
+        </span>
+      )}
       {keyboard && keyboardVisible && (
         <Keyboard
           {...keyboardProps}
@@ -115,13 +152,15 @@ export function Textarea({
           onFontStageChange={setFontStage}
           onSmartphoneKeyboardRequest={() => {
             const target = resolvedTextareaRef.current;
-            setSmartphoneKeyboardEnabled(true);
+            const enabled = !smartphoneKeyboardEnabled;
+            setSmartphoneKeyboardEnabled(enabled);
             if (!target) return;
-            target.inputMode = inputMode ?? "text";
+            target.inputMode = enabled ? inputMode ?? "text" : "none";
             smartphoneKeyboardRequest.current = true;
             target.blur();
             target.focus({ preventScroll: true });
           }}
+          smartphoneKeyboardEnabled={smartphoneKeyboardEnabled}
           targetRef={resolvedTextareaRef}
         />
       )}
@@ -131,4 +170,8 @@ export function Textarea({
 
 function optionalCssDimension(value: string | undefined) {
   return value === undefined || value === "unset" ? undefined : resolveCssValue(value);
+}
+
+function textLength(value: unknown) {
+  return value === undefined || value === null ? 0 : String(value).length;
 }

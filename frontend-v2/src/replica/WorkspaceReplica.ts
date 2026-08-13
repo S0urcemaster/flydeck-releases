@@ -1,5 +1,6 @@
 import {
   createTreeNodeRequestSchema,
+  createTreeNodeLocalId,
   deleteTreeNodeRequestSchema,
   moveTreeNodeRequestSchema,
   renameTreeNodeRequestSchema,
@@ -9,6 +10,7 @@ import {
   treeLoadDtoSchema,
   treeNodeContentDtoSchema,
   updateTreeNodeContentRequestSchema,
+  updateTreeNodeLocalIdRequestSchema,
   type CreateTreeNodeRequest,
   type DeleteTreeNodeRequest,
   type MoveTreeNodeRequest,
@@ -20,9 +22,10 @@ import {
   type TreeNodeContentDto,
   type TreeNodeDto,
   type UpdateTreeNodeContentRequest,
+  type UpdateTreeNodeLocalIdRequest,
 } from "@flydeck/shared/v2";
 
-export const workspaceReplicaSchemaVersion = 1;
+export const workspaceReplicaSchemaVersion = 2;
 
 export type WorkspaceReplicaScope = {
   userId: string;
@@ -32,6 +35,7 @@ export type WorkspaceReplicaScope = {
 export type WorkspaceDataCommand =
   | { type: "create-node"; input: CreateTreeNodeRequest }
   | { type: "rename-node"; nodeId: string; input: RenameTreeNodeRequest }
+  | { type: "update-local-id"; nodeId: string; input: UpdateTreeNodeLocalIdRequest }
   | { type: "move-node"; nodeId: string; input: MoveTreeNodeRequest }
   | { type: "reparent-node"; nodeId: string; input: ReparentTreeNodeRequest }
   | { type: "delete-node"; nodeId: string; input: DeleteTreeNodeRequest }
@@ -43,6 +47,7 @@ export type WorkspaceOutboxEntry = {
   id: string;
   createdAt: string;
   attempts: number;
+  userCommandId?: string;
   command: WorkspaceDataCommand;
 };
 
@@ -140,8 +145,9 @@ export class IndexedDbWorkspaceReplicaStorage implements WorkspaceReplicaStorage
     );
     await transactionComplete(transaction);
     if (!envelope) return null;
-    assertReplicaRecord(envelope.value);
-    return clone(envelope.value);
+    const value = upgradeWorkspaceReplicaRecord(envelope.value);
+    assertReplicaRecord(value);
+    return clone(value);
   }
 
   async transact(
@@ -157,8 +163,10 @@ export class IndexedDbWorkspaceReplicaStorage implements WorkspaceReplicaStorage
       const envelope = await requestResult<IndexedDbReplicaEnvelope | undefined>(
         store.get(key),
       );
-      const current = clone(envelope?.value ?? emptyWorkspaceReplicaRecord());
-      if (envelope) assertReplicaRecord(current);
+      const current = envelope
+        ? upgradeWorkspaceReplicaRecord(clone(envelope.value))
+        : emptyWorkspaceReplicaRecord();
+      assertReplicaRecord(current);
       const next = update(current);
       assertReplicaRecord(next);
       await requestResult(store.put({ key, value: clone(next) }));
@@ -277,6 +285,7 @@ export class WorkspaceReplica {
     scope: WorkspaceReplicaScope,
     command: WorkspaceDataCommand,
     createdAt = this.now().toISOString(),
+    userCommandId = command.input.requestId,
   ) {
     const id = command.input.requestId;
     return this.storage.transact(scope, (current) => {
@@ -288,6 +297,7 @@ export class WorkspaceReplica {
           id,
           createdAt,
           attempts: 0,
+          userCommandId,
           command,
         }],
       };
@@ -343,6 +353,67 @@ function assertReplicaRecord(record: unknown): asserts record is WorkspaceReplic
   }
 }
 
+export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
+  if (!record || typeof record !== "object") return record;
+  const candidate = clone(record) as Record<string, unknown>;
+  if (candidate.schemaVersion !== 1) return candidate;
+  let localIdByNodeId = new Map<string, string>();
+  const tree = candidate.tree;
+  if (tree && typeof tree === "object") {
+    const document = (tree as Record<string, unknown>).document;
+    if (document && typeof document === "object") {
+      const nodes = (document as Record<string, unknown>).nodes;
+      if (Array.isArray(nodes)) localIdByNodeId = assignMissingLocalIds(nodes);
+    }
+  }
+  const outbox = candidate.outbox;
+  if (Array.isArray(outbox)) {
+    for (const value of outbox) {
+      if (!value || typeof value !== "object") continue;
+      const command = (value as Record<string, unknown>).command;
+      if (!command || typeof command !== "object") continue;
+      const commandRecord = command as Record<string, unknown>;
+      const input = commandRecord.input;
+      if (commandRecord.type !== "create-node"
+        || !input || typeof input !== "object") continue;
+      const inputRecord = input as Record<string, unknown>;
+      if (typeof inputRecord.localId !== "string"
+        && typeof inputRecord.label === "string") {
+        inputRecord.localId = typeof inputRecord.nodeId === "string"
+          ? localIdByNodeId.get(inputRecord.nodeId)
+            ?? createTreeNodeLocalId(inputRecord.label)
+          : createTreeNodeLocalId(inputRecord.label);
+      }
+    }
+  }
+  candidate.schemaVersion = workspaceReplicaSchemaVersion;
+  return candidate;
+}
+
+function assignMissingLocalIds(nodes: unknown[]) {
+  const records = nodes.filter((node): node is Record<string, unknown> => (
+    Boolean(node && typeof node === "object")
+  ));
+  const usedByParent = new Map<string, Set<string>>();
+  const localIdByNodeId = new Map<string, string>();
+  records.sort((left, right) => (
+    Number(left.position ?? 0) - Number(right.position ?? 0)
+  ));
+  for (const node of records) {
+    const parentKey = typeof node.parentId === "string" ? node.parentId : "";
+    const used = usedByParent.get(parentKey) ?? new Set<string>();
+    if (typeof node.localId !== "string" && typeof node.label === "string") {
+      node.localId = createTreeNodeLocalId(node.label, used);
+    }
+    if (typeof node.localId === "string") used.add(node.localId);
+    if (typeof node.id === "string" && typeof node.localId === "string") {
+      localIdByNodeId.set(node.id, node.localId);
+    }
+    usedByParent.set(parentKey, used);
+  }
+  return localIdByNodeId;
+}
+
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -373,6 +444,8 @@ function isOutboxEntry(value: unknown): value is WorkspaceOutboxEntry {
     && typeof entry.createdAt === "string"
     && Number.isInteger(entry.attempts)
     && (entry.attempts ?? -1) >= 0
+    && (entry.userCommandId === undefined
+      || typeof entry.userCommandId === "string")
     && isWorkspaceDataCommand(entry.command);
 }
 
@@ -387,6 +460,8 @@ function isWorkspaceDataCommand(value: unknown): value is WorkspaceDataCommand {
     case "create-node": return createTreeNodeRequestSchema.safeParse(command.input).success;
     case "rename-node": return hasNodeId
       && renameTreeNodeRequestSchema.safeParse(command.input).success;
+    case "update-local-id": return hasNodeId
+      && updateTreeNodeLocalIdRequestSchema.safeParse(command.input).success;
     case "move-node": return hasNodeId
       && moveTreeNodeRequestSchema.safeParse(command.input).success;
     case "reparent-node": return hasNodeId
@@ -421,6 +496,20 @@ function applyOptimisticCommand(
           ? {
             ...node,
             label: command.input.label,
+            revision: command.input.expectedRevision + 1,
+          }
+          : node),
+      },
+    }));
+    case "update-local-id": return updateDocument(current, (tree) => ({
+      ...tree,
+      document: {
+        ...tree.document,
+        revision: tree.document.revision + 1,
+        nodes: tree.document.nodes.map((node) => node.id === command.nodeId
+          ? {
+            ...node,
+            localId: command.input.localId,
             revision: command.input.expectedRevision + 1,
           }
           : node),
@@ -537,6 +626,7 @@ function optimisticCreate(
       parentId: input.parentId,
       kind: input.kind,
       label: input.label,
+      localId: input.localId,
       position,
       revision: 0,
       capabilities: {
@@ -625,6 +715,12 @@ function optimisticDelete(
     };
   }
   const position = tree.document.nodes.filter(({ parentId }) => parentId === trash.id).length;
+  const localId = createTreeNodeLocalId(
+    source.localId,
+    tree.document.nodes
+      .filter(({ parentId }) => parentId === trash.id)
+      .map((node) => node.localId),
+  );
   return {
     ...current,
     tree: {
@@ -636,6 +732,7 @@ function optimisticDelete(
           ? {
             ...node,
             parentId: trash.id,
+            localId,
             position,
             revision: node.revision + 1,
           }

@@ -1,3 +1,5 @@
+import { type ReactNode } from "react";
+
 import { Button, type ButtonProps } from "../Button";
 import styles from "./Checkbox.module.css";
 
@@ -6,12 +8,14 @@ export type CheckboxProps = Omit<
   "aria-label" | "children" | "onChange" | "onClick" | "selected"
 > & {
   checked: boolean;
+  children?: ReactNode;
   label: string;
   onChange: (checked: boolean) => void;
 };
 
 export function Checkbox({
   checked,
+  children = "·",
   label,
   onChange,
   activeColor,
@@ -28,7 +32,7 @@ export function Checkbox({
       aria-label={label}
       onClick={() => onChange(!checked)}
     >
-      <span className={styles.mark} aria-hidden="true">·</span>
+      <span className={styles.mark} aria-hidden="true">{children}</span>
     </Button>
   );
 }

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { cronTimerSchema, type CronTimer } from "@flydeck/shared/cron";
+import { createTreeNodeLocalId } from "@flydeck/shared/v2";
 import { z } from "zod";
 import type { Database } from "../db/database.js";
 
@@ -219,30 +220,38 @@ async function importDataFile(
     if (previous.rows[0]?.kind === "data-list") return false;
 
     const listNodeId = previous.rows[0]?.target_id ?? randomUUID();
+    const rootIds = await client.query<{ local_id: string }>(`
+      SELECT local_id FROM tree_nodes
+      WHERE tree_id = $1 AND parent_id IS NULL AND id <> $2
+    `, [treeId, listNodeId]);
+    const listLocalId = createTreeNodeLocalId(
+      file.title,
+      rootIds.rows.map(({ local_id }) => local_id),
+    );
     if (previous.rows[0]) {
       await client.query(`
         DELETE FROM tree_nodes WHERE parent_id = $1 AND tree_id = $2
       `, [listNodeId, treeId]);
       await client.query(`
         UPDATE tree_nodes
-        SET kind = 'data-list', label = $1,
+        SET kind = 'data-list', label = $1, local_id = $4,
             content_editable = true, list_editable = true,
             revision = revision + 1, updated_at = now()
         WHERE id = $2 AND tree_id = $3
-      `, [file.title, listNodeId, treeId]);
+      `, [file.title, listNodeId, treeId, listLocalId]);
     } else {
       await client.query(`
         INSERT INTO tree_nodes (
-          id, tree_id, parent_id, kind, label, position,
+          id, tree_id, parent_id, kind, label, local_id, position,
           content_editable, list_editable
         ) VALUES (
-          $1, $2, NULL, 'data-list', $3,
+          $1, $2, NULL, 'data-list', $3, $4,
           COALESCE((
             SELECT MAX(position) + 1 FROM tree_nodes
             WHERE tree_id = $2 AND parent_id IS NULL
           ), 0), true, true
         )
-      `, [listNodeId, treeId, file.title]);
+      `, [listNodeId, treeId, file.title, listLocalId]);
     }
     await client.query(`
       INSERT INTO node_contents (node_id, format, content)
@@ -252,17 +261,23 @@ async function importDataFile(
           revision = node_contents.revision + 1, updated_at = now()
     `, [listNodeId, file.title]);
 
+    if (file.entries.length > 99) {
+      throw new Error(`DATA list exceeds 99 items in ${file.sourceKey}`);
+    }
+    const entryLocalIds = new Set<string>();
     for (const [position, entry] of file.entries.entries()) {
       if (entry.length > 200) {
         throw new Error(`DATA entry is too long for a title in ${file.sourceKey}`);
       }
       const entryNodeId = randomUUID();
+      const entryLocalId = createTreeNodeLocalId(entry, entryLocalIds);
+      entryLocalIds.add(entryLocalId);
       await client.query(`
         INSERT INTO tree_nodes (
-          id, tree_id, parent_id, kind, label, position,
+          id, tree_id, parent_id, kind, label, local_id, position,
           content_editable, list_editable
-        ) VALUES ($1, $2, $3, 'data-item', $4, $5, true, true)
-      `, [entryNodeId, treeId, listNodeId, entry, position]);
+        ) VALUES ($1, $2, $3, 'data-item', $4, $5, $6, true, true)
+      `, [entryNodeId, treeId, listNodeId, entry, entryLocalId, position]);
       await client.query(`
         INSERT INTO node_contents (node_id, format, content)
         VALUES ($1, 'text', $2)

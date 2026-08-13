@@ -9,6 +9,11 @@ describe("CronModule", () => {
 
     expect(markup).toContain('aria-label="Cron module"');
     expect(markup).toContain('aria-label="Cron dialer"');
-    expect(markup).not.toContain('aria-label="Color dialer"');
+    expect(markup).toContain(">SCALE</button>");
+    expect(markup).toContain(">SEND</button>");
+    expect(markup).toContain(">RANGE</button>");
+    expect(markup).toContain(">ZOOM</button>");
+    expect(markup.match(/data-component-name="DialerButton"/g)).toHaveLength(4);
+    expect(markup.match(/data-component-name="DialerCenterButton"/g)).toHaveLength(1);
   });
 });

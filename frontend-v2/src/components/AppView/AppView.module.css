@@ -1,25 +1,8 @@
 .root {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   min-width: 0;
-  min-height: calc(var(--space-lg) * 14);
-  max-height: calc(var(--space-lg) * 14);
   gap: var(--app-section-gap);
-  overflow: hidden;
-}
-
-.root[data-app-height="M"] {
-  min-height: calc(var(--space-lg) * 28);
-  max-height: calc(var(--space-lg) * 28);
-}
-
-.root[data-app-height="L"] {
-  min-height: calc(var(--space-lg) * 42);
-  max-height: calc(var(--space-lg) * 42);
-}
-
-.root:has([data-keyboard-visible]) {
-  max-height: none;
   overflow: visible;
 }
 
@@ -48,9 +31,5 @@
 .content {
   min-width: 0;
   min-height: 0;
-  overflow: auto;
-}
-
-.content:has([data-keyboard-visible]) {
   overflow: visible;
 }
