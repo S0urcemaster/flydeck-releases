@@ -8,12 +8,14 @@ Your agent should be able to connect it
 
 ## Releases
 
-### 13.08.026 10:30 Pre-Release V2 ()
-
+### 13.08.026 10:30 Pre-Release V2 (bb8655b68767)
+- Fixes
+- New Cron
 
 ### 11.08.026 19:15 Pre-Release V2 (191e9014c723)
-Cache
-Keyboard
+- Cache
+- Keyboard
+
 ![alt text](releases/02608111915/sc1.png)
 
 ### 08.08.026 14:45 Pre-Release V2 (09c218df5e08)
