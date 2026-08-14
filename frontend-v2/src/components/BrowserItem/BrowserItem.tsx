@@ -107,9 +107,18 @@ export function BrowserItem({
             activeColor={activeColor}
             background={background}
             selected={selected}
+            onPointerDown={(event) => {
+              const configuredPointerDown = labelButtonProps?.onPointerDown
+                ?? buttonProps?.onPointerDown;
+              configuredPointerDown?.(event);
+              stopRowClick(event);
+              if (!event.defaultPrevented && event.isPrimary && event.button === 0) {
+                onSelect?.();
+              }
+            }}
             onClick={(event) => {
               stopRowClick(event);
-              onSelect?.();
+              if (event.detail === 0) onSelect?.();
             }}
           >
             {label}

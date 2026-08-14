@@ -39,12 +39,12 @@ describe("Textarea", () => {
     expect(markup).toContain('inputMode="none"');
   });
 
-  it("hides its embedded label after ten content characters", () => {
+  it("hides its embedded label after eight content characters", () => {
     expect(renderToStaticMarkup(
-      <Textarea aria-label="Desc" defaultValue="1234567890" />,
+      <Textarea aria-label="Desc" defaultValue="12345678" />,
     )).toContain(">Desc</span>");
     expect(renderToStaticMarkup(
-      <Textarea aria-label="Desc" defaultValue="12345678901" />,
+      <Textarea aria-label="Desc" defaultValue="123456789" />,
     )).not.toContain(">Desc</span>");
   });
 });

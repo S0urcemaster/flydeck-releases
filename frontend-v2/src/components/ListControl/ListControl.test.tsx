@@ -15,7 +15,7 @@ describe("ListControl", () => {
         itemNames={["Alpha", "Beta"]}
         selectedName="Alpha"
         page={0}
-        pageSize={5}
+        pageSize={6}
         onNew={() => undefined}
         onPageChange={() => undefined}
         onPageSizeChange={() => undefined}
@@ -35,6 +35,9 @@ describe("ListControl", () => {
     expect(markup.indexOf("Previous page")).toBeLessThan(
       markup.indexOf("Next page"),
     );
+    expect(markup.indexOf("Next page")).toBeLessThan(
+      markup.indexOf("List size M"),
+    );
   });
 
   it("only accepts a non-empty, unique name", () => {
@@ -53,7 +56,7 @@ describe("ListControl", () => {
         itemLimit={1}
         itemNames={["Fixed"]}
         page={0}
-        pageSize={5}
+        pageSize={6}
         onNew={() => undefined}
         onPageChange={() => undefined}
         onPageSizeChange={() => undefined}
@@ -62,5 +65,22 @@ describe("ListControl", () => {
 
     expect(markup).toContain('aria-label="New item name"');
     expect(markup).toContain("disabled");
+  });
+
+  it("can delegate its list-size button to the list owner", () => {
+    const markup = renderToStaticMarkup(
+      <ListControl
+        showListSizeButton={false}
+        itemCount={0}
+        itemNames={[]}
+        page={0}
+        pageSize={6}
+        onPageChange={() => undefined}
+        onPageSizeChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('data-list-size-button="external"');
+    expect(markup).not.toContain('data-component-name="ListControlListSizeButton"');
   });
 });

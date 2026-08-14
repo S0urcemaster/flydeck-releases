@@ -19,7 +19,7 @@ describe("NodeIdInput", () => {
 
     expect(markup).toContain('data-component-name="NodeIdInput"');
     expect(markup).toContain('aria-label="Item ID"');
-    expect(markup).toContain('maxLength="12"');
+    expect(markup).not.toContain('maxLength=');
     expect(markup).toContain('font-size:19px');
     expect(markup).toContain('background:var(--color-surface)');
   });

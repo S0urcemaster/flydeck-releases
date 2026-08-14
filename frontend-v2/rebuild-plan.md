@@ -378,9 +378,10 @@ Tree and content tables:
 Use an integer `position` initially and reorder siblings in one transaction.
 Only adopt fractional ordering if measurements show that whole-sibling updates
 are a problem. A recursive CTE can validate paths and subtree operations.
-The UUID `id` remains the immutable relationship key. `local_id` is a maximum
-12-character, sibling-unique user address with separate unique indexes for root
-and nested lists. User-facing parent and data-source paths resolve `local_id`
+The UUID `id` remains the immutable relationship key. `local_id` is a
+sibling-unique user address with separate unique indexes for root and nested
+lists. Generated IDs are short, while manually chosen IDs may be longer.
+User-facing parent and data-source paths resolve `local_id`
 segments, so label edits never invalidate them.
 
 Chat tables:

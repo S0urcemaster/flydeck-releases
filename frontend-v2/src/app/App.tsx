@@ -111,6 +111,10 @@ export function App() {
   const unlockButtonTimeout = parseCssMilliseconds(
     effectiveThemeVariables["--unlock-button-timeout"],
   ) ?? generatedActiveThemeTokens.unlockButtonTimeout;
+  const listControlOrientation: "top" | "bottom" =
+    effectiveThemeVariables["--listcontrol-orientation"] === "top"
+      ? "top"
+      : "bottom";
   const titleBase = resolveBaseProperties(properties.AppTitle.base);
   const backgroundLogoBase = resolveBaseProperties(
     properties.BackgroundLogo.base,
@@ -375,6 +379,7 @@ export function App() {
     textareaProps: configuredTextareaProps,
   };
   const sharedTreeChildProps = {
+    listControlOrientation,
     browserItemProps: {
       ...browserItemBase,
       buttonProps: {

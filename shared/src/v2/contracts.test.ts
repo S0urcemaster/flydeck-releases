@@ -7,6 +7,7 @@ import {
   reparentTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
   treeDocumentDtoSchema,
+  treeNodeLocalIdSchema,
 } from "./index.js";
 
 const firstId = "00000000-0000-4000-8000-000000000001";
@@ -19,6 +20,10 @@ describe("V2 network contracts", () => {
       "Ein sehr langer Eintrag",
       ["ein-sehr-lan"],
     )).toBe("ein-sehr-l-2");
+  });
+
+  it("accepts manually chosen tree IDs longer than the generated default", () => {
+    expect(treeNodeLocalIdSchema.safeParse("haushaltsbuch").success).toBe(true);
   });
 
   it("accepts a compact flat initial tree document", () => {

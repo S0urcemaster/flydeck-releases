@@ -139,7 +139,7 @@ export function Input({
         }}
         type={type}
       />
-      {visibleLabel && contentLength <= 10 && (
+      {visibleLabel && contentLength <= 8 && (
         <span
           aria-hidden="true"
           className={styles.label}

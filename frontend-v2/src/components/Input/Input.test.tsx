@@ -26,12 +26,12 @@ describe("Input", () => {
     expect(markup).toContain('inputMode="none"');
   });
 
-  it("hides its embedded label after ten content characters", () => {
+  it("hides its embedded label after eight content characters", () => {
     expect(renderToStaticMarkup(
-      <Input aria-label="Name" value="1234567890" readOnly />,
+      <Input aria-label="Name" value="12345678" readOnly />,
     )).toContain(">Name</span>");
     expect(renderToStaticMarkup(
-      <Input aria-label="Name" value="12345678901" readOnly />,
+      <Input aria-label="Name" value="123456789" readOnly />,
     )).not.toContain(">Name</span>");
   });
 });

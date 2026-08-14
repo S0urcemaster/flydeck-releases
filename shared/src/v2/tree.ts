@@ -7,7 +7,6 @@ export const treeNodeLabelSchema = z.string().trim().min(1).max(200);
 export const treeNodeLocalIdSchema = z.string()
   .trim()
   .min(1)
-  .max(12)
   .regex(/^[a-z0-9_-]+$/);
 
 export function createTreeNodeLocalId(

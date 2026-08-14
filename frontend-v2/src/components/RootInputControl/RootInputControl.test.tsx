@@ -25,7 +25,7 @@ describe("RootInputControl", () => {
 
     expect(markup).toContain('aria-label="Root node"');
     expect(markup).toContain('value=""');
-    expect(markup).toContain('placeholder="Set parent path (empty for root)"');
+    expect(markup).toContain('placeholder="empty = root"');
     expect(markup).toContain("background:transparent;border:0");
     expect(markup).toContain("color:var(--color-success)");
     expect(markup).not.toContain('aria-label="Send root"');

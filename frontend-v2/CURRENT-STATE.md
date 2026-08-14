@@ -173,8 +173,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - Every shared DATA mutation contract now carries a UUID request ID, including
   create, rename, move, reparent, delete, enabled state, selection, and content.
   Create additionally carries its client-assigned node UUID and sibling-local
-  12-character `localId`, so an offline item has both a stable internal identity
-  and a short address before server contact. Backend tree routes execute
+  short generated `localId`, so an offline item has both a stable internal identity
+  and an address before server contact; users may later choose a longer ID. Backend tree routes execute
   each non-create command through a transaction-scoped idempotency boundary;
   mutation and recorded response commit atomically, repeated IDs replay the
   original response, and cross-operation ID reuse is rejected. Create retains

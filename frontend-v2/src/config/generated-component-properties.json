@@ -91,7 +91,7 @@
       "border": "inherit",
       "padding": "inherit",
       "margin": "inherit",
-      "width": "inherit",
+      "width": "BUTTON_WIDTH",
       "height": "inherit"
     }
   },

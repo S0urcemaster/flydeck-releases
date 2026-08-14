@@ -4,7 +4,7 @@ import {
   type ClientStateStore,
 } from "../../state";
 
-export type TreeBrowserPageSize = 3 | 5 | 9;
+export type TreeBrowserPageSize = 3 | 6 | 9 | 12;
 
 export type TreeBrowserModelNode<TData = unknown> = {
   id: string;
@@ -81,7 +81,7 @@ type StoredTreeBrowserModel = {
     "contentVisibleByNodeId" | "pageSizes"
   > & {
     contentVisibleByNodeId?: Record<string, boolean>;
-    pageSizes: Record<string, TreeBrowserPageSize | 10>;
+    pageSizes: Record<string, TreeBrowserPageSize | 5 | 10>;
   };
 };
 
@@ -100,7 +100,7 @@ type LegacyStoredTreeBrowserModel = {
   version: 1;
   nodes: LegacyStoredNode[];
   pages: Record<string, number>;
-  pageSizes: Record<string, TreeBrowserPageSize | 10>;
+  pageSizes: Record<string, TreeBrowserPageSize | 5 | 10>;
   selectedPath: string[];
 };
 
@@ -498,15 +498,16 @@ function isPageSizeRecord(
 ): value is Record<string, TreeBrowserPageSize> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
     && Object.values(value as Record<string, unknown>).every(
-      (size) => size === 3 || size === 5 || size === 9 || size === 10,
+      (size) => size === 3 || size === 5 || size === 6
+        || size === 9 || size === 10 || size === 12,
     );
 }
 
 function normalizePageSizes(
-  pageSizes: Record<string, TreeBrowserPageSize | 10>,
+  pageSizes: Record<string, TreeBrowserPageSize | 5 | 10>,
 ): Record<string, TreeBrowserPageSize> {
   return Object.fromEntries(Object.entries(pageSizes).map(([id, size]) => [
     id,
-    size === 10 ? 9 : size,
+    size === 5 ? 6 : size === 10 ? 12 : size,
   ]));
 }

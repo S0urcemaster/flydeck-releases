@@ -19,6 +19,9 @@ export class WorkspaceSyncEngine {
     private readonly api: V2ApiClient,
     private readonly status: WorkspaceSyncStatusStore,
     listensToBrowser = true,
+    private readonly reloadPage: () => void = () => {
+      if (typeof window !== "undefined") window.location.reload();
+    },
   ) {
     if (listensToBrowser && typeof window !== "undefined") {
       window.addEventListener("online", () => {
@@ -102,6 +105,18 @@ export class WorkspaceSyncEngine {
           if (!record) return false;
           this.status.setPendingCount(key, record.outbox.length);
           continue;
+        }
+        if (isRevisionConflict(error)) {
+          try {
+            const confirmed = await this.api.loadDataTree(scope.workspaceId);
+            await this.replica.resetToServerTree(scope, confirmed);
+            this.status.setPendingCount(key, 0);
+            this.status.markOnline();
+            this.reloadPage();
+            return true;
+          } catch {
+            return false;
+          }
         }
         if (error instanceof V2ApiError) {
           const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
@@ -192,6 +207,11 @@ function isDiscardableSelectionConflict(
 ) {
   return command.type === "set-selection"
     && error instanceof V2ApiError
+    && error.response.error === "REVISION_CONFLICT";
+}
+
+function isRevisionConflict(error: unknown) {
+  return error instanceof V2ApiError
     && error.response.error === "REVISION_CONFLICT";
 }
 

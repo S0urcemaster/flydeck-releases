@@ -16,6 +16,7 @@ import {
   keyboardLetterDialOptions,
   keyboardKeys,
   lockKeyboardShift,
+  mergeSpeechSegments,
   nextEmojiKeyboardLayout,
   nextKeyboardLayout,
   periodDialCharacters,
@@ -65,6 +66,9 @@ describe("Keyboard", () => {
     expect(markup).toContain('aria-label="Space"');
     expect(markup).toContain('aria-label="Period, colon, or semicolon"');
     expect(markup).toContain('aria-label="Enter"');
+    expect(markup).toContain('aria-label="Start dictation"');
+    expect(markup).toContain('background:var(--color-speech)');
+    expect(markup).not.toContain("MIC</button>");
     expect(markup).toContain(">↵</button>");
     expect(markup).toContain("a <small>ä</small>");
     expect(markup).toContain("o <small>ö</small>");
@@ -131,8 +135,19 @@ describe("Keyboard", () => {
 
     expect(markup).toContain('aria-label="Create value"');
     expect(markup).toContain('aria-label="Save value"');
-    expect(markup.indexOf('aria-label="Show smartphone keyboard"'))
+    expect(markup.indexOf('aria-label="Start dictation"'))
       .toBeLessThan(markup.indexOf('aria-label="Create value"'));
+  });
+
+  it("deduplicates cumulative speech recognition results", () => {
+    expect(mergeSpeechSegments(["Das ist gut", "Das ist gut."]))
+      .toBe("Das ist gut.");
+    expect(mergeSpeechSegments([
+      "Heute ist es schön",
+      "Heute ist das Wetter schön.",
+    ])).toBe("Heute ist das Wetter schön.");
+    expect(mergeSpeechSegments(["Heute ist Montag.", "Morgen ist Dienstag."]))
+      .toBe("Heute ist Montag. Morgen ist Dienstag.");
   });
 
   it("expands a word selection repeatedly toward the next word", () => {

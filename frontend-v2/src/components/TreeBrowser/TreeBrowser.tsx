@@ -4,7 +4,10 @@ import { createTreeNodeLocalId } from "@flydeck/shared/v2";
 import { Base, resolveCssValue, type BaseStyleProps } from "../Base";
 import { BrowserItem, type BrowserItemProps } from "../BrowserItem";
 import { ListControl, type ListControlProps } from "../ListControl";
-import type { ListControlListSize } from "../ListControlListSizeButton";
+import {
+  ListControlListSizeButton,
+  type ListControlListSize,
+} from "../ListControlListSizeButton";
 import {
   TreeBrowserModel,
   createTreeBrowserSnapshot,
@@ -58,6 +61,7 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   browserLabel?: string;
   defaultPageSize?: ListControlListSize;
   rootPageSize?: ListControlListSize;
+  listControlOrientation?: "top" | "bottom";
   model: TreeBrowserModel<TContent>;
   rootListEditable?: boolean;
   rootListItemLimit?: number;
@@ -139,6 +143,7 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     | "onPageSizeChange"
     | "page"
     | "pageSize"
+    | "showListSizeButton"
     | "selectedName"
   >;
 };
@@ -148,8 +153,9 @@ const rootId = "__tree_root__";
 export function TreeBrowser<TContent = unknown>({
   componentName = "TreeBrowser",
   browserLabel = "Tree browser",
-  defaultPageSize = 5,
+  defaultPageSize = 6,
   rootPageSize = defaultPageSize,
+  listControlOrientation = "top",
   model,
   rootListEditable = true,
   rootListItemLimit,
@@ -232,19 +238,28 @@ export function TreeBrowser<TContent = unknown>({
     if (onSelectedPathChange) {
       if (selectionPending.current) return;
       selectionPending.current = true;
+      const previousPath = selectedPath;
+      const previousActionSelection = actionSelectionByListId;
+      setSelectedPath(nextPath);
+      setActionSelectionByListId((current) => resetActionSelection(
+        current,
+        nextPath,
+        depth,
+        parentId,
+        id,
+      ));
       try {
         const confirmed = await onSelectedPathChange(nextPath);
-        if (confirmed !== false) {
-          setSelectedPath(nextPath);
-          setActionSelectionByListId((current) => resetActionSelection(
-            current,
-            nextPath,
-            depth,
-            parentId,
-            id,
-          ));
+        if (confirmed === false) {
+          setSelectedPath(previousPath);
+          setActionSelectionByListId(previousActionSelection);
+        } else {
           setDefaultMode(id);
         }
+      } catch (error) {
+        setSelectedPath(previousPath);
+        setActionSelectionByListId(previousActionSelection);
+        throw error;
       } finally {
         selectionPending.current = false;
       }
@@ -486,13 +501,7 @@ export function TreeBrowser<TContent = unknown>({
       setRevision((current) => current + 1);
     }
 
-    return (
-      <section
-        className={styles.level}
-        style={{ rowGap: resolveCssValue(rowGap) }}
-        aria-label={depth === 0 ? "Root children" : `Children of ${parentId}`}
-        key={`${parentId}-${depth}`}
-      >
+    const listControl = (
         <ListControl
           {...listControlProps}
           itemCount={nodes.length}
@@ -500,6 +509,7 @@ export function TreeBrowser<TContent = unknown>({
           selectedName={selectedNode?.label}
           page={page}
           pageSize={pageSize}
+          showListSizeButton={false}
           editable={listEditable}
           itemLimit={effectiveListItemLimit}
           onNew={listEditable && canCreateNode(parentId) ? addNode : undefined}
@@ -526,6 +536,39 @@ export function TreeBrowser<TContent = unknown>({
             setPages((current) => ({ ...current, [parentId]: nextPage }));
           }}
         />
+    );
+    const configuredListSizeClassName =
+      listControlProps?.listSizeButtonProps?.className;
+    const listSizeButton = (
+      <ListControlListSizeButton
+        {...listControlProps?.buttonProps}
+        {...listControlProps?.listSizeButtonProps}
+        className={configuredListSizeClassName
+          ? `${configuredListSizeClassName} ${styles.listSizeSeparator}`
+          : styles.listSizeSeparator}
+        fontSize="0"
+        height="10px"
+        padding="0"
+        width="100%"
+        pageSize={pageSize}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSizes((current) => ({
+            ...current,
+            [parentId]: nextPageSize,
+          }));
+          setPages((current) => ({ ...current, [parentId]: 0 }));
+        }}
+      />
+    );
+
+    return (
+      <section
+        className={styles.level}
+        style={{ rowGap: resolveCssValue(rowGap) }}
+        aria-label={depth === 0 ? "Root children" : `Children of ${parentId}`}
+        key={`${parentId}-${depth}`}
+      >
+        {listControlOrientation === "top" ? listControl : null}
         <div
           className={styles.list}
           style={{ rowGap: resolveCssValue(rowGap) }}
@@ -589,6 +632,8 @@ export function TreeBrowser<TContent = unknown>({
             ),
           )}
         </div>
+        {listControlOrientation === "bottom" ? listControl : null}
+        {listSizeButton}
         {selectedNode
           ? (contentVisibleByNodeId[selectedNode.id] ?? false)
             ? renderContent?.({

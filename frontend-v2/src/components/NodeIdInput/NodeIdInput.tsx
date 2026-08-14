@@ -58,7 +58,6 @@ export function NodeIdInput({
         ...inputProps,
         "aria-label": inputProps?.["aria-label"] ?? "Item ID",
         label: inputProps?.label ?? "ID",
-        maxLength: 12,
         placeholder: inputProps?.placeholder ?? "ID",
       }}
       keyboardLayout="block"

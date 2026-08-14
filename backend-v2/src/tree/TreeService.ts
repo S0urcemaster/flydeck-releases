@@ -895,7 +895,10 @@ function assertRevision(current: string | number, expected: number, resource: st
 }
 
 function throwRevisionConflict(resource: string, current: string | number): never {
-  throw new HttpError(409, "REVISION_CONFLICT", `${resource} was changed by another request`, {
+  const message = resource === "Tree"
+    ? "The tree was changed in another browser : please reload"
+    : `${resource} was changed by another request`;
+  throw new HttpError(409, "REVISION_CONFLICT", message, {
     currentRevision: Number(current),
   });
 }

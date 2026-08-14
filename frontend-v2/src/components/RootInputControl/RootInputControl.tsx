@@ -67,7 +67,7 @@ export function RootInputControl({
         label={label}
         color={target ? "COLOR_SUCCESS" : "COLOR_ERROR"}
         keyboardLayout="block"
-        placeholder="Set parent path (empty for root)"
+        placeholder="empty = root"
         type="text"
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}

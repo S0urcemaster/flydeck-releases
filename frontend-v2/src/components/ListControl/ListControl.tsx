@@ -22,6 +22,7 @@ import styles from "./ListControl.module.css";
 
 export type ListControlProps = BaseStyleProps & {
   editable?: boolean;
+  showListSizeButton?: boolean;
   itemCount: number;
   itemLimit?: number;
   itemNames: readonly string[];
@@ -65,6 +66,7 @@ export type ListControlProps = BaseStyleProps & {
 
 export function ListControl({
   editable = true,
+  showListSizeButton = true,
   itemCount,
   itemLimit,
   itemNames,
@@ -135,14 +137,8 @@ export function ListControl({
       background={background}
       border={border}
       aria-label={`${pageSize} items per page`}
+      data-list-size-button={showListSizeButton ? "inline" : "external"}
     >
-      <ListControlListSizeButton
-        {...buttonProps}
-        {...listSizeButtonProps}
-        className={styles.status}
-        pageSize={pageSize}
-        onPageSizeChange={onPageSizeChange}
-      />
       <InputControl
         control="input"
         keyboardLayout="block"
@@ -228,6 +224,15 @@ export function ListControl({
           </>
         )}
       </div>
+      {showListSizeButton && (
+        <ListControlListSizeButton
+          {...buttonProps}
+          {...listSizeButtonProps}
+          className={styles.status}
+          pageSize={pageSize}
+          onPageSizeChange={onPageSizeChange}
+        />
+      )}
     </Base>
   );
 }

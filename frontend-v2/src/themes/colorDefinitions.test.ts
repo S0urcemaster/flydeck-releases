@@ -19,6 +19,7 @@ describe("theme color definitions", () => {
 
     expect(values?.accentTwo).toBe("#aabbcc80");
     expect(renderColors(values!)).toContain("--color-accent-two: #aabbcc80;");
+    expect(renderColors(values!)).toContain("--color-speech: #f2b36fff;");
   });
 
   it("rejects incomplete maps and non-RGB values", () => {

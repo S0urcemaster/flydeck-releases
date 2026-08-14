@@ -234,6 +234,19 @@ export class WorkspaceReplica {
     }));
   }
 
+  resetToServerTree(scope: WorkspaceReplicaScope, tree: TreeLoadDto) {
+    if (tree.document.workspaceId !== scope.workspaceId) {
+      throw new Error("Workspace replica received a tree from another workspace");
+    }
+    return this.storage.transact(scope, (current) => ({
+      ...current,
+      tree,
+      contents: {},
+      outbox: [],
+      lastServerSyncAt: this.now().toISOString(),
+    }));
+  }
+
   putContent(scope: WorkspaceReplicaScope, content: TreeNodeContentDto) {
     return this.putContents(scope, [content]);
   }

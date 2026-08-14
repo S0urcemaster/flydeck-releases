@@ -309,7 +309,7 @@ const storedComponentProperties = requireComponentPropertiesConfig(
 
 export function LabApp() {
   const [listControlPreviewPageSize, setListControlPreviewPageSize] =
-    useState<ListControlListSize>(5);
+    useState<ListControlListSize>(6);
   const [selectedComponent, setSelectedComponent] =
     useState<LabComponentName>(() => readSelectedAppComponent());
   const [selectedThemeId, setSelectedThemeId] =

@@ -177,6 +177,68 @@ describe("WorkspaceSyncEngine", () => {
     expect(status.getSnapshot()).toEqual({ state: "idle" });
     expect(status.getActivitySnapshot()).toEqual({ message: "queue saved" });
   });
+
+  it("discards the local replica and reloads after a tree revision conflict", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const stale = tree("Stale", 0, 1);
+    const confirmed = tree("Server", 2, 3);
+    await replica.replaceTree(scope, stale);
+    await replica.putContent(scope, {
+      nodeId,
+      format: "markdown",
+      content: "Local only",
+      revision: 1,
+    });
+    await replica.enqueue(scope, {
+      type: "move-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000010",
+        afterNodeId: null,
+        expectedTreeRevision: 1,
+      },
+    });
+    await replica.enqueue(scope, {
+      type: "rename-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000011",
+        label: "Never dispatched",
+        expectedRevision: 1,
+      },
+    });
+    const renameDataNode = vi.fn();
+    const api = {
+      moveDataNode: vi.fn().mockRejectedValue(new V2ApiError({
+        error: "REVISION_CONFLICT",
+        message: "The tree was changed in another browser : please reload",
+        requestId: "request-2",
+        currentRevision: 3,
+      })),
+      renameDataNode,
+      loadDataTree: vi.fn().mockResolvedValue(confirmed),
+    } as unknown as V2ApiClient;
+    const status = new WorkspaceSyncStatusStore(false);
+    const reloadPage = vi.fn();
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      status,
+      false,
+      reloadPage,
+    );
+
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(renameDataNode).not.toHaveBeenCalled();
+    expect(await replica.load(scope)).toMatchObject({
+      tree: confirmed,
+      contents: {},
+      outbox: [],
+    });
+    expect(status.getSnapshot()).toEqual({ state: "idle" });
+    expect(reloadPage).toHaveBeenCalledOnce();
+  });
 });
 
 function tree(

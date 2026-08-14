@@ -36,16 +36,44 @@ describe("TreeBrowser", () => {
     expect(insertAt(["A", "C"], 1, "B")).toEqual(["A", "B", "C"]);
   });
 
-  it("renders one fixed five-item level until an item is selected", () => {
+  it("renders one fixed six-item level until an item is selected", () => {
     const markup = renderToStaticMarkup(
       <TreeBrowser model={createModel()} rowGap="SPACE_XS" />,
     );
 
     expect(markup).toContain('aria-label="Tree browser"');
     expect(markup).toContain('aria-label="Root children"');
-    expect(markup).toContain(">5</button>");
+    expect(markup).toContain(">M</button>");
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).not.toContain("Children of plants");
+  });
+
+  it("places list controls above or below their list", () => {
+    const topMarkup = renderToStaticMarkup(
+      <TreeBrowser
+        listControlOrientation="top"
+        model={createModel()}
+      />,
+    );
+    const bottomMarkup = renderToStaticMarkup(
+      <TreeBrowser
+        listControlOrientation="bottom"
+        model={createModel()}
+      />,
+    );
+    const control = 'data-component-name="ListControl"';
+    const item = 'data-component-name="BrowserItem"';
+    const separator = 'data-component-name="ListControlListSizeButton"';
+
+    expect(topMarkup.indexOf(control)).toBeLessThan(topMarkup.indexOf(item));
+    expect(bottomMarkup.indexOf(control)).toBeGreaterThan(bottomMarkup.indexOf(item));
+    expect(topMarkup.indexOf(separator)).toBeGreaterThan(topMarkup.indexOf(item));
+    expect(bottomMarkup.indexOf(separator)).toBeGreaterThan(
+      bottomMarkup.indexOf(control),
+    );
+    expect(bottomMarkup).toContain("width:100%");
+    expect(bottomMarkup).toContain("height:10px");
+    expect(bottomMarkup).toContain("font-size:0");
   });
 
   it("checks the active item when a row is initially selected", () => {
@@ -76,7 +104,9 @@ describe("TreeBrowser", () => {
       />,
     );
 
-    expect(markup.match(/border:0/g)).toHaveLength(5);
+    expect(markup.match(
+      /<span[^>]*border:0[^>]*aria-hidden="true"/g,
+    )).toHaveLength(5);
   });
 
   it("updates arbitrary tree levels", () => {

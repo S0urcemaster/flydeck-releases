@@ -11,6 +11,7 @@
       "item": "#e4e3e2ff",
       "accentOne": "#2468b2ff",
       "accentTwo": "#287a3fff",
+      "speech": "#f2b36fff",
       "success": "#287a3fff",
       "error": "#a52b2bff"
     },
@@ -24,6 +25,7 @@
       "item": "#d9e1dfff",
       "accentOne": "#4da5dbff",
       "accentTwo": "#58b957ff",
+      "speech": "#f2b36fff",
       "success": "#58b957ff",
       "error": "#fc512bff"
     },
@@ -37,6 +39,7 @@
       "item": "#dddddaff",
       "accentOne": "#555555ff",
       "accentTwo": "#777777ff",
+      "speech": "#f2b36fff",
       "success": "#707070ff",
       "error": "#303030ff"
     }
@@ -52,7 +55,8 @@
       "longPressTimeout": 500,
       "unlockButtonTimeout": 800,
       "radiusControl": 13,
-      "borderStandard": "1px solid COLOR_BORDER"
+      "borderStandard": "1px solid COLOR_BORDER",
+      "listControlOrientation": "bottom"
     },
     "flydeck-v1": {
       "appMaxWidth": 520,
@@ -64,7 +68,8 @@
       "longPressTimeout": 500,
       "unlockButtonTimeout": 800,
       "radiusControl": 3,
-      "borderStandard": "1px solid COLOR_BORDER"
+      "borderStandard": "1px solid COLOR_BORDER",
+      "listControlOrientation": "bottom"
     },
     "greyscale": {
       "appMaxWidth": 520,
@@ -76,7 +81,8 @@
       "longPressTimeout": 500,
       "unlockButtonTimeout": 500,
       "radiusControl": 3,
-      "borderStandard": "1px solid COLOR_BORDER"
+      "borderStandard": "1px solid COLOR_BORDER",
+      "listControlOrientation": "bottom"
     }
   }
 }

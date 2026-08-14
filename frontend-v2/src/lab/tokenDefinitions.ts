@@ -9,6 +9,7 @@ export type LabTokenValues = {
   unlockButtonTimeout: number;
   radiusControl: number;
   borderStandard: string;
+  listControlOrientation: "top" | "bottom";
 };
 
 type NumberTokenDefinition = {
@@ -30,7 +31,19 @@ type CssTokenDefinition = {
   defaultValue: string;
 };
 
-type LabTokenDefinition = NumberTokenDefinition | CssTokenDefinition;
+type ChoiceTokenDefinition = {
+  kind: "choice";
+  cssName: string;
+  label: string;
+  description: string;
+  values: readonly string[];
+  defaultValue: string;
+};
+
+type LabTokenDefinition =
+  | NumberTokenDefinition
+  | CssTokenDefinition
+  | ChoiceTokenDefinition;
 
 export const labTokenDefinitions: {
   [Name in keyof LabTokenValues]: LabTokenDefinition;
@@ -52,6 +65,14 @@ export const labTokenDefinitions: {
       '<0..8>px <solid|dashed|dotted|double> <COLOR_TOKEN|hex>; example:'
       + " 1px solid COLOR_BORDER",
     defaultValue: "1px solid COLOR_BORDER",
+  },
+  listControlOrientation: {
+    kind: "choice",
+    cssName: "--listcontrol-orientation",
+    label: "List control orientation",
+    description: "top | bottom",
+    values: ["top", "bottom"],
+    defaultValue: "bottom",
   },
 };
 
@@ -96,6 +117,9 @@ export function parseLabTokenValues(input: unknown): LabTokenValues | null {
         return null;
       }
       if (name === "borderStandard" && !isBorderStandard(value)) {
+        return null;
+      }
+      if (definition.kind === "choice" && !definition.values.includes(value)) {
         return null;
       }
     }

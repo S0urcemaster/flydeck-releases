@@ -20,6 +20,11 @@ export const colorDefinitions = {
     label: "Accent two",
     defaultValue: "#287a3fff",
   },
+  speech: {
+    cssName: "--color-speech",
+    label: "Speech input",
+    defaultValue: "#f2b36fff",
+  },
   success: { cssName: "--color-success", label: "Success", defaultValue: "#287a3fff" },
   error: { cssName: "--color-error", label: "Error", defaultValue: "#a52b2bff" },
 } as const;
@@ -34,6 +39,7 @@ export const greyscaleColorValues: ColorValues = {
   item: "#dddddaff",
   accentOne: "#555555ff",
   accentTwo: "#777777ff",
+  speech: "#f2b36fff",
   success: "#707070ff",
   error: "#303030ff",
 };
@@ -48,6 +54,7 @@ export const flydeckV1ColorValues: ColorValues = {
   item: "#d9e1dfff",
   accentOne: "#4da5dbff",
   accentTwo: "#58b957ff",
+  speech: "#f2b36fff",
   success: "#58b957ff",
   error: "#fc512bff",
 };

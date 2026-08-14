@@ -1,8 +1,9 @@
-import { useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Keyboard as KeyboardIcon,
+  Mic,
   Space,
 } from "lucide-react";
 
@@ -12,6 +13,7 @@ import {
 } from "../BackspaceButton";
 import { Base, type BaseStyleProps } from "../Base";
 import { Button, type ButtonProps } from "../Button";
+import { SymbolButton } from "../SymbolButton";
 import { CycleButton, type CycleButtonProps } from "../CycleButton";
 import { DialButton, type DialButtonProps } from "../DialButton";
 import { LongPressButton, type LongPressButtonProps } from "../LongPressButton";
@@ -21,6 +23,29 @@ import {
   type ShiftButtonProps,
 } from "../ShiftButton";
 import styles from "./Keyboard.module.css";
+
+type SpeechRecognitionConstructor = new () => {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type BrowserSpeechRecognitionEvent = {
+  resultIndex: number;
+  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+};
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 export type TextEntryElement = HTMLInputElement | HTMLTextAreaElement;
 export type InputFontStage = "small" | "medium" | "large";
@@ -126,6 +151,10 @@ export function Keyboard({
   padding,
   ...baseProps
 }: KeyboardProps) {
+  const recognitionRef = useRef<InstanceType<SpeechRecognitionConstructor> | null>(
+    null,
+  );
+  const [dictating, setDictating] = useState(false);
   const [shiftState, setShiftState] = useState<KeyboardShiftState>({
     locked: false,
     mode: "lower",
@@ -146,6 +175,67 @@ export function Keyboard({
   const cycleButtonClassName = cycleButtonProps?.className
     ? `${styles.button} ${cycleButtonProps.className}`
     : styles.button;
+
+  const speechSupported = typeof window !== "undefined"
+    && Boolean(window.SpeechRecognition ?? window.webkitSpeechRecognition);
+
+  useEffect(() => () => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+  }, []);
+
+  function toggleDictation() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+    const target = targetRef.current;
+    const Recognition = typeof window === "undefined"
+      ? undefined
+      : window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!Recognition || !target) return;
+
+    const recognition = new Recognition();
+    recognitionRef.current = recognition;
+    setDictating(true);
+    recognition.lang = "de-DE";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    const originalValue = target.value;
+    const selectionStart = target.selectionStart ?? originalValue.length;
+    const selectionEnd = target.selectionEnd ?? selectionStart;
+    const segments = new Map<number, string>();
+
+    recognition.onresult = (event) => {
+      if (recognitionRef.current !== recognition) return;
+      for (const index of segments.keys()) {
+        if (index >= event.results.length) segments.delete(index);
+      }
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        segments.set(index, event.results[index]?.[0]?.transcript ?? "");
+      }
+      const transcript = mergeSpeechSegments(
+        [...segments.entries()]
+          .sort(([left], [right]) => left - right)
+          .map(([, text]) => text),
+      );
+      const nextValue = `${originalValue.slice(0, selectionStart)}${transcript}${originalValue.slice(selectionEnd)}`;
+      setTextEntryValue(target, nextValue);
+      requestAnimationFrame(() => {
+        const nextCursor = selectionStart + transcript.length;
+        target.focus({ preventScroll: true });
+        target.setSelectionRange(nextCursor, nextCursor);
+      });
+    };
+    const finish = () => {
+      if (recognitionRef.current !== recognition) return;
+      recognitionRef.current = null;
+      setDictating(false);
+    };
+    recognition.onend = finish;
+    recognition.onerror = finish;
+    recognition.start();
+  }
 
   const renderedKeys: ReactNode[] = [];
   for (const key of keyboardKeys) {
@@ -512,7 +602,21 @@ export function Keyboard({
       <div className={styles.keys} aria-label="Keyboard keys">
         {renderedKeys}
       </div>
-      {actions && <div className={styles.actions}>{actions}</div>}
+      <div className={styles.actions}>
+        <SymbolButton
+          {...buttonProps}
+          activeColor="COLOR_SPEECH"
+          aria-label={dictating ? "Stop dictation" : "Start dictation"}
+          background="COLOR_SPEECH"
+          className={styles.button}
+          disabled={!speechSupported}
+          selected={dictating}
+          symbol={<Mic size="1em" />}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={toggleDictation}
+        />
+        {actions}
+      </div>
     </Base>
   );
 }
@@ -694,6 +798,59 @@ export function selectAll(element: TextEntryElement | null) {
   if (!element) return;
   element.focus();
   element.select();
+}
+
+export function mergeSpeechSegments(segments: string[]) {
+  const words: string[] = [];
+  for (const segment of segments) {
+    const nextWords = segment.trim().split(/\s+/).filter(Boolean);
+    if (nextWords.length === 0) continue;
+    const normalizedWords = words.map(normalizeSpeechWord);
+    const normalizedNextWords = nextWords.map(normalizeSpeechWord);
+    let commonPrefix = 0;
+    while (
+      commonPrefix < normalizedWords.length
+      && commonPrefix < normalizedNextWords.length
+      && normalizedWords[commonPrefix] === normalizedNextWords[commonPrefix]
+    ) {
+      commonPrefix += 1;
+    }
+    const cumulativeThreshold = Math.min(
+      2,
+      normalizedWords.length,
+      normalizedNextWords.length,
+    );
+    if (cumulativeThreshold > 0 && commonPrefix >= cumulativeThreshold) {
+      words.splice(0, words.length, ...nextWords);
+      continue;
+    }
+    let overlap = Math.min(words.length, nextWords.length);
+    while (overlap > 0) {
+      const tail = normalizedWords.slice(-overlap);
+      const head = normalizedNextWords.slice(0, overlap);
+      if (tail.every((word, index) => word === head[index])) break;
+      overlap -= 1;
+    }
+    words.push(...nextWords.slice(overlap));
+  }
+  return words.join(" ");
+}
+
+function normalizeSpeechWord(word: string) {
+  return word
+    .normalize("NFKC")
+    .toLocaleLowerCase("de")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function setTextEntryValue(element: TextEntryElement, value: string) {
+  const prototype = element instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  if (setter) setter.call(element, value);
+  else element.value = value;
+  element.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 export async function copySelection(element: TextEntryElement | null) {
