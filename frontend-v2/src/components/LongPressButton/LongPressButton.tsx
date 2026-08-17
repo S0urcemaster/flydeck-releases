@@ -4,10 +4,13 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 
 import { Button, type ButtonProps } from "../Button";
 import styles from "./LongPressButton.module.css";
+
+export const LONG_PRESS_BUTTON_SECONDARY_FONT_SIZE = "0.55em";
 
 export type LongPressButtonProps = Omit<
   ButtonProps,
@@ -23,6 +26,7 @@ export type LongPressButtonProps = Omit<
   longPressTimeout?: number;
   onLongPress: () => void | Promise<void>;
   onPress: () => void | Promise<void>;
+  secondary?: ReactNode;
 };
 
 export function LongPressButton({
@@ -33,6 +37,7 @@ export function LongPressButton({
   onLongPress,
   onPress,
   pressed,
+  secondary,
   ...buttonProps
 }: LongPressButtonProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,7 +124,18 @@ export function LongPressButton({
         if (event.key === "Enter" || event.key === " ") finish();
       }}
       onBlur={cancel}
-    />
+    >
+      {secondary === undefined
+        ? buttonProps.children
+        : (
+            <span className={styles.content}>
+              <span>{buttonProps.children}</span>
+              <small style={{ fontSize: LONG_PRESS_BUTTON_SECONDARY_FONT_SIZE }}>
+                {secondary}
+              </small>
+            </span>
+          )}
+    </Button>
   );
 }
 

@@ -4,7 +4,6 @@ export {
   inventoryDescendants,
   inventoryBreadcrumb,
   inventoryPath,
-  loadInventory,
   resolveInventoryParent,
   resolveTreePath,
   type InventoryAppProps,

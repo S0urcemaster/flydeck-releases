@@ -111,10 +111,6 @@ export function App() {
   const unlockButtonTimeout = parseCssMilliseconds(
     effectiveThemeVariables["--unlock-button-timeout"],
   ) ?? generatedActiveThemeTokens.unlockButtonTimeout;
-  const listControlOrientation: "top" | "bottom" =
-    effectiveThemeVariables["--listcontrol-orientation"] === "top"
-      ? "top"
-      : "bottom";
   const titleBase = resolveBaseProperties(properties.AppTitle.base);
   const backgroundLogoBase = resolveBaseProperties(
     properties.BackgroundLogo.base,
@@ -175,6 +171,13 @@ export function App() {
     properties.AppStatusLine.base,
   );
   const appStatusLineBase = withoutColor(resolvedAppStatusLineBase);
+  const inlineAppViewBase = resolveBaseProperties(
+    properties.InlineAppView.base,
+  );
+  const backupAppBase = resolveDerivedBaseProperties(
+    inlineAppViewBase,
+    properties.BackupApp.base,
+  );
   const moduleButtonBase = resolveDerivedBaseProperties(
     pressButtonBase,
     properties.ModuleButton.base,
@@ -329,7 +332,7 @@ export function App() {
     properties.ListControlButton.base,
   );
   const listControlListSizeButtonBase = resolveDerivedBaseProperties(
-    pressButtonBase,
+    cycleButtonBase,
     properties.ListControlListSizeButton.base,
   );
   const listControlListSizeButtonProps = {
@@ -379,7 +382,6 @@ export function App() {
     textareaProps: configuredTextareaProps,
   };
   const sharedTreeChildProps = {
-    listControlOrientation,
     browserItemProps: {
       ...browserItemBase,
       buttonProps: {
@@ -387,18 +389,12 @@ export function App() {
         activeColor: properties.Button.activeColor,
       },
       labelButtonProps: browserItemLabelButtonProps,
-      modeButtonProps: browserItemModeButtonBase,
       checkboxProps: {
         ...checkboxBase,
         activeColor: properties.Checkbox.activeColor,
         fontSize: properties.Checkbox.fontSize === "inherit"
           ? properties.Button.fontSize
           : properties.Checkbox.fontSize,
-      },
-      deleteButtonProps: {
-        ...deleteButtonBase,
-        armedColor: properties.DeleteButton.armedColor,
-        timeout: unlockButtonTimeout,
       },
     },
     listControlProps: {
@@ -410,6 +406,12 @@ export function App() {
       inputProps: {
         ...configuredInputProps,
       },
+      deleteButtonProps: {
+        ...deleteButtonBase,
+        armedColor: properties.DeleteButton.armedColor,
+        timeout: unlockButtonTimeout,
+      },
+      modeButtonProps: browserItemModeButtonBase,
       listSizeButtonProps: listControlListSizeButtonProps,
     },
   };
@@ -765,6 +767,18 @@ export function App() {
           shoppingListViewBaseProps={shoppingListViewBase}
           appBrowserProps={{
             ...appBrowserBase,
+            backupAppProps: {
+              ...backupAppBase,
+              buttonProps: {
+                ...buttonBase,
+                activeColor: properties.Button.activeColor,
+              },
+              statusLineProps: {
+                ...appStatusLineBase,
+                fontSize: properties.AppStatusLine.fontSize,
+                fontWeight: properties.AppStatusLine.fontWeight,
+              },
+            },
             userInputControlProps: sharedInputControlProps,
             widgetInputControlProps: sharedInputControlProps,
             rowGap: properties.TreeBrowser.rowGap,

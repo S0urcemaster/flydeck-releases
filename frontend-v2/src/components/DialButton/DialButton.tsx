@@ -1,12 +1,16 @@
 import { useEffect, useRef } from "react";
 
 import { PressButton, type PressButtonProps } from "../PressButton";
+import styles from "./DialButton.module.css";
+
+export const DIAL_BUTTON_QUEUE_FONT_SIZE = "0.55em";
 
 export type DialButtonProps = Omit<
   PressButtonProps,
   "children" | "onClick" | "preserveFocus"
 > & {
   dialTimeout?: number;
+  queueGap?: string;
   onDial: (value: string, replacePrevious: boolean) => void;
   onDialComplete?: () => void;
   options: readonly string[];
@@ -15,6 +19,7 @@ export type DialButtonProps = Omit<
 export function DialButton({
   componentName = "DialButton",
   dialTimeout = 800,
+  queueGap,
   onDial,
   onDialComplete,
   options,
@@ -54,7 +59,14 @@ export function DialButton({
       preserveFocus
       onClick={dial}
     >
-      {primary}{alternatives && <> <small>{alternatives}</small></>}
+      <span className={styles.content} style={{ gap: queueGap }}>
+        <span>{primary}</span>
+        {alternatives && (
+          <small style={{ fontSize: DIAL_BUTTON_QUEUE_FONT_SIZE }}>
+            {alternatives}
+          </small>
+        )}
+      </span>
     </PressButton>
   );
 }

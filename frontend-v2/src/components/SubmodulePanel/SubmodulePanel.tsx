@@ -51,6 +51,7 @@ export function SubmodulePanel<TItem extends string = AgentSubmodule>({
             <SubmoduleButton
               key={item}
               {...buttonProps}
+              width="100%"
               selected={activeItem === item}
               onClick={() => onChange(item)}
             >

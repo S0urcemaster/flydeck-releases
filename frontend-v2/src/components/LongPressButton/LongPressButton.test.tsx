@@ -17,6 +17,21 @@ describe("LongPressButton", () => {
     expect(markup).toContain('data-component-name="LongPressButton"');
   });
 
+  it("renders its long-press function on a secondary line", () => {
+    const markup = renderToStaticMarkup(
+      <LongPressButton
+        onPress={() => undefined}
+        onLongPress={() => undefined}
+        secondary="SECONDARY"
+      >
+        PRIMARY
+      </LongPressButton>,
+    );
+
+    expect(markup).toContain(">PRIMARY</span>");
+    expect(markup).toContain(">SECONDARY</small>");
+  });
+
   it("uses an explicit timeout and a stable fallback", () => {
     expect(resolveLongPressTimeout(null, 800)).toBe(800);
     expect(resolveLongPressTimeout(null)).toBe(500);

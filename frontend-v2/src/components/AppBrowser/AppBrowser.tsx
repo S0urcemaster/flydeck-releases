@@ -9,6 +9,7 @@ import {
   type TreeBrowserProps,
 } from "../TreeBrowser";
 import { InputControl, type InputControlProps } from "../InputControl";
+import { BackupApp, type BackupAppProps } from "../BackupApp";
 import sayings from "../../assets/apps/compass/sayings.json";
 import shoppingList from "../../assets/shopping-list.json";
 import {
@@ -25,10 +26,13 @@ export type AppBrowserProps = Omit<
   | "model"
   | "onTreeChange"
   | "renderContent"
+  | "renderInlineContent"
 > & {
+  backupAppProps?: Omit<BackupAppProps, "workspaceId">;
   onOutputChange?: (output: AppBrowserOutputState) => void;
   userInputControlProps?: InputControlProps;
   widgetInputControlProps?: InputControlProps;
+  workspaceId?: string;
 };
 
 export type AppBrowserOutputCategory = {
@@ -60,6 +64,7 @@ export type AppData =
   | { kind: "shopping-item"; label: string }
   | { kind: "saying"; saying: Saying }
   | { kind: "system-function"; functionId: "device-info" }
+  | { kind: "inline-app"; appId: "backup" }
   | { kind: "user-function"; functionId: string; source: string };
 
 type Saying = {
@@ -85,9 +90,11 @@ type FunctionTreeNode = {
 };
 
 export function AppBrowser({
+  backupAppProps,
   onOutputChange,
   userInputControlProps,
   widgetInputControlProps,
+  workspaceId,
   ...treeBrowserProps
 }: AppBrowserProps) {
   const [drafts, setDrafts] = useClientStateSlice(functionDraftsSlice);
@@ -121,6 +128,11 @@ export function AppBrowser({
         children: [],
       })}
       onTreeChange={reportOutput}
+      renderInlineContent={({ node }) => (
+        node.data?.kind === "inline-app" && node.data.appId === "backup"
+          ? <BackupApp {...backupAppProps} workspaceId={workspaceId} />
+          : null
+      )}
       renderContent={({ height, node }) => {
         const initialValue = node.data?.kind === "saying"
           ? node.data.saying.text
@@ -222,7 +234,7 @@ const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
     contentEditable: false,
     contentVisible: false,
     listEditable: false,
-    listItemLimit: 1,
+    listItemLimit: 2,
     data: { kind: "group", groupId: "system" },
     children: [
       {
@@ -232,6 +244,19 @@ const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
         data: {
           kind: "system-function",
           functionId: "device-info",
+        },
+        children: [],
+      },
+      {
+        id: "backup",
+        label: "Backup",
+        enabled: false,
+        contentEditable: false,
+        contentVisible: false,
+        listEditable: false,
+        data: {
+          kind: "inline-app",
+          appId: "backup",
         },
         children: [],
       },

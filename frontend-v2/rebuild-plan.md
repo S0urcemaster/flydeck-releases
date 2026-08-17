@@ -201,8 +201,8 @@ It needs:
 - schema version and deterministic migrations per slice;
 - guarded parsing, quota/error reporting, and reset by scope;
 - same-tab subscriptions and `storage` event handling for other tabs;
-- immediate local draft writes, with debounced server synchronization only
-  where the domain permits it;
+- immediate local draft writes; canonical DATA synchronization is independent
+  of input timing and runs through the workspace replica outbox;
 - explicit cleanup on logout and account switching.
 
 Keep small preferences, navigation state, and unsent drafts in localStorage as
@@ -216,11 +216,16 @@ store referenced by DATA records.
 Status: authenticated user/workspace/device scoping and the transactional
 `WorkspaceReplicaStorage` contract with a test memory adapter were implemented
 on 2026-08-11. The production IndexedDB adapter is implemented as the first
-durable backend. DataBrowser now performs cache-first tree/content hydration,
-and transport availability is global: offline state uses a blue Flydeck
-wordmark/logo plus the `Offline` title message without changing the title
-background. Inventory now reads the same cache-first projection and feeds
-confirmed mutations back into it. All DATA mutations now have request IDs and
+durable backend. `WorkspaceReplica` now exposes one observable in-memory
+snapshot per user/workspace, hydrated once from IndexedDB; DataBrowser and APPS
+render only those snapshots. `WorkspaceSyncEngine` is the sole canonical DATA
+backend boundary: it refreshes trees, hydrates requested content, and publishes
+every result back through the replica. Transport availability is global:
+offline state uses a blue Flydeck wordmark/logo plus the `Offline` title
+message without changing the title background. Inventory reads the same
+projection. DataSource paths are validated synchronously against the in-memory
+tree on every input change, without a debounce or server request. All DATA
+mutations now have request IDs and
 an atomic backend idempotency boundary, while create uses a client-assigned
 node ID. The replica persists and deduplicates typed outbox entries; dispatch,
 optimistic projection, and automatic replay are implemented for Inventory.

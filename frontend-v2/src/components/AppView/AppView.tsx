@@ -32,7 +32,7 @@ export type AppViewProps = BaseStyleProps & {
   onDataSourceChange?: (dataSource: string) => void;
   onDataSourceResolved?: (dataSource: string) => void;
   title: string;
-  validateDataSource?: (dataSource: string) => Promise<boolean>;
+  validateDataSource?: (dataSource: string) => boolean;
 };
 
 export function AppView({
@@ -59,34 +59,9 @@ export function AppView({
     ?? persistedAppView?.dataSource
     ?? defaultDataSource
     ?? "";
-  const [dataSourceResult, setDataSourceResult] = useState<{
-    dataSource: string;
-    status: "valid" | "invalid";
-  } | null>(null);
-  const dataSourceStatus = dataSourceResult?.dataSource === currentDataSource
-    ? dataSourceResult.status
-    : null;
-
   useEffect(() => {
     onDataSourceResolved?.(currentDataSource);
   }, [currentDataSource, onDataSourceResolved]);
-
-  useEffect(() => {
-    if (!validateDataSource) return;
-    let active = true;
-    void validateDataSource(currentDataSource).then((valid) => {
-      if (active) setDataSourceResult({
-        dataSource: currentDataSource,
-        status: valid ? "valid" : "invalid",
-      });
-    }).catch(() => {
-      if (active) setDataSourceResult({
-        dataSource: currentDataSource,
-        status: "invalid",
-      });
-    });
-    return () => { active = false; };
-  }, [currentDataSource, validateDataSource]);
 
   return (
     <Base
@@ -113,7 +88,7 @@ export function AppView({
           <ConfigEditor
             {...configEditorProps}
             dataSource={currentDataSource}
-            dataSourceStatus={dataSourceStatus}
+            validateDataSource={validateDataSource}
             onDataSourceChange={(nextDataSource) => {
               setPersistedAppViews((current) => ({
                 ...current,

@@ -166,6 +166,7 @@ function isLegacyThemeConfigurationForIds(
   const currentVariables = new Set(availableThemeVariables.map(({ name }) => name));
   const legacySpaces = new Set([
     "--app-title-font-size",
+    "--listcontrol-orientation",
     "--space-unit",
     "--space-xs",
     "--space-sm",

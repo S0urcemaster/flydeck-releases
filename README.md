@@ -8,6 +8,8 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 17.08.026 12:15 Pre-Release V2 
+
 ### 14.08.026 16:00 Pre-Release V2 (e4e93a27ebd0)
 - Hotfixes
 

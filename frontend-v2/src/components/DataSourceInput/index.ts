@@ -1,1 +1,5 @@
-export { DataSourceInput, type DataSourceInputProps } from "./DataSourceInput";
+export {
+  DataSourceInput,
+  dataSourceActionDisabled,
+  type DataSourceInputProps,
+} from "./DataSourceInput";

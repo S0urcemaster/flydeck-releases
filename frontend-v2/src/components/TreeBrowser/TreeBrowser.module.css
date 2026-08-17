@@ -11,11 +11,29 @@
   border: 0;
 }
 
-.emptyItem {
-  border-radius: var(--radius-control);
-  background: var(--color-surface);
+.listFrame {
+  position: relative;
+  min-width: 0;
 }
 
-.listSizeSeparator {
-  min-height: 10px;
+.inlineContent {
+  min-width: 0;
+}
+
+.childListFrame {
+  position: relative;
+  min-width: 0;
+}
+
+.contentFrame {
+  position: relative;
+  min-width: 0;
+}
+
+.contentBody {
+  min-width: 0;
+}
+
+.emptySpace {
+  visibility: hidden;
 }

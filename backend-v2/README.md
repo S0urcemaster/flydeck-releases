@@ -82,12 +82,27 @@ GET /flydeck/api/v2/workspaces/:workspaceId/cron
 POST /flydeck/api/v2/workspaces/:workspaceId/cron
 PUT /flydeck/api/v2/workspaces/:workspaceId/cron/:timerId
 DELETE /flydeck/api/v2/workspaces/:workspaceId/cron/:timerId
+GET /flydeck/api/v2/workspaces/:workspaceId/backup
+POST /flydeck/api/v2/workspaces/:workspaceId/backup
 ```
 
 All workspace routes require the opaque session cookie. Viewers can load DATA,
 content, and CRON; mutations require `owner` or `editor`. Tree, node content,
 per-user enabled state, selection, and CRON mutations use expected revisions.
 Creation requests are idempotent for 24 hours via their UUID request ID.
+
+## PostgreSQL backups
+
+The Backup app starts `pg_dump` in PostgreSQL custom-archive format. The server
+writes a `.partial` file with private permissions and only renames it to its
+final `flydeck-<timestamp>.dump` name after a successful dump. Completed files
+include size and SHA-256 status metadata. `BACKUP_DIRECTORY` selects the target
+directory and `BACKUP_RETENTION` keeps the newest number of dumps (7 by
+default). The deployed Flydon path matches `maintenance/scripts/pull-backup.sh`.
+
+Flydeck deliberately provides no restore endpoint. Restore remains an offline
+maintenance operation with `pg_restore` after the archive has been copied away
+from the production device.
 
 The CRON scheduler polls PostgreSQL every `SCHEDULER_INTERVAL_MS` and claims due
 timers with row locks. Configure `NTFY_URL` and `NTFY_TOPIC` to send the same

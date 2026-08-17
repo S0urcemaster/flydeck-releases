@@ -9,6 +9,7 @@ import { CircleHelp } from "lucide-react";
 
 import { AppShell } from "../components/AppShell";
 import { AppStatusLine } from "../components/AppStatusLine";
+import { BackupApp } from "../components/BackupApp";
 import { AppTitle } from "../components/AppTitle";
 import { BackspaceButton } from "../components/BackspaceButton";
 import {
@@ -52,6 +53,7 @@ import { Form } from "../components/Form";
 import { FormRow } from "../components/FormRow";
 import { AppBrowser } from "../components/AppBrowser";
 import { Input, type InputProps } from "../components/Input";
+import { InlineAppView } from "../components/InlineAppView";
 import { Keyboard } from "../components/Keyboard";
 import { InputControl } from "../components/InputControl";
 import { InventoryApp } from "../components/InventoryApp";
@@ -205,6 +207,7 @@ const concreteModuleButtonNames = componentNamesInLabGroup(
 const browserLabComponentNames = componentNamesInLabGroup("browser");
 const manifestPreviewComponentNames = [
   "AppView",
+  "BackupApp",
   "Block",
   "Breadcrumb",
   "CompassApp",
@@ -219,6 +222,7 @@ const manifestPreviewComponentNames = [
   "Form",
   "FormRow",
   "InventoryApp",
+  "InlineAppView",
   "ItemList",
   "NodeIdInput",
   "ParentInput",
@@ -235,6 +239,9 @@ const appViewFamilyComponentNames = [
 ] as const;
 type AppViewFamilyComponentName =
   typeof appViewFamilyComponentNames[number];
+const inlineAppFamilyComponentNames = ["InlineAppView", "BackupApp"] as const;
+type InlineAppFamilyComponentName =
+  typeof inlineAppFamilyComponentNames[number];
 const treeInputFamilyComponentNames = [
   "ContentEditor",
   "DataSourceInput",
@@ -309,7 +316,7 @@ const storedComponentProperties = requireComponentPropertiesConfig(
 
 export function LabApp() {
   const [listControlPreviewPageSize, setListControlPreviewPageSize] =
-    useState<ListControlListSize>(6);
+    useState<ListControlListSize>(7);
   const [selectedComponent, setSelectedComponent] =
     useState<LabComponentName>(() => readSelectedAppComponent());
   const [selectedThemeId, setSelectedThemeId] =
@@ -353,6 +360,12 @@ export function LabApp() {
     DeviceInfoView: storedComponentProperties.DeviceInfoView.base,
     InventoryApp: storedComponentProperties.InventoryApp.base,
     ShoppingListView: storedComponentProperties.ShoppingListView.base,
+  });
+  const [inlineAppFamilyBaseValues, setInlineAppFamilyBaseValues] = useState<
+    Record<InlineAppFamilyComponentName, BaseLabValues>
+  >({
+    InlineAppView: storedComponentProperties.InlineAppView.base,
+    BackupApp: storedComponentProperties.BackupApp.base,
   });
   const [treeInputFamilyBaseValues, setTreeInputFamilyBaseValues] = useState<
     Record<TreeInputFamilyComponentName, BaseLabValues>
@@ -751,6 +764,8 @@ export function LabApp() {
       PressButton: { base: pressButtonBaseValues },
       BackspaceButton: { base: backspaceButtonBaseValues },
       AppView: { base: appViewFamilyBaseValues.AppView },
+      InlineAppView: { base: inlineAppFamilyBaseValues.InlineAppView },
+      BackupApp: { base: inlineAppFamilyBaseValues.BackupApp },
       CompassApp: { base: appViewFamilyBaseValues.CompassApp },
       ConfigEditor: { base: appViewFamilyBaseValues.ConfigEditor },
       DeviceInfoView: { base: appViewFamilyBaseValues.DeviceInfoView },
@@ -1196,7 +1211,10 @@ export function LabApp() {
     const listControlListSizeButtonProps = {
       ...pressButtonProps,
       ...toBaseStyleProps(resolveDerivedBaseProperties(
-        resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+        resolveDerivedBaseProperties(
+          resolveDerivedBaseProperties(buttonBaseValues, pressButtonBaseValues),
+          cycleButtonBaseValues,
+        ),
         browserComponentBaseValues.ListControlListSizeButton,
       )),
       fontSize: listSizeButtonFontSize === "inherit"
@@ -1256,18 +1274,18 @@ export function LabApp() {
         ...toBaseStyleProps(browserComponentBaseValues.BrowserItem),
         buttonProps,
         checkboxProps,
-        deleteButtonProps,
         labelButtonProps: browserItemLabelButtonProps,
-        modeButtonProps: browserItemModeButtonProps,
       },
       listControlProps: {
         ...toBaseStyleProps(browserComponentBaseValues.ListControl),
         buttonProps: listControlButtonProps,
+        deleteButtonProps,
         inputProps: {
           ...toBaseStyleProps(browserComponentBaseValues.Input),
           fontSize: inputFontSize,
         },
         listSizeButtonProps: listControlListSizeButtonProps,
+        modeButtonProps: browserItemModeButtonProps,
       },
     };
 
@@ -1332,15 +1350,14 @@ export function LabApp() {
           <ListControl
             {...baseProps}
             buttonProps={listControlButtonProps}
-            inputProps={toBaseStyleProps(browserComponentBaseValues.Input)}
             listSizeButtonProps={listControlListSizeButtonProps}
             itemCount={23}
-            itemNames={["Alpha", "Beta"]}
+            selectedName="Alpha"
             page={1}
             pageSize={listControlPreviewPageSize}
-            onNew={() => undefined}
+            childPageSize={listControlPreviewPageSize}
             onPageChange={() => undefined}
-            onPageSizeChange={setListControlPreviewPageSize}
+            onChildPageSizeChange={setListControlPreviewPageSize}
           />
         );
       case "ListControlListSizeButton":
@@ -1359,13 +1376,11 @@ export function LabApp() {
             {...baseProps}
             buttonProps={buttonProps}
             checkboxProps={checkboxProps}
-            deleteButtonProps={deleteButtonProps}
             labelButtonProps={browserItemLabelButtonProps}
             checked
             label="Browser item"
             itemNumber={1}
             selected
-            onDelete={() => undefined}
             onCheckedChange={() => undefined}
           />
         );
@@ -1589,6 +1604,17 @@ export function LabApp() {
     );
   }
 
+  function resolveInlineAppFamilyBaseValues(
+    componentName: InlineAppFamilyComponentName,
+  ) {
+    return componentName === "InlineAppView"
+      ? inlineAppFamilyBaseValues.InlineAppView
+      : resolveDerivedBaseProperties(
+          inlineAppFamilyBaseValues.InlineAppView,
+          inlineAppFamilyBaseValues.BackupApp,
+        );
+  }
+
   function resolveTreeInputFamilyBaseValues(
     componentName: TreeInputFamilyComponentName,
   ) {
@@ -1776,6 +1802,12 @@ export function LabApp() {
                 ? resolveAppViewFamilyBaseValues(
                     selectedComponent as AppViewFamilyComponentName,
                   )
+                : inlineAppFamilyComponentNames.includes(
+                    selectedComponent as InlineAppFamilyComponentName,
+                  )
+                  ? resolveInlineAppFamilyBaseValues(
+                      selectedComponent as InlineAppFamilyComponentName,
+                    )
                 : treeInputFamilyComponentNames.includes(
                     selectedComponent as TreeInputFamilyComponentName,
                   )
@@ -1886,6 +1918,63 @@ export function LabApp() {
               <Button onClick={() => {
                 const componentName = selectedComponent as AppViewFamilyComponentName;
                 setAppViewFamilyBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...storedComponentProperties[componentName].base,
+                  },
+                }));
+              }}>
+                RESET
+              </Button>
+              <Button onClick={applyComponentProperties} disabled={isApplying}>
+                {isApplying ? "APPLYING…" : "APPLY"}
+              </Button>
+            </div>
+          )}
+          {inlineAppFamilyComponentNames.includes(
+            selectedComponent as InlineAppFamilyComponentName,
+          ) && (() => {
+            const componentName = selectedComponent as InlineAppFamilyComponentName;
+            return (
+              <BasePropertyControls
+                componentName={componentName}
+                inheritedPropertySections={componentName === "BackupApp"
+                  ? [{
+                      componentName: "InlineAppView",
+                      properties: inlineAppFamilyBaseValues.InlineAppView,
+                    }]
+                  : undefined}
+                values={inlineAppFamilyBaseValues[componentName]}
+                onChange={(name, value) => setInlineAppFamilyBaseValues((current) => ({
+                  ...current,
+                  [componentName]: {
+                    ...current[componentName],
+                    [name]: value,
+                  },
+                }))}
+                onInheritedPropertyChange={(parentName, name, value) => {
+                  if (
+                    parentName !== "InlineAppView"
+                    || typeof value !== "string"
+                  ) return;
+                  setInlineAppFamilyBaseValues((current) => ({
+                    ...current,
+                    InlineAppView: {
+                      ...current.InlineAppView,
+                      [name]: value,
+                    },
+                  }));
+                }}
+              />
+            );
+          })()}
+          {inlineAppFamilyComponentNames.includes(
+            selectedComponent as InlineAppFamilyComponentName,
+          ) && (
+            <div className={styles.actions}>
+              <Button onClick={() => {
+                const componentName = selectedComponent as InlineAppFamilyComponentName;
+                setInlineAppFamilyBaseValues((current) => ({
                   ...current,
                   [componentName]: {
                     ...storedComponentProperties[componentName].base,
@@ -4682,6 +4771,8 @@ function renderManifestComponentPreview(
   switch (name) {
     case "AppView":
       return <AppView {...baseProps} title="APP VIEW">Application content</AppView>;
+    case "BackupApp":
+      return <BackupApp {...baseProps} />;
     case "Block":
       return <Block {...baseProps}>Full-width block</Block>;
     case "Breadcrumb":
@@ -4815,6 +4906,8 @@ function renderManifestComponentPreview(
           textareaProps={textareaProps}
         />
       );
+    case "InlineAppView":
+      return <InlineAppView {...baseProps}>Inline application content</InlineAppView>;
     case "ItemList":
       return (
         <ItemList

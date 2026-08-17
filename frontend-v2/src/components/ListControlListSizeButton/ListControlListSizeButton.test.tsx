@@ -11,23 +11,24 @@ describe("ListControlListSizeButton", () => {
     const markup = renderToStaticMarkup(
       <ListControlListSizeButton
         activeColor="COLOR_ACCENT_TWO"
-        pageSize={6}
+        pageSize={7}
         onPageSizeChange={() => undefined}
       />,
     );
     expect(markup).toContain('data-component-name="ListControlListSizeButton"');
     expect(markup).not.toContain('aria-pressed="true"');
     expect(markup).not.toContain('background:var(--color-accent-two)');
-    expect(markup).toContain(">M</button>");
+    expect(markup).toContain(">M</span>");
+    expect(markup).toContain(">L X S</small>");
     expect(markup).toContain(
-      'aria-label="List size M (6 items); change to L (9 items)"',
+      'aria-label="List size M (7 items); change to L (10 items)"',
     );
   });
 
   it("cycles list sizes", () => {
-    expect(nextListControlListSize(3)).toBe(6);
-    expect(nextListControlListSize(6)).toBe(9);
-    expect(nextListControlListSize(9)).toBe(12);
-    expect(nextListControlListSize(12)).toBe(3);
+    expect(nextListControlListSize(4)).toBe(7);
+    expect(nextListControlListSize(7)).toBe(10);
+    expect(nextListControlListSize(10)).toBe(15);
+    expect(nextListControlListSize(15)).toBe(4);
   });
 });

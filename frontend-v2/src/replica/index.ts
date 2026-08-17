@@ -27,3 +27,4 @@ export {
   WorkspaceSyncEngine,
   workspaceSyncEngine,
 } from "./WorkspaceSyncEngine";
+export { useWorkspaceReplica } from "./useWorkspaceReplica";

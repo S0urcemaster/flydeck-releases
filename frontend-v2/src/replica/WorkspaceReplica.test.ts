@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { TreeLoadDto } from "@flydeck/shared/v2";
 
 import {
@@ -115,6 +115,22 @@ describe("MemoryWorkspaceReplicaStorage", () => {
       { ...scope, workspaceId: "00000000-0000-4000-8000-000000000003" },
       tree,
     )).toThrow("another workspace");
+  });
+
+  it("hydrates one observable snapshot and publishes transactions", async () => {
+    const storage = new MemoryWorkspaceReplicaStorage();
+    const replica = new WorkspaceReplica(storage);
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const scope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    const listener = vi.fn();
+    const unsubscribe = replica.subscribe(scope, listener);
+
+    await replica.load(scope);
+    await replica.replaceTree(scope, tree);
+
+    expect(replica.getSnapshot(scope)?.tree).toEqual(tree);
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
   });
 
   it("durably deduplicates, counts, and acknowledges queued commands", async () => {

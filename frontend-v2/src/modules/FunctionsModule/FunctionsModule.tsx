@@ -1,7 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { TreeNodeDto } from "@flydeck/shared/v2";
 
-import { v2Api } from "../../api/V2ApiClient";
+import { useWorkspaceReplica, type WorkspaceReplicaScope } from "../../replica";
+import {
+  useClientStateScope,
+  useClientStateSlice,
+  type ClientStateSlice,
+} from "../../state";
 import { CompassApp } from "../../components/CompassApp";
 import type { ConfigModuleButtonProps } from "../../components/ConfigModuleButton";
 import type { AppViewProps } from "../../components/AppView";
@@ -81,7 +86,8 @@ export function FunctionsModule({
   workspaceId,
   ...props
 }: FunctionsModuleProps) {
-  const [activeTab, setActiveTab] = useState<FunctionsAppTab>("BROWSER");
+  const { userId } = useClientStateScope();
+  const [activeTab, setActiveTab] = useClientStateSlice(functionsAppTabSlice);
   const [output, setOutput] = useState<AppBrowserOutputState>({
     categories: [],
     compassActive: false,
@@ -94,11 +100,17 @@ export function FunctionsModule({
   const visibleActiveTab = visibleTabs.includes(activeTab)
     ? activeTab
     : "BROWSER";
-  const validateDataSource = useCallback(async (dataSource: string) => {
-    if (!workspaceId) return false;
-    const tree = await v2Api.loadDataTree(workspaceId);
-    return dataSourceBranchExists(tree.document.nodes, dataSource);
-  }, [workspaceId]);
+  const replicaScope = useMemo<WorkspaceReplicaScope | null>(() => (
+    workspaceId ? { userId, workspaceId } : null
+  ), [userId, workspaceId]);
+  const replicaRecord = useWorkspaceReplica(replicaScope);
+  const replicaTree = replicaRecord?.tree;
+  const validateDataSource = useCallback((dataSource: string) => (
+    Boolean(replicaTree && dataSourceBranchExists(
+      replicaTree.document.nodes,
+      dataSource,
+    ))
+  ), [replicaTree]);
 
   return (
     <Module
@@ -175,6 +187,7 @@ export function FunctionsModule({
           {...appBrowserProps}
           key="function-browser"
           onOutputChange={setOutput}
+          workspaceId={workspaceId}
         />
       ) : null}
     </Module>
@@ -208,3 +221,16 @@ export function dataSourceBranchExists(
   }
   return true;
 }
+
+const functionsAppTabSlice: ClientStateSlice<FunctionsAppTab> = {
+  name: "navigation.functionsApp",
+  version: 1,
+  defaultValue: "BROWSER",
+  validate: (value): value is FunctionsAppTab => (
+    value === "BROWSER"
+    || value === "DEVICE INFO"
+    || value === "COMPASS"
+    || value === "INVENTORY"
+    || value === "SHOPPING LIST"
+  ),
+};

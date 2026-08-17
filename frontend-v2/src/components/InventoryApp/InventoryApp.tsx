@@ -1,16 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createTreeNodeLocalId,
   type TreeNodeContentDto,
   type TreeNodeDto,
 } from "@flydeck/shared/v2";
 
-import { v2Api } from "../../api/V2ApiClient";
 import {
-  reportWorkspaceReplicaError,
-  persistWorkspaceReplica,
   workspaceReplica,
   workspaceSyncEngine,
+  useWorkspaceReplica,
   type WorkspaceReplicaScope,
 } from "../../replica";
 import { useClientStateScope } from "../../state";
@@ -112,7 +110,7 @@ export function InventoryApp({
   ...appViewProps
 }: InventoryAppProps) {
   const { userId } = useClientStateScope();
-  const [items, setItems] = useState(() => [...initialItems]);
+  const [fixtureItems, setFixtureItems] = useState(() => [...initialItems]);
   const [selectedId, setSelectedId] = useState(() => initialItems[0]?.id ?? "");
   const [parentDrafts, setParentDrafts] = useState<Record<string, string>>({});
   const [itemDrafts, setItemDrafts] = useState<Record<
@@ -121,49 +119,40 @@ export function InventoryApp({
   >>({});
   const [dataSource, setDataSource] = useState("lagerraum");
   const [saving, setSaving] = useState(false);
-  const inventoryRootId = useRef<string | null>(null);
-  const treeRevision = useRef(0);
   const replicaScope = useMemo<WorkspaceReplicaScope | null>(() => (
     workspaceId ? { userId, workspaceId } : null
   ), [userId, workspaceId]);
-
-  const applyLoadedInventory = useCallback((loaded: InventoryLoadResult) => {
-    if (loaded.items.length === 0) return;
-    inventoryRootId.current = loaded.rootId;
-    treeRevision.current = loaded.treeRevision;
-    setItems(loaded.items);
-    setSelectedId((current) => (
-      loaded.items.some(({ id }) => id === current) ? current : loaded.items[0].id
-    ));
-    setParentDrafts({});
-    setItemDrafts({});
-  }, []);
-
-  const refreshFromReplica = useCallback(async () => {
-    if (!replicaScope) return;
-    const loaded = await loadCachedInventory(replicaScope, dataSource);
-    if (loaded) applyLoadedInventory(loaded);
-  }, [applyLoadedInventory, dataSource, replicaScope]);
+  const replicaRecord = useWorkspaceReplica(replicaScope);
+  const replicaTree = replicaRecord?.tree;
+  const replicaContents = replicaRecord?.contents;
+  const projectedInventory = useMemo(() => (
+    replicaTree && replicaContents
+      ? projectInventory(
+          replicaTree.document.nodes,
+          replicaContents,
+          dataSource,
+          replicaTree.document.revision,
+        )
+      : null
+  ), [dataSource, replicaContents, replicaTree]);
+  const items = projectedInventory?.items ?? fixtureItems;
+  const inventoryRootId = projectedInventory?.rootId ?? null;
+  const treeRevision = projectedInventory?.treeRevision ?? 0;
 
   useEffect(() => {
     if (replicaScope) workspaceSyncEngine.register(replicaScope);
   }, [replicaScope]);
 
   useEffect(() => {
-    if (!workspaceId || !replicaScope) return;
-    let active = true;
-    void (async () => {
-      const cached = await loadCachedInventory(replicaScope, dataSource)
-        .catch((error) => {
-          reportWorkspaceReplicaError(error);
-          return null;
-        });
-      if (active && cached) applyLoadedInventory(cached);
-      const confirmed = await loadInventory(workspaceId, dataSource, replicaScope);
-      if (active) applyLoadedInventory(confirmed);
-    })().catch(() => undefined);
-    return () => { active = false; };
-  }, [applyLoadedInventory, dataSource, replicaScope, workspaceId]);
+    if (!replicaScope || !replicaTree) return;
+    const root = resolveTreePath(replicaTree.document.nodes, dataSource);
+    if (!root) return;
+    const nodeIds = inventoryDescendants(
+      replicaTree.document.nodes,
+      root.id,
+    ).map(({ id }) => id);
+    void workspaceSyncEngine.ensureContents(replicaScope, nodeIds);
+  }, [dataSource, replicaScope, replicaTree]);
   const selected = items.find(({ id }) => id === selectedId) ?? items[0];
   const siblings = selected
     ? items.filter(({ parentId }) => parentId === selected.parentId)
@@ -213,7 +202,7 @@ export function InventoryApp({
 
   function updateSelected(patch: Partial<InventoryItem>) {
     if (!selected) return;
-    setItems((current) => current.map((item) => (
+    setFixtureItems((current) => current.map((item) => (
       item.id === selected.id ? { ...item, ...patch } : item
     )));
   }
@@ -226,27 +215,6 @@ export function InventoryApp({
       ...current,
       [selected.id]: { ...selectedDraft, ...patch },
     }));
-  }
-
-  async function reloadInventoryAfterFailure() {
-    if (!workspaceId) return;
-    try {
-      const loaded = await loadInventory(
-        workspaceId,
-        dataSource,
-        replicaScope ?? undefined,
-      );
-      inventoryRootId.current = loaded.rootId;
-      treeRevision.current = loaded.treeRevision;
-      setItems(loaded.items);
-      setSelectedId((current) => (
-        loaded.items.some(({ id }) => id === current)
-          ? current
-          : loaded.items[0]?.id ?? ""
-      ));
-    } catch {
-      // Keep the current drafts available for another save attempt.
-    }
   }
 
   return (
@@ -350,9 +318,8 @@ export function InventoryApp({
                       expectedRevision: selected.nodeRevision,
                     },
                   });
-                  await refreshFromReplica();
                 } catch {
-                  await reloadInventoryAfterFailure();
+                  // The observable replica retains the last usable projection.
                 } finally {
                   setSaving(false);
                 }
@@ -370,10 +337,10 @@ export function InventoryApp({
                 if (!selectedDraft || parentTarget === undefined || !canCreateItem) {
                   return;
                 }
-                if (workspaceId && inventoryRootId.current) {
+                if (workspaceId && inventoryRootId) {
                   setSaving(true);
                   try {
-                    const targetParentId = parentTarget ?? inventoryRootId.current;
+                    const targetParentId = parentTarget ?? inventoryRootId;
                     const targetSiblings = items.filter((item) => (
                       item.parentId === parentTarget
                     ));
@@ -393,7 +360,7 @@ export function InventoryApp({
                       kind: "data-file",
                       label: newItemName,
                       localId,
-                      expectedTreeRevision: treeRevision.current,
+                      expectedTreeRevision: treeRevision,
                       },
                     });
                     if (selectedDraft.description) {
@@ -407,10 +374,9 @@ export function InventoryApp({
                         },
                       });
                     }
-                    await refreshFromReplica();
                     setSelectedId(nodeId);
                   } catch {
-                    await reloadInventoryAfterFailure();
+                    // The observable replica retains the last usable projection.
                   } finally {
                     setSaving(false);
                   }
@@ -430,7 +396,7 @@ export function InventoryApp({
                   description: selectedDraft.description,
                   parentId: parentTarget,
                 };
-                setItems((current) => [...current, item]);
+                setFixtureItems((current) => [...current, item]);
                 setSelectedId(id);
                 setItemDrafts((current) => ({
                   ...current,
@@ -463,9 +429,8 @@ export function InventoryApp({
                       expectedRevision: selected.nodeRevision,
                     },
                   });
-                  await refreshFromReplica();
                 } catch {
-                  await reloadInventoryAfterFailure();
+                  // The observable replica retains the last usable projection.
                 } finally {
                   setSaving(false);
                 }
@@ -506,9 +471,8 @@ export function InventoryApp({
                       expectedRevision: selected.contentRevision,
                     },
                   });
-                  await refreshFromReplica();
                 } catch {
-                  await reloadInventoryAfterFailure();
+                  // The observable replica retains the last usable projection.
                 } finally {
                   setSaving(false);
                 }
@@ -552,7 +516,7 @@ export function InventoryApp({
                   const nextParentId = target.id;
                   if (
                     !workspaceId
-                    || !inventoryRootId.current
+                    || !inventoryRootId
                     || selected.nodeRevision === undefined
                   ) {
                     updateSelected({ parentId: nextParentId });
@@ -566,13 +530,12 @@ export function InventoryApp({
                       nodeId: selected.id,
                       input: {
                         requestId: globalThis.crypto.randomUUID(),
-                        parentId: nextParentId ?? inventoryRootId.current,
-                        expectedTreeRevision: treeRevision.current,
+                        parentId: nextParentId ?? inventoryRootId,
+                        expectedTreeRevision: treeRevision,
                       },
                     });
-                    await refreshFromReplica();
                   } catch {
-                    await reloadInventoryAfterFailure();
+                    // The observable replica retains the last usable projection.
                   } finally {
                     setSaving(false);
                   }
@@ -707,46 +670,6 @@ export type InventoryLoadResult = {
   rootId: string | null;
   treeRevision: number;
 };
-
-export async function loadInventory(
-  workspaceId: string,
-  dataSource: string,
-  replicaScope?: WorkspaceReplicaScope,
-): Promise<InventoryLoadResult> {
-  const tree = await v2Api.loadDataTree(workspaceId);
-  if (replicaScope) {
-    persistWorkspaceReplica(workspaceReplica.replaceTree(replicaScope, tree));
-  }
-  const root = resolveTreePath(tree.document.nodes, dataSource);
-  if (!root) return {
-    items: [],
-    rootId: null,
-    treeRevision: tree.document.revision,
-  };
-  const descendants = inventoryDescendants(tree.document.nodes, root.id);
-  const cachedContents = replicaScope
-    ? (await workspaceReplica.load(replicaScope))?.contents ?? {}
-    : {};
-  const contents = await Promise.all(descendants.map(async (node) => {
-    try {
-      return await v2Api.readDataContent(workspaceId, node.id);
-    } catch {
-      return cachedContents[node.id] ?? null;
-    }
-  }));
-  const confirmedContents = contents.filter(
-    (content): content is TreeNodeContentDto => content !== null,
-  );
-  if (replicaScope && confirmedContents.length > 0) {
-    persistWorkspaceReplica(workspaceReplica.putContents(replicaScope, confirmedContents));
-  }
-  return projectInventory(
-    tree.document.nodes,
-    Object.fromEntries(confirmedContents.map((content) => [content.nodeId, content])),
-    dataSource,
-    tree.document.revision,
-  );
-}
 
 export async function loadCachedInventory(
   replicaScope: WorkspaceReplicaScope,

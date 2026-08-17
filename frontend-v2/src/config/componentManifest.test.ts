@@ -86,6 +86,7 @@ describe("application component manifest", () => {
       "Base",
     ]);
     expect(getComponentAncestors("ListControlListSizeButton")).toEqual([
+      "CycleButton",
       "PressButton",
       "Button",
       "Base",

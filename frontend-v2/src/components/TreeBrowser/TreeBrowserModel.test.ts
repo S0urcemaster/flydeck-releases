@@ -21,25 +21,35 @@ describe("TreeBrowserModel", () => {
     const model = new TreeBrowserModel({
       store,
       storageKey: "tree-default-mode",
-      initialTree: [{
-        id: "parent",
-        label: "Parent",
-        enabled: true,
-        contentVisible: true,
-        children: [{
-          id: "leaf",
-          label: "Leaf",
+      initialTree: [
+        {
+          id: "parent",
+          label: "Parent",
           enabled: true,
-          contentVisible: false,
+          contentVisible: true,
+          children: [{
+            id: "leaf",
+            label: "Leaf",
+            enabled: true,
+            contentVisible: false,
+            children: [],
+          }],
+        },
+        {
+          id: "trash",
+          label: "_trash",
+          enabled: true,
+          contentEditable: false,
           children: [],
-        }],
-      }],
+        },
+      ],
     });
 
     const state = model.load();
     expect(state.viewState.contentVisibleByNodeId).toMatchObject({
       parent: false,
       leaf: true,
+      trash: false,
     });
     state.viewState.contentVisibleByNodeId.leaf = false;
     model.save(state);
@@ -174,7 +184,7 @@ describe("TreeBrowserModel", () => {
     const firstState = firstModel.load();
     firstState.document.nodes[0].label = "Stored edit";
     firstState.semanticState.enabledByNodeId.theme = true;
-    firstState.viewState.pageSizes.theme = 9;
+    firstState.viewState.pageSizes.theme = 10;
     firstModel.save(firstState);
 
     const refreshedModel = new TreeBrowserModel({
@@ -192,6 +202,6 @@ describe("TreeBrowserModel", () => {
 
     expect(refreshed.document.nodes[0].label).toBe("Current definition");
     expect(refreshed.semanticState.enabledByNodeId.theme).toBe(false);
-    expect(refreshed.viewState.pageSizes.theme).toBe(9);
+    expect(refreshed.viewState.pageSizes.theme).toBe(10);
   });
 });

@@ -22,6 +22,21 @@ describe("AppBrowser", () => {
     expect(markup).not.toContain('aria-label="DeviceInfo result"');
   });
 
+  it("renders Backup inline beneath its System item", () => {
+    const markup = renderToStaticMarkup(
+      <AppBrowser
+        initialSelectedPath={["system", "backup"]}
+        workspaceId="00000000-0000-4000-8000-000000000001"
+      />,
+    );
+
+    expect(markup).toContain(">Backup</button>");
+    expect(markup).toContain('data-component-name="BackupApp"');
+    expect(markup.indexOf(">Backup</button>")).toBeLessThan(
+      markup.indexOf('data-component-name="BackupApp"'),
+    );
+  });
+
   it("requires every parent visibility flag for generated output", () => {
     const nodes: TreeBrowserNode<AppData>[] = [{
       id: "widgets",

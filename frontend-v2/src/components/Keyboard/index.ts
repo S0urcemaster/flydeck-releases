@@ -1,5 +1,6 @@
 export {
   Keyboard,
+  COMMA_DIAL_QUEUE_GAP,
   copySelection,
   commaDialCharacters,
   cycleKeyboardShift,

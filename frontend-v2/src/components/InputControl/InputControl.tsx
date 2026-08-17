@@ -24,6 +24,8 @@ export type InputControlProps = BaseStyleProps & {
   buttonProps?: Omit<ButtonProps, "children" | "onClick">;
   componentName?: string;
   control?: "input" | "textarea";
+  controlActions?: ReactNode;
+  controlLeading?: ReactNode;
   initialValue?: string;
   inputProps?: Omit<InputProps, "controlRef" | "onChange" | "value">;
   keyboardActions?: ReactNode;
@@ -39,6 +41,8 @@ export function InputControl({
   buttonProps,
   componentName = "InputControl",
   control = "textarea",
+  controlActions,
+  controlLeading,
   initialValue = "",
   inputProps,
   keyboardActions,
@@ -74,7 +78,7 @@ export function InputControl({
   const targetRef = (control === "input" ? inputRef : textareaRef) as RefObject<
     TextEntryElement | null
   >;
-  const actions = keyboardActions ?? (
+  const actions = keyboardActions === undefined ? (
     <Button
       {...buttonProps}
       aria-label="Save content"
@@ -84,7 +88,7 @@ export function InputControl({
     >
       Save
     </Button>
-  );
+  ) : keyboardActions;
 
   function setEditing(editing: boolean) {
     if (editing) {
@@ -143,6 +147,12 @@ export function InputControl({
       data-keyboard-visible={keyboardVisible || undefined}
       onBlurCapture={leaveControl}
     >
+      <div className={styles.controlRow} data-leading={controlLeading
+        ? "true"
+        : undefined}>
+      {controlLeading ? (
+        <div className={styles.controlLeading}>{controlLeading}</div>
+      ) : null}
       {control === "input" ? (
         <Input
           {...inputProps}
@@ -190,6 +200,10 @@ export function InputControl({
           }}
         />
       )}
+      {controlActions ? (
+        <div className={styles.controlActions}>{controlActions}</div>
+      ) : null}
+      </div>
       {keyboardEnabled && keyboardVisible && (
         <Keyboard
           {...keyboardProps}
@@ -197,6 +211,7 @@ export function InputControl({
           fontStage={fontStage}
           layout={layout}
           onFontStageChange={setFontStage}
+          onClose={() => setEditing(false)}
           onSmartphoneKeyboardRequest={toggleSmartphoneKeyboard}
           smartphoneKeyboardEnabled={smartphoneKeyboardEnabled}
           targetRef={targetRef}

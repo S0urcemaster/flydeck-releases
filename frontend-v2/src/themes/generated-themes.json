@@ -55,8 +55,7 @@
       "longPressTimeout": 500,
       "unlockButtonTimeout": 800,
       "radiusControl": 13,
-      "borderStandard": "1px solid COLOR_BORDER",
-      "listControlOrientation": "bottom"
+      "borderStandard": "1px solid COLOR_BORDER"
     },
     "flydeck-v1": {
       "appMaxWidth": 520,
@@ -68,8 +67,7 @@
       "longPressTimeout": 500,
       "unlockButtonTimeout": 800,
       "radiusControl": 3,
-      "borderStandard": "1px solid COLOR_BORDER",
-      "listControlOrientation": "bottom"
+      "borderStandard": "1px solid COLOR_BORDER"
     },
     "greyscale": {
       "appMaxWidth": 520,
@@ -81,8 +79,7 @@
       "longPressTimeout": 500,
       "unlockButtonTimeout": 500,
       "radiusControl": 3,
-      "borderStandard": "1px solid COLOR_BORDER",
-      "listControlOrientation": "bottom"
+      "borderStandard": "1px solid COLOR_BORDER"
     }
   }
 }

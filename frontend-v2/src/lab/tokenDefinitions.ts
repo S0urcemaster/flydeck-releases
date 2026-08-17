@@ -9,7 +9,6 @@ export type LabTokenValues = {
   unlockButtonTimeout: number;
   radiusControl: number;
   borderStandard: string;
-  listControlOrientation: "top" | "bottom";
 };
 
 type NumberTokenDefinition = {
@@ -65,14 +64,6 @@ export const labTokenDefinitions: {
       '<0..8>px <solid|dashed|dotted|double> <COLOR_TOKEN|hex>; example:'
       + " 1px solid COLOR_BORDER",
     defaultValue: "1px solid COLOR_BORDER",
-  },
-  listControlOrientation: {
-    kind: "choice",
-    cssName: "--listcontrol-orientation",
-    label: "List control orientation",
-    description: "top | bottom",
-    values: ["top", "bottom"],
-    defaultValue: "bottom",
   },
 };
 

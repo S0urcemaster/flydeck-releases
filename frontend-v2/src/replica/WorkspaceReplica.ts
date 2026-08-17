@@ -214,31 +214,64 @@ export class IndexedDbWorkspaceReplicaStorage implements WorkspaceReplicaStorage
 }
 
 export class WorkspaceReplica {
+  private readonly snapshots = new Map<string, WorkspaceReplicaRecord | null>();
+  private readonly hydration = new Map<string, Promise<WorkspaceReplicaRecord | null>>();
+  private readonly listeners = new Map<string, Set<() => void>>();
+
   constructor(
     private readonly storage: WorkspaceReplicaStorage,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
   load(scope: WorkspaceReplicaScope) {
-    return this.storage.read(scope);
+    const key = replicaKey(scope);
+    if (this.snapshots.has(key)) {
+      return Promise.resolve(clone(this.snapshots.get(key) ?? null));
+    }
+    const running = this.hydration.get(key);
+    if (running) return running.then((record) => clone(record));
+    const operation = this.storage.read(scope).then((record) => {
+      this.publish(scope, record);
+      return record;
+    }).finally(() => {
+      this.hydration.delete(key);
+    });
+    this.hydration.set(key, operation);
+    return operation.then((record) => clone(record));
+  }
+
+  getSnapshot(scope: WorkspaceReplicaScope) {
+    return this.snapshots.get(replicaKey(scope)) ?? null;
+  }
+
+  subscribe(scope: WorkspaceReplicaScope, listener: () => void) {
+    const key = replicaKey(scope);
+    const current = this.listeners.get(key) ?? new Set();
+    current.add(listener);
+    this.listeners.set(key, current);
+    void this.load(scope).catch(() => undefined);
+    return () => {
+      current.delete(listener);
+      if (current.size === 0) this.listeners.delete(key);
+    };
   }
 
   replaceTree(scope: WorkspaceReplicaScope, tree: TreeLoadDto) {
     if (tree.document.workspaceId !== scope.workspaceId) {
       throw new Error("Workspace replica received a tree from another workspace");
     }
-    return this.storage.transact(scope, (current) => ({
+    return this.transact(scope, (current) => ({
       ...current,
       tree,
       lastServerSyncAt: this.now().toISOString(),
-    }));
+    }), { preserveContents: true });
   }
 
   resetToServerTree(scope: WorkspaceReplicaScope, tree: TreeLoadDto) {
     if (tree.document.workspaceId !== scope.workspaceId) {
       throw new Error("Workspace replica received a tree from another workspace");
     }
-    return this.storage.transact(scope, (current) => ({
+    return this.transact(scope, (current) => ({
       ...current,
       tree,
       contents: {},
@@ -255,7 +288,7 @@ export class WorkspaceReplica {
     scope: WorkspaceReplicaScope,
     contents: readonly TreeNodeContentDto[],
   ) {
-    return this.storage.transact(scope, (current) => ({
+    return this.transact(scope, (current) => ({
       ...current,
       contents: contents.reduce<Record<string, TreeNodeContentDto>>(
         (next, content) => {
@@ -265,7 +298,7 @@ export class WorkspaceReplica {
         { ...current.contents },
       ),
       lastServerSyncAt: this.now().toISOString(),
-    }));
+    }), { preserveTree: true });
   }
 
   putNode(
@@ -273,7 +306,7 @@ export class WorkspaceReplica {
     node: TreeNodeDto,
     treeRevision: number,
   ) {
-    return this.storage.transact(scope, (current) => {
+    return this.transact(scope, (current) => {
       if (!current.tree) return current;
       const existing = current.tree.document.nodes.some(({ id }) => id === node.id);
       return {
@@ -291,7 +324,7 @@ export class WorkspaceReplica {
           },
         },
       };
-    });
+    }, { preserveContents: true });
   }
 
   enqueue(
@@ -301,7 +334,7 @@ export class WorkspaceReplica {
     userCommandId = command.input.requestId,
   ) {
     const id = command.input.requestId;
-    return this.storage.transact(scope, (current) => {
+    return this.transact(scope, (current) => {
       if (current.outbox.some((entry) => entry.id === id)) return current;
       const optimistic = applyOptimisticCommand(current, command);
       return {
@@ -318,19 +351,46 @@ export class WorkspaceReplica {
   }
 
   recordAttempt(scope: WorkspaceReplicaScope, id: string) {
-    return this.storage.transact(scope, (current) => ({
+    return this.transact(scope, (current) => ({
       ...current,
       outbox: current.outbox.map((entry) => entry.id === id
         ? { ...entry, attempts: entry.attempts + 1 }
         : entry),
-    }));
+    }), { preserveTree: true, preserveContents: true });
   }
 
   acknowledge(scope: WorkspaceReplicaScope, id: string) {
-    return this.storage.transact(scope, (current) => ({
+    return this.transact(scope, (current) => ({
       ...current,
       outbox: current.outbox.filter((entry) => entry.id !== id),
-    }));
+    }), { preserveTree: true, preserveContents: true });
+  }
+
+  private async transact(
+    scope: WorkspaceReplicaScope,
+    update: (current: WorkspaceReplicaRecord) => WorkspaceReplicaRecord,
+    preserve: { preserveTree?: boolean; preserveContents?: boolean } = {},
+  ) {
+    await this.load(scope);
+    const record = await this.storage.transact(scope, update);
+    this.publish(scope, record, preserve);
+    return clone(this.getSnapshot(scope) ?? record);
+  }
+
+  private publish(
+    scope: WorkspaceReplicaScope,
+    record: WorkspaceReplicaRecord | null,
+    preserve: { preserveTree?: boolean; preserveContents?: boolean } = {},
+  ) {
+    const key = replicaKey(scope);
+    const previous = this.snapshots.get(key) ?? null;
+    const snapshot = previous && record ? {
+      ...record,
+      tree: preserve.preserveTree ? previous.tree : record.tree,
+      contents: preserve.preserveContents ? previous.contents : record.contents,
+    } : record;
+    this.snapshots.set(key, snapshot);
+    for (const listener of this.listeners.get(key) ?? []) listener();
   }
 }
 

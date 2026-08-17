@@ -72,8 +72,8 @@ export function SettingsModule({
         {...treeBrowserProps}
         browserLabel="Theme configuration"
         componentName="ThemeBrowser"
-        defaultPageSize={9}
-        rootPageSize={6}
+        defaultPageSize={10}
+        rootPageSize={7}
         model={model}
         rootListEditable={false}
         onSelectedPathChange={async (selectedPath) => {

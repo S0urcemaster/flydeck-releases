@@ -24,7 +24,7 @@ export type InputProps = Omit<BaseProps<"input">, "as"> & {
   label?: ReactNode;
   keyboardProps?: Omit<
     KeyboardProps,
-    "fontStage" | "layout" | "onFontStageChange" | "targetRef"
+    "fontStage" | "layout" | "onClose" | "onFontStageChange" | "targetRef"
   >;
 };
 
@@ -154,6 +154,11 @@ export function Input({
           fontStage={fontStage}
           layout={keyboardLayout}
           onFontStageChange={setFontStage}
+          onClose={() => {
+            setKeyboardVisible(false);
+            setControlHeight(undefined);
+            setSmartphoneKeyboardEnabled(false);
+          }}
           onSmartphoneKeyboardRequest={() => {
             const target = resolvedInputRef.current;
             const enabled = !smartphoneKeyboardEnabled;

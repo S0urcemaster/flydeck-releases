@@ -13,6 +13,8 @@ const database = databaseUrl
       basePath: "/flydeck",
       databaseUrl,
       databaseSsl: false,
+      backupDirectory: "/tmp/flydeck-backend-v2-integration-backups",
+      backupRetention: 7,
       trustProxy: false,
       schedulerIntervalMs: 5_000,
       loginRequired: true,

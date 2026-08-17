@@ -143,6 +143,8 @@ export type ComponentPropertiesConfig = {
     message: string;
     base: StoredBaseProperties;
   };
+  InlineAppView: { base: StoredBaseProperties };
+  BackupApp: { base: StoredBaseProperties };
   AppTitle: {
     title: string;
     symbol: string;
@@ -254,6 +256,8 @@ export function parseComponentPropertiesConfig(
   const listControlButton = input.ListControlButton;
   const listControlListSizeButton = input.ListControlListSizeButton;
   const appStatusLine = input.AppStatusLine;
+  const inlineAppView = input.InlineAppView;
+  const backupApp = input.BackupApp;
   const appTitle = input.AppTitle;
   const appShell = input.AppShell;
   const modulePanel = input.ModulePanel;
@@ -332,6 +336,8 @@ export function parseComponentPropertiesConfig(
     || !isRecord(listControlButton)
     || !isRecord(listControlListSizeButton)
     || !isRecord(appStatusLine)
+    || !isRecord(inlineAppView)
+    || !isRecord(backupApp)
     || !isRecord(appTitle)
     || !isRecord(appShell)
     || !isRecord(modulePanel)
@@ -416,6 +422,8 @@ export function parseComponentPropertiesConfig(
     listControlListSizeButton.base,
   );
   const appStatusLineBase = parseStoredBaseProperties(appStatusLine.base);
+  const inlineAppViewBase = parseStoredBaseProperties(inlineAppView.base);
+  const backupAppBase = parseStoredBaseProperties(backupApp.base);
   const titleBase = parseStoredBaseProperties(appTitle.base);
   const shellBase = parseStoredBaseProperties(appShell.base);
   const panelBase = parseStoredBaseProperties(modulePanel.base);
@@ -499,6 +507,8 @@ export function parseComponentPropertiesConfig(
     || !listControlButtonBase
     || !listControlListSizeButtonBase
     || !appStatusLineBase
+    || !inlineAppViewBase
+    || !backupAppBase
     || !titleBase
     || !shellBase
     || !panelBase
@@ -762,6 +772,8 @@ export function parseComponentPropertiesConfig(
       message: appStatusLine.message,
       base: appStatusLineBase,
     },
+    InlineAppView: { base: inlineAppViewBase },
+    BackupApp: { base: backupAppBase },
     AppTitle: {
       title: appTitle.title,
       symbol: appTitle.symbol,

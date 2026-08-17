@@ -16,6 +16,7 @@ describe("component properties config", () => {
 
     expect(properties).not.toBeNull();
     expect(properties).toEqual(generatedProperties);
+    expect(properties?.ModuleButton.base.width).toBe("100%");
   });
 
   it("provides a persisted Base contract for every manifest component", () => {

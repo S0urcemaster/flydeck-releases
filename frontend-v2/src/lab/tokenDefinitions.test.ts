@@ -22,19 +22,12 @@ describe("lab token definitions", () => {
     expect(renderLabTokens(values!)).toContain(
       "--border-standard: 1px solid var(--color-border);",
     );
-    expect(renderLabTokens(values!)).toContain(
-      "--listcontrol-orientation: bottom;",
-    );
   });
 
   it("rejects unknown, incomplete, and out-of-range values", () => {
     expect(parseLabTokenValues({ ...defaultLabTokenValues, unknown: 1 })).toBeNull();
     expect(parseLabTokenValues({})).toBeNull();
     expect(parseLabTokenValues({ ...defaultLabTokenValues, space: 13 })).toBeNull();
-    expect(parseLabTokenValues({
-      ...defaultLabTokenValues,
-      listControlOrientation: "left",
-    })).toBeNull();
     expect(parseLabTokenValues({
       ...defaultLabTokenValues,
       borderStandard: "1 px solid COLOR_BORDER",

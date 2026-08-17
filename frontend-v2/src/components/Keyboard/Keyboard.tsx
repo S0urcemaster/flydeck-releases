@@ -5,6 +5,7 @@ import {
   Keyboard as KeyboardIcon,
   Mic,
   Space,
+  X,
 } from "lucide-react";
 
 import {
@@ -74,10 +75,11 @@ export const keyboardKeys: readonly KeyboardKey[] = [
 export const lowerKeyboardCharacters = [..."qwertzuiopasdfghjklyxcvbnm"];
 export const symbolKeyboardCharacters = [
   "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-  "@", "#", "&", "*", "-", "+", "=", "(", ")", "_", "€", "23", "24", "25", "26", "/",
+  "@", "#", "&", "*", "§", "+", "=", "(", ")", "_", "€", "23", "24", "25", "26", ";",
 ];
 export const commaDialCharacters = [",", '"', "'"] as const;
-export const periodDialCharacters = [".", ":", ";"] as const;
+export const periodDialCharacters = [".", "-", ":", "/"] as const;
+export const COMMA_DIAL_QUEUE_GAP = "3px";
 export const symbolCycleCharacters = {
   "23": ["!", "?", "%"],
   "24": ["[", "]", "\\"],
@@ -116,6 +118,7 @@ export type KeyboardProps = {
   fontStage: InputFontStage;
   layout?: "inline" | "block";
   onFontStageChange: (stage: InputFontStage) => void;
+  onClose?: () => void;
   onSmartphoneKeyboardRequest?: () => void;
   smartphoneKeyboardEnabled?: boolean;
   shiftButtonProps?: Omit<
@@ -139,6 +142,7 @@ export function Keyboard({
   fontStage,
   layout = "inline",
   onFontStageChange,
+  onClose,
   onSmartphoneKeyboardRequest,
   smartphoneKeyboardEnabled = false,
   shiftButtonProps,
@@ -175,6 +179,15 @@ export function Keyboard({
   const cycleButtonClassName = cycleButtonProps?.className
     ? `${styles.button} ${cycleButtonProps.className}`
     : styles.button;
+  const cycleKeyClassName = cycleButtonProps?.className
+    ? `${styles.key} ${cycleButtonProps.className}`
+    : styles.key;
+  const dialKeyClassName = dialButtonProps?.className
+    ? `${styles.key} ${dialButtonProps.className}`
+    : styles.key;
+  const backspaceKeyClassName = backspaceButtonProps?.className
+    ? `${styles.key} ${backspaceButtonProps.className}`
+    : styles.key;
 
   const speechSupported = typeof window !== "undefined"
     && Boolean(window.SpeechRecognition ?? window.webkitSpeechRecognition);
@@ -279,12 +292,13 @@ export function Keyboard({
       renderedKeys.push(
         <BackspaceButton
           {...backspaceButtonProps}
-          className={styles.key}
+          className={backspaceKeyClassName}
           data-key-id={key.id}
           data-position={key.position}
           data-row={key.row}
           key={key.id}
           height={buttonHeight}
+          width="100%"
           onPress={() => deleteBackward(targetRef.current)}
         />,
       );
@@ -349,12 +363,13 @@ export function Keyboard({
         <DialButton
           {...dialButtonProps}
           aria-label={`${letterDialOptions[0]} or ${letterDialOptions[1]}`}
-          className={styles.key}
+          className={dialKeyClassName}
           data-key-id={key.id}
           data-position={key.position}
           data-row={key.row}
           key={key.id}
           height={buttonHeight}
+          width="100%"
           options={letterDialOptions}
           onDial={(dialCharacter, replacePrevious) => insertDialKeyboardText(
             targetRef.current,
@@ -376,12 +391,13 @@ export function Keyboard({
         <DialButton
           {...dialButtonProps}
           aria-label="Currency Euro or Dollar"
-          className={styles.key}
+          className={dialKeyClassName}
           data-key-id={key.id}
           data-position={key.position}
           data-row={key.row}
           key={key.id}
           height={buttonHeight}
+          width="100%"
           options={["€", "$"]}
           onDial={(character, replacePrevious) => insertDialKeyboardText(
             targetRef.current,
@@ -403,12 +419,13 @@ export function Keyboard({
           aria-label={key.id === "18"
             ? "Opening parenthesis or less-than sign"
             : "Closing parenthesis or greater-than sign"}
-          className={styles.key}
+          className={dialKeyClassName}
           data-key-id={key.id}
           data-position={key.position}
           data-row={key.row}
           key={key.id}
           height={buttonHeight}
+          width="100%"
           options={options}
           onDial={(dialCharacter, replacePrevious) => insertDialKeyboardText(
             targetRef.current,
@@ -429,12 +446,13 @@ export function Keyboard({
         <CycleButton
           {...cycleButtonProps}
           aria-label={`Symbols ${options.join(" ")}`}
-          className={styles.key}
+          className={cycleKeyClassName}
           data-key-id={key.id}
           data-position={key.position}
           data-row={key.row}
           key={key.id}
           height={buttonHeight}
+          width="100%"
           options={options}
           value={symbolCycleValues[cycleKeyId]}
           onPress={(symbol) => insertKeyboardText(targetRef.current, symbol)}
@@ -456,15 +474,17 @@ export function Keyboard({
             {...dialButtonProps}
             aria-label={segment === 1
               ? "Comma, double quote, or single quote"
-              : "Period, colon, or semicolon"}
-            className={styles.key}
+              : "Period, hyphen, colon, or slash"}
+            className={dialKeyClassName}
             data-key-id={key.id}
             data-key-segment={segment}
             data-position={key.position}
             data-row={key.row}
             key={`${key.id}-${segment}`}
             height={buttonHeight}
+            width="100%"
             options={options}
+            queueGap={segment === 1 ? COMMA_DIAL_QUEUE_GAP : undefined}
             onDial={(dialCharacter, replacePrevious) => insertDialKeyboardText(
               targetRef.current,
               dialCharacter,
@@ -553,6 +573,7 @@ export function Keyboard({
           {...cycleButtonProps}
           className={cycleButtonClassName}
           height={buttonHeight}
+          width="100%"
           aria-label={`Input font size: ${fontStage}; press for next size`}
           options={["S", "M", "L"]}
           value={fontStageLabel(fontStage)}
@@ -565,8 +586,9 @@ export function Keyboard({
           aria-label="Insert current time; hold to insert current date"
           onPress={() => insertCurrentTime(targetRef.current)}
           onLongPress={() => insertCurrentDate(targetRef.current)}
+          secondary="D"
         >
-          T <small>D</small>
+          T
         </LongPressButton>
         <LongPressButton
           {...buttonProps}
@@ -575,8 +597,9 @@ export function Keyboard({
           aria-label="Move cursor left; hold to copy selection"
           onPress={() => moveCursor(targetRef.current, -1)}
           onLongPress={() => copySelection(targetRef.current)}
+          secondary="CP"
         >
-            <ArrowLeft className={styles.symbol} aria-hidden="true" /> <small>CP</small>
+          <ArrowLeft className={styles.symbol} aria-hidden="true" />
         </LongPressButton>
         <LongPressButton
           {...buttonProps}
@@ -585,8 +608,9 @@ export function Keyboard({
           aria-label="Move cursor right; hold to paste"
           onPress={() => moveCursor(targetRef.current, 1)}
           onLongPress={() => pasteSelection(targetRef.current)}
+          secondary="PS"
         >
-            <ArrowRight className={styles.symbol} aria-hidden="true" /> <small>PS</small>
+          <ArrowRight className={styles.symbol} aria-hidden="true" />
         </LongPressButton>
         <LongPressButton
           {...buttonProps}
@@ -595,9 +619,25 @@ export function Keyboard({
           aria-label="Select word at cursor; hold to select all"
           onPress={() => selectWordAtCursor(targetRef.current)}
           onLongPress={() => selectAll(targetRef.current)}
+          secondary="AL"
         >
-          W <small>AL</small>
+          W
         </LongPressButton>
+        <Button
+          {...smartphoneButtonProps}
+          activeColor="COLOR_SPEECH"
+          aria-label="Close keyboard"
+          background="COLOR_SPEECH"
+          className={styles.button}
+          height={buttonHeight}
+          onClick={() => {
+            targetRef.current?.blur();
+            onClose?.();
+          }}
+          onPointerDown={(event) => event.preventDefault()}
+        >
+          <X className={styles.symbol} aria-hidden="true" />
+        </Button>
       </div>
       <div className={styles.keys} aria-label="Keyboard keys">
         {renderedKeys}

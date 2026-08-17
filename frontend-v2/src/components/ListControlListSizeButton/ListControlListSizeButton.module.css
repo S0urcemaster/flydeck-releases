@@ -1,0 +1,11 @@
+.label {
+  display: inline-block;
+  line-height: 1;
+  transform: translateY(calc(-0.5em - 1px));
+}
+
+@media (max-width: 620px) {
+  .label {
+    transform: translateY(calc(-0.5em + 3px));
+  }
+}

@@ -1,4 +1,7 @@
 import { PressButton, type PressButtonProps } from "../PressButton";
+import styles from "./CycleButton.module.css";
+
+export const CYCLE_BUTTON_QUEUE_FONT_SIZE = "0.55em";
 
 export type CycleButtonProps = Omit<
   PressButtonProps,
@@ -44,7 +47,14 @@ export function CycleButton({
         onChange(normalizedOptions[(selectedIndex + 1) % normalizedOptions.length]);
       }}
     >
-      {selected}{alternatives && <> <small>{alternatives}</small></>}
+      <span className={styles.content}>
+        <span>{selected}</span>
+        {alternatives && (
+          <small style={{ fontSize: CYCLE_BUTTON_QUEUE_FONT_SIZE }}>
+            {alternatives}
+          </small>
+        )}
+      </span>
     </PressButton>
   );
 }

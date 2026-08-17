@@ -13,6 +13,6 @@ describe("DialButton", () => {
     );
 
     expect(markup).toContain('data-component-name="DialButton"');
-    expect(markup).toContain("€ <small>$</small>");
+    expect(markup).toContain(">$</small>");
   });
 });

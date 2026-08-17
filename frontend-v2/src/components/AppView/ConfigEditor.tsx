@@ -11,6 +11,7 @@ export type ConfigEditorProps = BaseStyleProps & {
   dataSourceButtonProps?: DataSourceInputProps["buttonProps"];
   dataSourceBaseProps?: BaseStyleProps;
   onDataSourceChange?: (dataSource: string) => void;
+  validateDataSource?: (dataSource: string) => boolean;
 };
 
 export function ConfigEditor({
@@ -20,9 +21,14 @@ export function ConfigEditor({
   dataSourceButtonProps,
   dataSourceBaseProps,
   onDataSourceChange,
+  validateDataSource,
   ...baseProps
 }: ConfigEditorProps) {
   const [draft, setDraft] = useState(dataSource);
+  const normalizedDraft = draft.trim();
+  const draftStatus = validateDataSource && normalizedDraft
+    ? validateDataSource(normalizedDraft) ? "valid" : "invalid"
+    : draft === dataSource ? dataSourceStatus : null;
   const source = {
     id: dataSource,
     label: dataSource,
@@ -42,16 +48,17 @@ export function ConfigEditor({
         current={source}
         inputProps={dataSourceInputProps}
         targets={[source]}
+        valid={draftStatus === "valid"}
         value={draft}
         onChange={setDraft}
         onSetDataSource={onDataSourceChange}
       />
-      {dataSourceStatus && (
+      {draftStatus && (
         <div
-          className={dataSourceStatus === "valid" ? styles.success : styles.error}
+          className={draftStatus === "valid" ? styles.success : styles.error}
           role="status"
         >
-          {dataSourceStatus === "valid"
+          {draftStatus === "valid"
             ? "Datasource branch found."
             : "Datasource branch not found."}
         </div>

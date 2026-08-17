@@ -1,13 +1,24 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { createTreeNodeLocalId } from "@flydeck/shared/v2";
 
 import { Base, resolveCssValue, type BaseStyleProps } from "../Base";
 import { BrowserItem, type BrowserItemProps } from "../BrowserItem";
-import { ListControl, type ListControlProps } from "../ListControl";
 import {
-  ListControlListSizeButton,
-  type ListControlListSize,
-} from "../ListControlListSizeButton";
+  ListControl,
+  ListControlInput,
+  type ListControlInputProps,
+  type ListControlProps,
+} from "../ListControl";
+import type { ListControlListSize } from "../ListControlListSizeButton";
 import {
   TreeBrowserModel,
   createTreeBrowserSnapshot,
@@ -61,7 +72,6 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   browserLabel?: string;
   defaultPageSize?: ListControlListSize;
   rootPageSize?: ListControlListSize;
-  listControlOrientation?: "top" | "bottom";
   model: TreeBrowserModel<TContent>;
   rootListEditable?: boolean;
   rootListItemLimit?: number;
@@ -70,19 +80,18 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   browserItemProps?: Omit<
     BrowserItemProps,
     | "checked"
-    | "editable"
     | "label"
     | "itemNumber"
-    | "onDelete"
     | "onCheckedChange"
     | "onSelect"
-    | "mode"
-    | "onModeChange"
     | "selected"
     | "activeColor"
   >;
   renderContent?: (
     props: TreeBrowserContentRenderProps<TContent>
+  ) => ReactNode;
+  renderInlineContent?: (
+    props: Pick<TreeBrowserContentRenderProps<TContent>, "node">
   ) => ReactNode;
   onTreeChange?: (
     nodes: readonly TreeBrowserModelSnapshotNode<TContent>[]
@@ -133,29 +142,39 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   ) => boolean | void | Promise<boolean | void>;
   listControlProps?: Omit<
     ListControlProps,
+    | "activeColor"
     | "itemCount"
-    | "itemLimit"
-    | "itemNames"
-    | "editable"
-    | "onNew"
-    | "onRename"
     | "onPageChange"
-    | "onPageSizeChange"
+    | "onChildPageSizeChange"
     | "page"
     | "pageSize"
-    | "showListSizeButton"
+    | "mode"
+    | "onModeChange"
+    | "showModeButton"
+    | "showPageButtons"
+    | "childPageSize"
     | "selectedName"
+  > & Pick<
+    ListControlInputProps,
+    "deleteButtonProps" | "inputProps" | "newButtonProps"
   >;
 };
 
 const rootId = "__tree_root__";
+type TreeSearchContext = {
+  includeDescendants: boolean;
+  value: string;
+};
+
+function listLevelActiveColor(depth: number) {
+  return depth % 2 === 0 ? "COLOR_ACCENT_ONE" : "COLOR_ACCENT_TWO";
+}
 
 export function TreeBrowser<TContent = unknown>({
   componentName = "TreeBrowser",
   browserLabel = "Tree browser",
-  defaultPageSize = 6,
+  defaultPageSize = 7,
   rootPageSize = defaultPageSize,
-  listControlOrientation = "top",
   model,
   rootListEditable = true,
   rootListItemLimit,
@@ -163,6 +182,7 @@ export function TreeBrowser<TContent = unknown>({
   rowGap,
   browserItemProps,
   renderContent,
+  renderInlineContent,
   onTreeChange,
   canCreateNode = () => true,
   canDeleteNode,
@@ -201,6 +221,17 @@ export function TreeBrowser<TContent = unknown>({
   );
   const [pages, setPages] = useState(initialState.viewState.pages);
   const [pageSizes, setPageSizes] = useState(initialState.viewState.pageSizes);
+  const [searchByListId, setSearchByListId] = useState<Record<string, string>>({});
+  const [searchDescendantsByListId, setSearchDescendantsByListId] = useState<
+    Record<string, boolean>
+  >({});
+  const [searchEnabledByListId, setSearchEnabledByListId] = useState<
+    Record<string, boolean>
+  >({});
+  const activeSearchListId = Object.entries(searchByListId).find(
+    ([listId, value]) => value.trim()
+      && (searchEnabledByListId[listId] ?? true),
+  )?.[0];
   const selectionPending = useRef(false);
   const semanticState: TreeBrowserSemanticState = useMemo(
     () => ({ enabledByNodeId }),
@@ -388,23 +419,63 @@ export function TreeBrowser<TContent = unknown>({
     depth: number,
     listEditable: boolean,
     listItemLimit?: number,
+    inheritedSearch?: TreeSearchContext,
   ) {
+    const {
+      inputProps: configuredListInputProps,
+      newButtonProps: configuredNewButtonProps,
+      ...configuredListControlProps
+    } = listControlProps ?? {};
     const effectiveListItemLimit = Math.min(listItemLimit ?? 99, 99);
+    const searchContext = resolveTreeSearchContext(
+      parentId,
+      searchByListId,
+      searchEnabledByListId,
+      searchDescendantsByListId,
+      inheritedSearch,
+    );
+    const searchValue = searchContext?.value ?? "";
+    const normalizedSearch = searchValue.trim().toLocaleLowerCase();
+    const filteredNodes = filterDirectListNodes(
+      nodes,
+      normalizedSearch,
+      searchContext?.includeDescendants ?? false,
+    );
     const pageSize = pageSizes[parentId]
       ?? (parentId === rootId ? rootPageSize : defaultPageSize);
-    const pageCount = Math.max(1, Math.ceil(nodes.length / pageSize));
+    const pageCount = Math.max(1, Math.ceil(filteredNodes.length / pageSize));
     const page = Math.min(pages[parentId] ?? 0, pageCount - 1);
-    const visibleNodes = nodes.slice(
+    const visibleNodes = filteredNodes.slice(
       page * pageSize,
       (page + 1) * pageSize,
     );
     const selectedId = selectedPath[depth];
     const selectedNode = nodes.find(({ id }) => id === selectedId);
+    const selectedBrowserNode = selectedNode
+      ? toTreeBrowserNode(
+          selectedNode,
+          enabledByNodeId,
+          contentVisibleByNodeId,
+        )
+      : null;
+    const selectedInlineContent = selectedBrowserNode
+      ? renderInlineContent?.({ node: selectedBrowserNode })
+      : null;
+    const inlineContentVisible = selectedInlineContent !== null
+      && selectedInlineContent !== undefined
+      && selectedInlineContent !== false;
     const parentNode = parentId === rootId ? null : findTreeNode(tree, parentId) ?? null;
+    const ownerName = parentNode?.label ?? "root";
+    const ownerContentVisible = parentNode
+      ? contentVisibleByNodeId[parentId] ?? false
+      : false;
     const actionSelectedIds = actionSelectionByListId[parentId]
       ?? (selectedId ? [selectedId] : []);
     const actionSelectedSet = new Set(actionSelectedIds);
     const actionNodes = nodes.filter(({ id }) => actionSelectedSet.has(id));
+    const actionNodesDeletable = actionNodes.length > 0 && actionNodes.every(
+      (actionNode) => canDeleteNode?.(actionNode, parentNode) ?? listEditable,
+    );
     const selectedIndex = nodes.findIndex(({ id }) => id === selectedId);
     const canMoveUp = selectedNode ? canMoveNode(selectedNode, -1, nodes) : false;
     const canMoveDown = selectedNode ? canMoveNode(selectedNode, 1, nodes) : false;
@@ -501,20 +572,86 @@ export function TreeBrowser<TContent = unknown>({
       setRevision((current) => current + 1);
     }
 
+    function changePage(nextPage: number) {
+      setPages((current) => ({ ...current, [parentId]: nextPage }));
+      const nextPageNode = filteredNodes[nextPage * pageSize];
+      if (nextPageNode) void selectNode(depth, nextPageNode.id, parentId);
+    }
+
+    const modeAvailable = Boolean(
+      parentNode
+      && parentNode.contentEditable !== false
+      && renderContent,
+    );
+    const setOwnerMode = (mode: "content" | "list") => {
+      if (!parentNode) return;
+      setContentVisibleByNodeId((current) => ({
+        ...current,
+        [parentId]: mode === "content",
+      }));
+    };
+    const listInput = (
+      <ListControlInput
+        key={`list-input-${parentId}`}
+        activeColor={listLevelActiveColor(depth)}
+        background={browserItemProps?.background}
+        buttonProps={listControlProps?.buttonProps}
+        checked={selectedNode
+          ? actionSelectedSet.has(selectedNode.id)
+          : undefined}
+        checkboxProps={browserItemProps?.checkboxProps}
+        deleteButtonProps={listControlProps?.deleteButtonProps}
+        deleteEnabled={actionNodesDeletable}
+        deleteLabel={selectedNode?.label}
+        editable={listEditable}
+        inputProps={configuredListInputProps}
+        itemCount={nodes.length}
+        itemLimit={effectiveListItemLimit}
+        itemNames={nodes.map(({ label }) => label)}
+        itemNumber={selectedNode ? selectedIndex + 1 : undefined}
+        newButtonProps={configuredNewButtonProps}
+        onNew={listEditable && canCreateNode(parentId) ? addNode : undefined}
+        onCheckedChange={selectedNode ? (nextChecked) => {
+          setActionSelectionByListId((current) => updateActionSelection(
+            current,
+            parentId,
+            selectedNode.id,
+            nextChecked,
+            selectedId,
+          ));
+        } : undefined}
+        onDelete={selectedNode
+          ? () => removeNodes(actionNodes.map(({ id }) => id))
+          : undefined}
+        onRename={listEditable && selectedNode ? renameSelected : undefined}
+        selectedName={selectedNode?.label}
+      />
+    );
     const listControl = (
         <ListControl
-          {...listControlProps}
-          itemCount={nodes.length}
-          itemNames={nodes.map(({ label }) => label)}
-          selectedName={selectedNode?.label}
+          key={`list-control-${parentId}`}
+          {...configuredListControlProps}
+          activeColor={listLevelActiveColor(depth)}
+          itemCount={filteredNodes.length}
+          selectedName={ownerName}
+          searchInputProps={configuredListInputProps}
+          searchValue={searchByListId[parentId] ?? searchValue}
+          searchDisabled={nodes.length === 0}
+          searchActive={activeSearchListId === parentId}
+          searchEnabled={searchEnabledByListId[parentId] ?? true}
+          searchLocked={Boolean(
+            activeSearchListId
+            && activeSearchListId !== parentId,
+          )}
+          searchDescendants={searchDescendantsByListId[parentId] ?? true}
           page={page}
           pageSize={pageSize}
-          showListSizeButton={false}
-          editable={listEditable}
-          itemLimit={effectiveListItemLimit}
-          onNew={listEditable && canCreateNode(parentId) ? addNode : undefined}
-          onRename={listEditable && selectedNode ? renameSelected : undefined}
-          onPageSizeChange={(nextPageSize) => {
+          childPageSize={pageSize}
+          showPageButtons
+          showModeButton={modeAvailable}
+          mode={ownerContentVisible ? "content" : "list"}
+          modeButtonProps={listControlProps?.modeButtonProps}
+          onChildPageSizeChange={(nextPageSize) => {
             setPageSizes((current) => ({
               ...current,
               [parentId]: nextPageSize,
@@ -532,33 +669,90 @@ export function TreeBrowser<TContent = unknown>({
           }
           onMoveDown={() => moveSelected(1)}
           onMoveUp={() => moveSelected(-1)}
-          onPageChange={(nextPage) => {
-            setPages((current) => ({ ...current, [parentId]: nextPage }));
+          onModeChange={setOwnerMode}
+          onPageChange={changePage}
+          onSearchChange={(value) => {
+            if (activeSearchListId && activeSearchListId !== parentId) return;
+            setSearchByListId((current) => ({
+              ...current,
+              [parentId]: value,
+            }));
+            setSearchEnabledByListId((current) => ({
+              ...current,
+              [parentId]: true,
+            }));
+            setPages((current) => ({
+              ...current,
+              [parentId]: 0,
+            }));
+            if (searchDescendantsByListId[parentId] ?? true) {
+              expandSelectedSearchPath(
+                nodes,
+                value,
+                depth,
+                setSelectedPath,
+              );
+            }
+          }}
+          onSearchEnabledChange={(enabled) => {
+            if (activeSearchListId && activeSearchListId !== parentId) return;
+            const effectiveValue = searchByListId[parentId]?.trim()
+              ? searchByListId[parentId]
+              : searchValue;
+            if (!searchByListId[parentId]?.trim() && effectiveValue) {
+              setSearchByListId((current) => ({
+                ...current,
+                [parentId]: effectiveValue,
+              }));
+            }
+            setSearchEnabledByListId((current) => ({
+              ...current,
+              [parentId]: enabled,
+            }));
+            setPages((current) => ({
+              ...current,
+              [parentId]: 0,
+            }));
+            if (enabled && (searchDescendantsByListId[parentId] ?? true)) {
+              expandSelectedSearchPath(
+                nodes,
+                effectiveValue,
+                depth,
+                setSelectedPath,
+              );
+            }
+          }}
+          onSearchDescendantsChange={(enabled) => {
+            if (activeSearchListId && activeSearchListId !== parentId) return;
+            setSearchDescendantsByListId((current) => ({
+              ...current,
+              [parentId]: enabled,
+            }));
+            setPages((current) => ({
+              ...current,
+              [parentId]: 0,
+            }));
+            if (enabled) {
+              expandSelectedSearchPath(
+                nodes,
+                searchValue,
+                depth,
+                setSelectedPath,
+              );
+            }
           }}
         />
     );
-    const configuredListSizeClassName =
-      listControlProps?.listSizeButtonProps?.className;
-    const listSizeButton = (
-      <ListControlListSizeButton
-        {...listControlProps?.buttonProps}
-        {...listControlProps?.listSizeButtonProps}
-        className={configuredListSizeClassName
-          ? `${configuredListSizeClassName} ${styles.listSizeSeparator}`
-          : styles.listSizeSeparator}
-        fontSize="0"
-        height="10px"
-        padding="0"
-        width="100%"
-        pageSize={pageSize}
-        onPageSizeChange={(nextPageSize) => {
-          setPageSizes((current) => ({
-            ...current,
-            [parentId]: nextPageSize,
-          }));
-          setPages((current) => ({ ...current, [parentId]: 0 }));
-        }}
-      />
+    const ownerPath = parentNode ? findTreePath(tree, parentId) ?? [] : [];
+    const ownerParentId = ownerPath.at(-2) ?? rootId;
+    const ownerSiblings = ownerParentId === rootId
+      ? tree
+      : findTreeNode(tree, ownerParentId)?.children ?? [];
+    const ownerActionSelectedIds = actionSelectionByListId[ownerParentId]
+      ?? (parentNode ? [parentNode.id] : []);
+    const ownerActionSelectedSet = new Set(ownerActionSelectedIds);
+    const ownerActionNodes = ownerSiblings.filter(
+      ({ id }) => ownerActionSelectedSet.has(id),
     );
 
     return (
@@ -568,94 +762,31 @@ export function TreeBrowser<TContent = unknown>({
         aria-label={depth === 0 ? "Root children" : `Children of ${parentId}`}
         key={`${parentId}-${depth}`}
       >
-        {listControlOrientation === "top" ? listControl : null}
-        <div
-          className={styles.list}
-          style={{ rowGap: resolveCssValue(rowGap) }}
-        >
-          {visibleNodes.map((node, visibleIndex) => {
-            const checked = actionSelectedSet.has(node.id);
-            const contentVisible = contentVisibleByNodeId[node.id] ?? false;
-            return (
-              <BrowserItem
-                {...browserItemProps}
-                checked={checked}
-                editable={actionNodes.length > 0 && actionNodes.every(
-                  (actionNode) => canDeleteNode?.(actionNode, parentNode)
-                    ?? listEditable,
-                )}
-                key={node.id}
-                label={node.label}
-                itemNumber={(page * pageSize) + visibleIndex + 1}
-                selected={node.id === selectedId}
-                activeColor={
-                  depth % 2 === 0
-                    ? "COLOR_ACCENT_ONE"
-                    : "COLOR_ACCENT_TWO"
-                }
-                onDelete={() => removeNodes(actionNodes.map(({ id }) => id))}
-                mode={contentVisible ? "content" : "list"}
-                onModeChange={renderContent
-                  ? (mode) => setContentVisibleByNodeId((current) => ({
-                      ...current,
-                      [node.id]: mode === "content",
-                    }))
-                  : undefined}
-                onCheckedChange={(nextChecked) => {
-                  setActionSelectionByListId((current) =>
-                    updateActionSelection(
-                      current,
-                      parentId,
-                      node.id,
-                      nextChecked,
-                      selectedId,
-                    ));
-                }}
-                onSelect={() => selectNode(depth, node.id, parentId)}
-              />
-            );
-          })}
-          {Array.from(
-            { length: pageSize - visibleNodes.length },
-            (_, index) => (
-              <span
-                className={styles.emptyItem}
-                style={{
-                  border: resolveCssValue(browserItemProps?.border),
-                  height: resolveCssValue(
-                    browserItemProps?.buttonProps?.height,
-                  ),
-                }}
-                aria-hidden="true"
-                key={`empty-${index}`}
-              />
-            ),
-          )}
-        </div>
-        {listControlOrientation === "bottom" ? listControl : null}
-        {listSizeButton}
-        {selectedNode
-          ? (contentVisibleByNodeId[selectedNode.id] ?? false)
-            ? renderContent?.({
+        {listControl}
+        {ownerContentVisible && parentNode ? (
+              <div className={styles.contentFrame}>
+                <div className={styles.contentBody}>
+                  {renderContent?.({
                 node: toTreeBrowserNode(
-                  selectedNode,
+                  parentNode,
                   enabledByNodeId,
                   contentVisibleByNodeId,
                 ),
-                localIdAvailable: (localId) => !nodes.some((node) => (
-                  node.id !== selectedNode.id && node.localId === localId
+                localIdAvailable: (localId) => !ownerSiblings.some((node) => (
+                  node.id !== parentNode.id && node.localId === localId
                 )),
                 onLocalIdChange: onUpdateNodeLocalId
+                  && parentNode.contentEditable !== false
                   ? async (localId) => {
                       if (!localId || !onUpdateNodeLocalId) return false;
                       const confirmed = await onUpdateNodeLocalId(
-                        selectedNode.id,
+                        parentNode.id,
                         localId,
                       );
                       if (confirmed === false) return false;
                       setTree((current) => mapTree(
                         current,
-                        selectedNode.id,
+                        parentNode.id,
                         (node) => ({ ...node, localId }),
                       ));
                       setRevision((current) => current + 1);
@@ -663,39 +794,113 @@ export function TreeBrowser<TContent = unknown>({
                     }
                   : undefined,
                 height: createContentHeight(
-                  pageSizes[selectedNode.id] ?? defaultPageSize,
+                  pageSizes[parentId] ?? defaultPageSize,
                   browserItemProps?.buttonProps?.height,
                   rowGap,
                 ),
                 root: onReparentNode ? {
-                  current: parentId === rootId
+                  current: ownerParentId === rootId
                     ? { id: null, label: "", path: "", eligible: true }
                     : {
-                        id: parentId,
-                        label: findTreeNode(tree, parentId)?.label ?? "",
-                        path: findTreeLocalIdPath(tree, parentId)?.join("/") ?? "",
+                        id: ownerParentId,
+                        label: findTreeNode(tree, ownerParentId)?.label ?? "",
+                        path: findTreeLocalIdPath(tree, ownerParentId)?.join("/") ?? "",
                         eligible: true,
                       },
                   targets: createBatchRootTargets(
                     tree,
-                    actionNodes.map(({ id }) => id),
+                    ownerActionNodes.map(({ id }) => id),
                     rootListItemLimit,
                   ),
                   onChange: (nextParentId) => reparentNodes(
-                    actionNodes.map(({ id }) => id),
-                    selectedNode.id,
+                    ownerActionNodes.map(({ id }) => id),
+                    parentNode.id,
                     nextParentId,
                   ),
                 } : undefined,
-              })
-            : renderLevel(
-                selectedNode.children,
-                selectedNode.id,
-                depth + 1,
-                selectedNode.listEditable !== false,
-                selectedNode.listItemLimit,
-              )
-          : null}
+                  })}
+                </div>
+              </div>
+        ) : (
+          <>
+            <div className={styles.listFrame}>
+              <div
+                className={styles.list}
+                style={{ rowGap: resolveCssValue(rowGap) }}
+              >
+                {visibleNodes.map((node) => {
+                  const checked = actionSelectedSet.has(node.id);
+                  if (node.id === selectedId && !inlineContentVisible) {
+                    return listInput;
+                  }
+                  const browserItem = (
+                    <BrowserItem
+                      {...browserItemProps}
+                      checked={checked}
+                      key={node.id}
+                      label={node.label}
+                      itemNumber={nodes.findIndex(({ id }) => id === node.id) + 1}
+                      selected={node.id === selectedId}
+                      activeColor={listLevelActiveColor(depth)}
+                      onCheckedChange={(nextChecked) => {
+                        setActionSelectionByListId((current) =>
+                          updateActionSelection(
+                            current,
+                            parentId,
+                            node.id,
+                            nextChecked,
+                            selectedId,
+                          ));
+                      }}
+                      onSelect={() => selectNode(depth, node.id, parentId)}
+                    />
+                  );
+                  if (node.id !== selectedId || !inlineContentVisible) {
+                    return browserItem;
+                  }
+                  return (
+                    <Fragment key={node.id}>
+                      {browserItem}
+                      <div className={styles.inlineContent}>
+                        {selectedInlineContent}
+                      </div>
+                    </Fragment>
+                  );
+                })}
+                {nodes.length === 0 ? listInput : null}
+                {Array.from(
+                  { length: pageSize - visibleNodes.length },
+                  (_, index) => (
+                    <span
+                      className={styles.emptySpace}
+                      style={{
+                        height: resolveCssValue(
+                          browserItemProps?.buttonProps?.height,
+                        ),
+                      }}
+                      aria-hidden="true"
+                      key={`empty-${index}`}
+                    />
+                  ),
+                )}
+              </div>
+            </div>
+            {selectedNode && !inlineContentVisible ? (
+              <div className={styles.childListFrame}>
+                {renderLevel(
+                  selectedNode.children,
+                  selectedNode.id,
+                  depth + 1,
+                  selectedNode.listEditable !== false,
+                  selectedNode.listItemLimit,
+                  searchContext?.includeDescendants
+                    ? searchContext
+                    : undefined,
+                )}
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
     );
   }
@@ -714,6 +919,58 @@ export function TreeBrowser<TContent = unknown>({
       {renderLevel(tree, rootId, 0, rootListEditable, rootListItemLimit)}
     </Base>
   );
+}
+
+function resolveTreeSearchContext(
+  listId: string,
+  searchByListId: Record<string, string>,
+  searchEnabledByListId: Record<string, boolean>,
+  searchDescendantsByListId: Record<string, boolean>,
+  inheritedSearch?: TreeSearchContext,
+): TreeSearchContext | undefined {
+  if (inheritedSearch) return inheritedSearch;
+  const ownSearchValue = searchByListId[listId] ?? "";
+  return ownSearchValue.trim()
+    ? (searchEnabledByListId[listId] ?? true) ? {
+        includeDescendants: searchDescendantsByListId[listId] ?? true,
+        value: ownSearchValue,
+      } : undefined
+    : inheritedSearch;
+}
+
+function expandSelectedSearchPath<TNode extends {
+  id: string;
+  label: string;
+  children: readonly TNode[];
+}>(
+  nodes: readonly TNode[],
+  searchValue: string,
+  depth: number,
+  setSelectedPath: Dispatch<SetStateAction<string[]>>,
+) {
+  const matchPath = findFirstMatchingNodePath(nodes, searchValue);
+  if (!matchPath || matchPath.length < 2) return;
+  setSelectedPath((current) => [
+    ...current.slice(0, depth + 1),
+    ...matchPath.slice(0, -1),
+  ]);
+}
+
+export function findFirstMatchingNodePath<TNode extends {
+  id: string;
+  label: string;
+  children: readonly TNode[];
+}>(nodes: readonly TNode[], searchValue: string): string[] | null {
+  const normalizedSearch = searchValue.trim().toLocaleLowerCase();
+  if (!normalizedSearch) return null;
+  for (const node of nodes) {
+    if (node.label.toLocaleLowerCase().includes(normalizedSearch)) {
+      return [node.id];
+    }
+    const childPath = findFirstMatchingNodePath(node.children, normalizedSearch);
+    if (childPath) return [node.id, ...childPath];
+  }
+  return null;
 }
 
 function createContentHeight(
@@ -767,6 +1024,32 @@ export function mapTree<TNode extends { id: string; children: TNode[] }>(
 
 export function insertAt<TItem>(items: TItem[], index: number, item: TItem) {
   return [...items.slice(0, index), item, ...items.slice(index)];
+}
+
+export function filterDirectListNodes<
+  TNode extends { label: string; children?: readonly TNode[] },
+>(
+  nodes: readonly TNode[],
+  searchValue: string,
+  includeDescendants = false,
+): TNode[] {
+  const normalizedSearch = searchValue.trim().toLocaleLowerCase();
+  return normalizedSearch
+    ? nodes.filter((node) => nodeMatchesSearch(
+        node,
+        normalizedSearch,
+        includeDescendants,
+      ))
+    : [...nodes];
+}
+
+function nodeMatchesSearch<
+  TNode extends { label: string; children?: readonly TNode[] },
+>(node: TNode, searchValue: string, includeDescendants: boolean): boolean {
+  if (node.label.toLocaleLowerCase().includes(searchValue)) return true;
+  return includeDescendants && Boolean(
+    node.children?.some((child) => nodeMatchesSearch(child, searchValue, true)),
+  );
 }
 
 export function removeFromTree<

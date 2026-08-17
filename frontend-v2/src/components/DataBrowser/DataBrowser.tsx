@@ -6,12 +6,10 @@ import {
   type TreeNodeDto,
 } from "@flydeck/shared/v2";
 
-import { V2ApiError, v2Api } from "../../api/V2ApiClient";
+import { V2ApiError } from "../../api/V2ApiClient";
 import {
-  reportWorkspaceReplicaError,
-  persistWorkspaceReplica,
-  workspaceReplica,
   workspaceSyncEngine,
+  useWorkspaceReplica,
   type WorkspaceReplicaScope,
 } from "../../replica";
 import { ClientStateStore, useClientStateScope } from "../../state";
@@ -112,7 +110,6 @@ function ServerDataBrowser({
   onSynchronizationError,
   ...treeBrowserProps
 }: DataBrowserProps & { workspaceId: string; userId: string }) {
-  const [treeLoad, setTreeLoad] = useState<TreeLoadDto | null>(null);
   const treeRevision = useRef(0);
   const nodeRevisions = useRef(new Map<string, number>());
   const enabledRevisions = useRef<Record<string, number>>({});
@@ -121,6 +118,8 @@ function ServerDataBrowser({
     userId,
     workspaceId,
   }), [userId, workspaceId]);
+  const replicaRecord = useWorkspaceReplica(replicaScope);
+  const treeLoad = replicaRecord?.tree ?? null;
 
   const fail = useCallback((error: unknown) => {
     onSynchronizationError?.(
@@ -182,29 +181,6 @@ function ServerDataBrowser({
   }, [fail, replicaScope]);
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      let cached: TreeLoadDto | null = null;
-      try {
-        cached = (await workspaceReplica.load(replicaScope))?.tree ?? null;
-        if (active && cached) setTreeLoad(cached);
-      } catch (error) {
-        reportWorkspaceReplicaError(error);
-        // The server load below can still repair an unavailable local cache.
-      }
-
-      try {
-        const confirmed = await v2Api.loadDataTree(workspaceId);
-        if (active) setTreeLoad(confirmed);
-        persistWorkspaceReplica(workspaceReplica.replaceTree(replicaScope, confirmed));
-      } catch (error) {
-        if (!cached) fail(error);
-      }
-    })();
-    return () => { active = false; };
-  }, [fail, replicaScope, workspaceId]);
-
-  useEffect(() => {
     if (!treeLoad) return;
     treeRevision.current = treeLoad.document.revision;
     nodeRevisions.current = new Map(
@@ -231,10 +207,9 @@ function ServerDataBrowser({
       initialSelectedPath={treeLoad.selection.selectedPath}
       onCreateNode={async (label, parentId, afterNodeId) => {
         const nodeId = crypto.randomUUID();
-        const cachedTree = (await workspaceReplica.load(replicaScope))?.tree;
         const localId = createTreeNodeLocalId(
           label,
-          (cachedTree?.document.nodes ?? treeLoad.document.nodes)
+          (replicaRecord?.tree?.document.nodes ?? treeLoad.document.nodes)
             .filter((node) => node.parentId === parentId)
             .map((node) => node.localId),
         );
@@ -337,7 +312,6 @@ function ServerDataBrowser({
           root={root}
           rootInputProps={treeBrowserProps.listControlProps?.inputProps}
           parentInputProps={parentInputProps}
-          workspaceId={workspaceId}
           replicaScope={replicaScope}
           onSynchronizationError={fail}
         />
@@ -356,7 +330,6 @@ function ServerDataContent({
   parentInputProps,
   nodeIdInputProps,
   contentEditorProps,
-  workspaceId,
   replicaScope,
   onSynchronizationError,
   ...inputControlProps
@@ -370,12 +343,20 @@ function ServerDataContent({
   root?: TreeBrowserRootControl;
   rootInputProps?: ParentInputProps["inputProps"];
   parentInputProps?: DataBrowserProps["parentInputProps"];
-  workspaceId: string;
   replicaScope: WorkspaceReplicaScope;
   onSynchronizationError: (error: unknown) => void;
 }) {
-  const [document, setDocument] = useState<TreeNodeContentDto | null>(null);
-  const [draft, setDraft] = useState("");
+  const replicaRecord = useWorkspaceReplica(replicaScope);
+  const document: TreeNodeContentDto | null = replicaRecord?.contents[nodeId] ?? null;
+  const [contentDraft, setContentDraft] = useState({
+    nodeId,
+    revision: document?.revision,
+    value: document?.content ?? "",
+  });
+  const draft = contentDraft.nodeId === nodeId
+    && contentDraft.revision === document?.revision
+    ? contentDraft.value
+    : document?.content ?? "";
   const [localIdDraft, setLocalIdDraft] = useState({
     nodeId,
     saved: localId,
@@ -397,33 +378,8 @@ function ServerDataContent({
     ? rootDraft.value
     : root?.current.path ?? "";
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      let cached: TreeNodeContentDto | null = null;
-      try {
-        cached = (await workspaceReplica.load(replicaScope))?.contents[nodeId] ?? null;
-        if (active && cached) {
-          setDocument(cached);
-          setDraft(cached.content);
-        }
-      } catch (error) {
-        reportWorkspaceReplicaError(error);
-        // Continue with the authoritative server read.
-      }
-
-      try {
-        const confirmed = await v2Api.readDataContent(workspaceId, nodeId);
-        if (active) {
-          setDocument(confirmed);
-          setDraft(confirmed.content);
-        }
-        persistWorkspaceReplica(workspaceReplica.putContent(replicaScope, confirmed));
-      } catch (error) {
-        if (!cached) onSynchronizationError(error);
-      }
-    })();
-    return () => { active = false; };
-  }, [nodeId, onSynchronizationError, replicaScope, workspaceId]);
+    void workspaceSyncEngine.ensureContents(replicaScope, [nodeId]);
+  }, [nodeId, replicaScope]);
 
   return (
     <div className={styles.content} style={{ height: inputControlProps.height }}>
@@ -498,7 +454,11 @@ function ServerDataContent({
         }}
         height={root ? "100%" : inputControlProps.height}
         value={draft}
-        onChange={setDraft}
+        onChange={(value) => setContentDraft({
+          nodeId,
+          revision: document?.revision,
+          value,
+        })}
         onSend={async (content) => {
           if (!document) return;
           try {
@@ -513,8 +473,11 @@ function ServerDataContent({
             });
             const current = record.contents[nodeId];
             if (current) {
-              setDocument(current);
-              setDraft(current.content);
+              setContentDraft({
+                nodeId,
+                revision: current.revision,
+                value: current.content,
+              });
             }
           } catch (error) {
             onSynchronizationError(error);

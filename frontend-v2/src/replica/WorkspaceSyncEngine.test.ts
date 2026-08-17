@@ -125,6 +125,31 @@ describe("WorkspaceSyncEngine", () => {
     await expect(draining).resolves.toBe(true);
   });
 
+  it("hydrates requested content through the replica and deduplicates it", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    await replica.replaceTree(scope, tree("Before", 0, 1));
+    const content = {
+      nodeId,
+      format: "markdown" as const,
+      content: "Cached description",
+      revision: 2,
+    };
+    const readDataContent = vi.fn().mockResolvedValue(content);
+    const api = { readDataContent } as unknown as V2ApiClient;
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      new WorkspaceSyncStatusStore(false),
+      false,
+    );
+
+    await engine.ensureContents(scope, [nodeId, nodeId]);
+    await engine.ensureContents(scope, [nodeId]);
+
+    expect(readDataContent).toHaveBeenCalledOnce();
+    expect((await replica.load(scope))?.contents[nodeId]).toEqual(content);
+  });
+
   it("discards a stale selection conflict and continues later writes", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const before = tree("Before", 0, 1);
@@ -176,6 +201,48 @@ describe("WorkspaceSyncEngine", () => {
     expect((await replica.load(scope))?.tree).toEqual(after);
     expect(status.getSnapshot()).toEqual({ state: "idle" });
     expect(status.getActivitySnapshot()).toEqual({ message: "queue saved" });
+  });
+
+  it("discards the client replica after a permanently rejected command", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const stale = tree("Stale", 0, 1);
+    const confirmed = tree("Server", 2, 3);
+    await replica.replaceTree(scope, stale);
+    await replica.enqueue(scope, {
+      type: "delete-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000012",
+        expectedTreeRevision: 1,
+      },
+    });
+    const api = {
+      deleteDataNode: vi.fn().mockRejectedValue(new V2ApiError({
+        error: "FORBIDDEN",
+        message: "System directories cannot be changed",
+        requestId: "request-3",
+      })),
+      loadDataTree: vi.fn().mockResolvedValue(confirmed),
+    } as unknown as V2ApiClient;
+    const status = new WorkspaceSyncStatusStore(false);
+    const reloadPage = vi.fn();
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      status,
+      false,
+      reloadPage,
+    );
+
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(await replica.load(scope)).toMatchObject({
+      tree: confirmed,
+      contents: {},
+      outbox: [],
+    });
+    expect(status.getSnapshot()).toEqual({ state: "idle" });
+    expect(reloadPage).toHaveBeenCalledOnce();
   });
 
   it("discards the local replica and reloads after a tree revision conflict", async () => {

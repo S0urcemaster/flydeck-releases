@@ -11,6 +11,8 @@ const config: AppConfig = {
   basePath: "/flydeck",
   databaseUrl: "postgresql://unused",
   databaseSsl: false,
+  backupDirectory: "/tmp/flydeck-backend-v2-test-backups",
+  backupRetention: 7,
   trustProxy: false,
   schedulerIntervalMs: 5_000,
   loginRequired: true,

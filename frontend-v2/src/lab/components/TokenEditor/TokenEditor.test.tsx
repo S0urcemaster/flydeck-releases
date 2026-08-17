@@ -24,7 +24,6 @@ describe("TokenEditor", () => {
     expect(text).toContain("ITEM_FONTSIZE = 20px");
     expect(text).toContain("SPACE = 3px");
     expect(text).toContain("BORDER_STANDARD = 1px solid COLOR_BORDER");
-    expect(text).toContain("LISTCONTROL_ORIENTATION = bottom");
     expect(text).not.toContain('"1px solid COLOR_BORDER"');
   });
 });

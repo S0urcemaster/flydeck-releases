@@ -26,8 +26,8 @@ describe("SettingsModule", () => {
     expect(markup).toContain("Flydeck V2");
     expect(markup).toContain("Flydeck V1");
     expect(markup).toContain("Greyscale");
-    expect(markup).toContain('aria-label="6 items per page"');
-    expect(markup).toContain('aria-label="9 items per page"');
+    expect(markup).toContain('aria-label="List controls for Flydeck V2"');
+    expect(markup).not.toContain('data-component-name="ListControlListSizeButton"');
     expect(markup).toContain(">RESET</button>");
     expect(markup).toContain(">SAVE</button>");
   });

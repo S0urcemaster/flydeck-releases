@@ -43,10 +43,12 @@ describe("Keyboard", () => {
 
     expect(markup).toContain("<svg");
     expect(markup).toContain('aria-label="Show smartphone keyboard"');
-    expect(markup).toContain("M <small>L S</small>");
-    expect(markup).toContain("<small>CP</small>");
-    expect(markup).toContain("<small>PS</small>");
-    expect(markup).toContain("<small>AL</small>");
+    expect(markup).toContain('aria-label="Close keyboard"');
+    expect(markup.match(/background:var\(--color-speech\)/g)).toHaveLength(2);
+    expect(markup).toContain(">L S</small>");
+    expect(markup).toContain(">CP</small>");
+    expect(markup).toContain(">PS</small>");
+    expect(markup).toContain(">AL</small>");
     expect(markup).toContain('aria-label="Keyboard keys"');
     expect(keyboardKeys).toHaveLength(31);
     expect(markup.match(/data-key-id=/g)).toHaveLength(33);
@@ -64,17 +66,18 @@ describe("Keyboard", () => {
     expect(markup.match(/lucide-space/g)).toHaveLength(1);
     expect(markup).toContain('aria-label="Comma, double quote, or single quote"');
     expect(markup).toContain('aria-label="Space"');
-    expect(markup).toContain('aria-label="Period, colon, or semicolon"');
+    expect(markup).toContain('aria-label="Period, hyphen, colon, or slash"');
     expect(markup).toContain('aria-label="Enter"');
     expect(markup).toContain('aria-label="Start dictation"');
     expect(markup).toContain('background:var(--color-speech)');
     expect(markup).not.toContain("MIC</button>");
     expect(markup).toContain(">↵</button>");
-    expect(markup).toContain("a <small>ä</small>");
-    expect(markup).toContain("o <small>ö</small>");
-    expect(markup).toContain("u <small>ü</small>");
-    expect(markup).toContain(", <small>&quot; &#x27;</small>");
-    expect(markup).toContain(". <small>: ;</small>");
+    expect(markup).toContain(">ä</small>");
+    expect(markup).toContain(">ö</small>");
+    expect(markup).toContain(">ü</small>");
+    expect(markup).toContain(">&quot; &#x27;</small>");
+    expect(markup).toContain(">- : /</small>");
+    expect(markup).toContain("gap:3px");
   });
 
   it("can occupy the complete second row of a Block", () => {
@@ -101,7 +104,7 @@ describe("Keyboard", () => {
       />,
     );
 
-    expect(markup.match(/height:34px/g)).toHaveLength(39);
+    expect(markup.match(/height:34px/g)).toHaveLength(40);
   });
 
   it("shows when the smartphone keyboard toggle is active", () => {
@@ -165,7 +168,7 @@ describe("Keyboard", () => {
       />,
     );
 
-    expect(markup).toContain("T <small>D</small>");
+    expect(markup).toContain(">D</small>");
   });
 
   it("formats local time and a three-digit year without the millennium", () => {
@@ -194,18 +197,18 @@ describe("Keyboard", () => {
     expect(keyboardCharacter("27", "lower")).toBe("m");
     expect(keyboardCharacter("01", "symbols")).toBe("1");
     expect(keyboardCharacter("10", "symbols")).toBe("0");
-    expect(keyboardCharacter("15", "symbols")).toBe("-");
+    expect(keyboardCharacter("15", "symbols")).toBe("§");
     expect(keyboardCharacter("21", "symbols")).toBe("_");
     expect(keyboardCharacter("22", "symbols")).toBe("€");
     expect(keyboardCharacter("23", "symbols")).toBe("23");
     expect(keyboardCharacter("26", "symbols")).toBe("26");
-    expect(keyboardCharacter("27", "symbols")).toBe("/");
+    expect(keyboardCharacter("27", "symbols")).toBe(";");
     expect(keyboardCharacter("20", "lower")).toBeNull();
   });
 
   it("defines the punctuation multi-tap order", () => {
     expect(commaDialCharacters).toEqual([",", '"', "'"]);
-    expect(periodDialCharacters).toEqual([".", ":", ";"]);
+    expect(periodDialCharacters).toEqual([".", "-", ":", "/"]);
   });
 
   it("fills symbol keys 23 through 26 with three-value CycleButtons", () => {

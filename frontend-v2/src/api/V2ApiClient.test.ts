@@ -56,6 +56,39 @@ describe("V2ApiClient", () => {
     });
   });
 
+  it("turns an empty response into a retryable API error", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, {
+      status: 200,
+      headers: { "X-Request-ID": "request-empty" },
+    }));
+    const client = new V2ApiClient("/flydeck/api/v2", fetcher);
+
+    const result = client.listCron("00000000-0000-4000-8000-000000000002");
+
+    await expect(result).rejects.toMatchObject({
+      response: {
+        error: "SERVICE_UNAVAILABLE",
+        message: "The server returned an empty response (HTTP 200) : please retry",
+        requestId: "request-empty",
+      },
+    });
+  });
+
+  it("turns malformed JSON into a retryable API error", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response("{", { status: 502 }));
+    const client = new V2ApiClient("/flydeck/api/v2", fetcher);
+
+    const result = client.listCron("00000000-0000-4000-8000-000000000002");
+
+    await expect(result).rejects.toMatchObject({
+      response: {
+        error: "SERVICE_UNAVAILABLE",
+        message: "The server returned an invalid response (HTTP 502) : please retry",
+        requestId: "unknown",
+      },
+    });
+  });
+
   it("marks the whole workspace offline when transport fails", async () => {
     const syncStatus = new WorkspaceSyncStatusStore(false);
     const client = new V2ApiClient(

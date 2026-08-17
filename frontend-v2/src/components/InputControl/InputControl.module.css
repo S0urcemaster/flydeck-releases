@@ -11,5 +11,27 @@
 }
 
 .root[data-keyboard-layout="block"] {
-  display: contents;
+  align-self: start;
+  gap: 0;
+  width: 100%;
+}
+
+.controlRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  min-width: 0;
+}
+
+.controlRow[data-leading] {
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+}
+
+.controlLeading {
+  display: grid;
+}
+
+.controlActions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
 }

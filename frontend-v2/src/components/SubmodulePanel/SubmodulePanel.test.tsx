@@ -8,13 +8,14 @@ describe("SubmodulePanel", () => {
     const markup = renderToStaticMarkup(
       <SubmodulePanel
         activeItem="MEMO"
-        buttonProps={{ height: "40px" }}
+        buttonProps={{ height: "40px", width: "44px" }}
         onChange={() => undefined}
       />,
     );
     expect(markup).toContain("CHAT");
     expect(markup).toContain("MEMO");
     expect(markup.match(/height:40px/g)).toHaveLength(2);
+    expect(markup.match(/width:100%/g)).toHaveLength(2);
     expect(markup).toContain('data-columns="2"');
   });
 

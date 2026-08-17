@@ -1,27 +1,28 @@
 .root {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  grid-template-columns: minmax(0, 1fr) max-content;
   min-width: 0;
   border-radius: var(--radius-control);
 }
 
-.root[data-list-size-button="external"] {
-  grid-template-columns: minmax(0, 1fr) max-content;
-}
-
-.status,
-.input {
+.label {
   min-width: 0;
 }
 
-.input {
+.label {
   grid-column: 1;
   grid-row: 1;
+  overflow: hidden;
 }
 
-.status {
-  grid-column: 3;
-  grid-row: 1;
+.labelText {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  padding-left: var(--space-md);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .actions {
@@ -30,4 +31,10 @@
   grid-row: 1;
   grid-auto-flow: column;
   grid-auto-columns: max-content;
+}
+
+.searchInput {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
 }

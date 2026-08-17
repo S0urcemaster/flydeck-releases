@@ -4,7 +4,7 @@ import {
   type ClientStateStore,
 } from "../../state";
 
-export type TreeBrowserPageSize = 3 | 6 | 9 | 12;
+export type TreeBrowserPageSize = 4 | 7 | 10 | 15;
 
 export type TreeBrowserModelNode<TData = unknown> = {
   id: string;
@@ -81,7 +81,7 @@ type StoredTreeBrowserModel = {
     "contentVisibleByNodeId" | "pageSizes"
   > & {
     contentVisibleByNodeId?: Record<string, boolean>;
-    pageSizes: Record<string, TreeBrowserPageSize | 5 | 10>;
+    pageSizes: Record<string, TreeBrowserPageSize | 3 | 5 | 6 | 9 | 12>;
   };
 };
 
@@ -100,7 +100,7 @@ type LegacyStoredTreeBrowserModel = {
   version: 1;
   nodes: LegacyStoredNode[];
   pages: Record<string, number>;
-  pageSizes: Record<string, TreeBrowserPageSize | 5 | 10>;
+  pageSizes: Record<string, TreeBrowserPageSize | 3 | 5 | 6 | 9 | 12>;
   selectedPath: string[];
 };
 
@@ -190,7 +190,8 @@ function initializeTree<TData>(
   ): TreeBrowserModelNode<TData>[] {
     return initialNodes.map((node) => {
       enabledByNodeId[node.id] = node.enabled;
-      contentVisibleByNodeId[node.id] = node.children.length === 0;
+      contentVisibleByNodeId[node.id] = node.contentEditable !== false
+        && node.children.length === 0;
       return {
         id: node.id,
         kind: node.kind,
@@ -440,7 +441,8 @@ function createDefaultContentVisibility<TData>(
   const visibility: Record<string, boolean> = {};
   function visit(currentNodes: TreeBrowserModelNode<TData>[]) {
     for (const node of currentNodes) {
-      visibility[node.id] = node.children.length === 0;
+      visibility[node.id] = node.contentEditable !== false
+        && node.children.length === 0;
       visit(node.children);
     }
   }
@@ -498,16 +500,17 @@ function isPageSizeRecord(
 ): value is Record<string, TreeBrowserPageSize> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
     && Object.values(value as Record<string, unknown>).every(
-      (size) => size === 3 || size === 5 || size === 6
-        || size === 9 || size === 10 || size === 12,
+      (size) => size === 3 || size === 4 || size === 5 || size === 6
+        || size === 7 || size === 9 || size === 10 || size === 12
+        || size === 15,
     );
 }
 
 function normalizePageSizes(
-  pageSizes: Record<string, TreeBrowserPageSize | 5 | 10>,
+  pageSizes: Record<string, TreeBrowserPageSize | 3 | 5 | 6 | 9 | 12>,
 ): Record<string, TreeBrowserPageSize> {
   return Object.fromEntries(Object.entries(pageSizes).map(([id, size]) => [
     id,
-    size === 5 ? 6 : size === 10 ? 12 : size,
+    size <= 4 ? 4 : size <= 7 ? 7 : size <= 10 ? 10 : 15,
   ]));
 }

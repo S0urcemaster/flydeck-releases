@@ -14,8 +14,10 @@ export type RootInputControlProps = BaseStyleProps & {
   onChange: (value: string) => void;
   actionDisabled?: boolean;
   actionLabel?: string;
+  allowUnresolvedActionTarget?: boolean;
   inputLabel?: string;
   label?: string;
+  valueValid?: boolean;
   onAction?: (value: string, target: TreeBrowserRootTarget | null) => void;
   buttonProps?: Omit<ButtonProps, "aria-label" | "children" | "onClick">;
   inputProps?: Omit<
@@ -32,8 +34,10 @@ export function RootInputControl({
   onChange,
   actionDisabled,
   actionLabel,
+  allowUnresolvedActionTarget = false,
   inputLabel = "Root node",
   label = "Root",
+  valueValid,
   onAction,
   buttonProps,
   inputProps,
@@ -65,7 +69,7 @@ export function RootInputControl({
         {...inputProps}
         aria-label={inputLabel}
         label={label}
-        color={target ? "COLOR_SUCCESS" : "COLOR_ERROR"}
+        color={(valueValid ?? Boolean(target)) ? "COLOR_SUCCESS" : "COLOR_ERROR"}
         keyboardLayout="block"
         placeholder="empty = root"
         type="text"
@@ -77,7 +81,9 @@ export function RootInputControl({
           {...buttonProps}
           aria-label={actionLabel}
           className={styles.action}
-          disabled={actionDisabled || !target || target.id === current.id}
+          disabled={actionDisabled
+            || (!target && !allowUnresolvedActionTarget)
+            || target?.id === current.id}
           onPointerDown={(event) => {
             event.preventDefault();
             buttonProps?.onPointerDown?.(event);

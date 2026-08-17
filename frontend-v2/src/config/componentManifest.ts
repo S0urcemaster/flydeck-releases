@@ -42,6 +42,8 @@ export const componentManifest = defineComponentManifest({
   ModuleButton: { parent: "PressButton", source: "components/ModuleButton/ModuleButton.tsx", labGroup: "individual" },
   SubmoduleButton: { parent: "PressButton", source: "components/SubmoduleButton/SubmoduleButton.tsx", labGroup: "individual" },
   AppStatusLine: { parent: "Base", source: "components/AppStatusLine/AppStatusLine.tsx", labGroup: "individual" },
+  InlineAppView: { parent: "Base", source: "components/InlineAppView/InlineAppView.tsx", labGroup: "individual" },
+  BackupApp: { parent: "InlineAppView", source: "components/BackupApp/BackupApp.tsx", labGroup: "individual" },
   SymbolButton: { parent: "Button", source: "components/SymbolButton/SymbolButton.tsx", labGroup: "individual" },
   SideModuleButton: { parent: "SymbolButton", source: "components/SideModuleButton/SideModuleButton.tsx", labGroup: "individual" },
   ConfigModuleButton: { parent: "SideModuleButton", source: "components/ConfigModuleButton/ConfigModuleButton.tsx", labGroup: "concrete-module-button" },
@@ -54,7 +56,7 @@ export const componentManifest = defineComponentManifest({
   DialerButton: { parent: "Button", source: "components/DialerButton/DialerButton.tsx", labGroup: "browser" },
   DialerCenterButton: { parent: "DialerButton", source: "components/DialerCenterButton/DialerCenterButton.tsx", labGroup: "browser" },
   ListControlButton: { parent: "Button", source: "components/ListControlButton/ListControlButton.tsx", labGroup: "browser" },
-  ListControlListSizeButton: { parent: "PressButton", source: "components/ListControlListSizeButton/ListControlListSizeButton.tsx", labGroup: "browser" },
+  ListControlListSizeButton: { parent: "CycleButton", source: "components/ListControlListSizeButton/ListControlListSizeButton.tsx", labGroup: "browser" },
 
   AppShell: { parent: "Base", source: "components/AppShell/AppShell.tsx", labGroup: "individual" },
   AppTitle: { parent: "Base", source: "components/AppTitle/AppTitle.tsx", labGroup: "individual" },

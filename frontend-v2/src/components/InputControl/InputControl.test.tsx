@@ -35,4 +35,17 @@ describe("InputControl", () => {
     expect(markup).toContain("Controlled");
     expect(markup).not.toContain("Ignored");
   });
+
+  it("places a leading control before its input", () => {
+    const markup = renderToStaticMarkup(
+      <InputControl
+        control="input"
+        controlLeading={<button aria-label="Select item">1</button>}
+      />,
+    );
+
+    expect(markup.indexOf('aria-label="Select item"')).toBeLessThan(
+      markup.indexOf('aria-label="Content input"'),
+    );
+  });
 });

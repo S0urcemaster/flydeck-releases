@@ -25,8 +25,10 @@ describe("ConfigEditor", () => {
 
     expect(validMarkup).toContain("Datasource branch found.");
     expect(validMarkup).toContain('class="_success_');
+    expect(validMarkup).toContain("color:var(--color-success)");
     expect(invalidMarkup).toContain("Datasource branch not found.");
     expect(invalidMarkup).toContain('class="_error_');
+    expect(invalidMarkup).toContain("color:var(--color-error)");
   });
 
   it("forwards the configured component-family controls", () => {

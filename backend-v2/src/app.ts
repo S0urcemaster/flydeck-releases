@@ -7,6 +7,8 @@ import {
   workspaceListDtoSchema,
 } from "@flydeck/shared/v2";
 import type { AppConfig } from "./config.js";
+import { BackupService } from "./backup/BackupService.js";
+import { createBackupRouter } from "./backup/backupRouter.js";
 import { SessionService, sessionCookieName } from "./auth/SessionService.js";
 import { CronService } from "./cron/CronService.js";
 import { createCronRouter } from "./cron/cronRouter.js";
@@ -19,6 +21,7 @@ import { createTreeRouter } from "./tree/treeRouter.js";
 
 export function createApp(config: AppConfig, database: Database) {
   const app = express();
+  const backups = new BackupService(config);
   const sessions = new SessionService(database, config);
   const cron = new CronService(database);
   const trees = new TreeService(database);
@@ -90,6 +93,10 @@ export function createApp(config: AppConfig, database: Database) {
   app.use(
     `${apiPath}/workspaces/:workspaceId/cron`,
     createCronRouter(sessions, cron),
+  );
+  app.use(
+    `${apiPath}/workspaces/:workspaceId/backup`,
+    createBackupRouter(sessions, backups),
   );
 
   if (config.frontendDist) {

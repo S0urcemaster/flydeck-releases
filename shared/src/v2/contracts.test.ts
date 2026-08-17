@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  backupStatusDtoSchema,
   createCronTimerRequestSchema,
   createTreeNodeLocalId,
   createTreeNodeRequestSchema,
@@ -14,6 +15,18 @@ const firstId = "00000000-0000-4000-8000-000000000001";
 const secondId = "00000000-0000-4000-8000-000000000002";
 
 describe("V2 network contracts", () => {
+  it("parses backup job status without exposing a restore contract", () => {
+    expect(backupStatusDtoSchema.parse({
+      state: "succeeded",
+      startedAt: "2026-08-15T10:00:00.000Z",
+      completedAt: "2026-08-15T10:00:02.000Z",
+      fileName: "flydeck-20260815T100000000Z.dump",
+      sizeBytes: 1024,
+      sha256: "a".repeat(64),
+      message: null,
+    })).toMatchObject({ state: "succeeded", sizeBytes: 1024 });
+  });
+
   it("creates short sibling IDs and resolves collisions within twelve characters", () => {
     expect(createTreeNodeLocalId("Äpfel & Öl")).toBe("apfel-ol");
     expect(createTreeNodeLocalId(

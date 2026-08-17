@@ -34,6 +34,12 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   status.
 
 - `App` composes `AppShell`, `AppTitle`, `ModulePanel`, and the active module.
+- The APPS browser's System branch contains `Backup`. Selecting it renders
+  `BackupApp` directly below its list item through the generic
+  `TreeBrowser.renderInlineContent` slot; it does not create a top-level app
+  tab. The view starts a server-side PostgreSQL custom-format dump and shows
+  idle, running, saved, or failed state in `AppStatusLine`. Restore is excluded
+  from the application and remains a maintenance-computer operation.
 - `Button` is the shared selected/disabled button control. `ModulePanel` and the
   AppShell viewport simulation compose it instead of styling raw buttons.
 - `ModuleButton` composes `PressButton` and is parameterized by label and
@@ -107,8 +113,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   overlapping `EntryBrowser` implementation and catalog entry have been
   removed.
 - `TreeBrowser` is the recursive tree-navigation base currently shown directly
-  under `AGNT` → `MEMO` with a plant-inheritance fixture. The root is invisible.
-  Each visible level owns a list control and a fixed five-row list. Selecting one
+  under `AGNT` → `MEMO` with a plant-inheritance fixture. A virtual client-only
+  `root` owns the first list; it has no editable ID, parent, or content and
+  requires no backend node. Each visible level owns a list control and a
+  fixed-size page. Selecting one
   row appends exactly one child level below the complete current list; leaf
   selection appends the same five-row level as an empty list. There is no tree
   indentation and no child list is inserted beside or immediately after its
@@ -119,14 +127,45 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `fontSize`; editing it in the lab no longer mutates the inherited global
   Button typography. Lab navigation and action buttons inherit the configured
   Button height, so typography previews cannot resize the lab chrome.
-- `BrowserItem` shows its `DeleteButton` only while selected and no longer owns
-  ordering controls. `ListControl` places its page status at the left, a
-  reusable `Input` in the remaining row width, and `＋` plus previous-page,
-  move-up, move-down, and next-page buttons at the right. NEW is enabled only
+- `BrowserItem` now contains only its checkbox and label; it owns no destructive,
+  ordering, paging, or mode controls. Selecting an editable item replaces that
+  row with the existing keyboard-backed name input while retaining its numbered
+  action-selection checkbox immediately before that input. Each `ListControl`
+  precedes its own list or content in normal document flow. Its left label names
+  that list/content owner (`root` at the first level); move, delete, paging,
+  sizing, and search act on that owner's own child list. Its default level
+  contains the owner label button at the left, followed by move-up/down,
+  previous/next-page, and finally the list/content switch at the far right.
+  Clicking the label switches to a second level with a keyboard-backed search
+  input and a `CycleButton` list-size control. Delete travels with the active
+  child and sits directly beside that child's name input. The former Back button
+  is replaced by the Keyboard's general close button. The search InputControl
+  reserves the same configured standard height as the ListControl buttons. A
+  checked search toggle directly beside the field enables or pauses a retained
+  non-empty query; it is disabled without search text. Editing text enables
+  the filter again. Only one list owner can have an enabled search at a time.
+  Its label alone shows the active state; other owner labels and their search/depth
+  controls remain locked until the owning search is switched off.
+  The selected-item input has no visible `Name` label. An owner with an empty
+  child list cannot enter search view; otherwise search filters the owner's direct child
+  labels and resets that child list to its first page. A selected data-tree
+  `Checkbox` button is enabled by default and extends matching recursively to all descendants while continuing to
+  show every matching direct-child branch. The same filter is inherited by
+  each visible descendant list without exposing an editable inherited query,
+  and the first matching parent path expands so
+  a deep hit remains visible together with every ancestor. While a non-empty search remains
+  active, the owner label button uses its active color. Search-label
+  and data-tree toggle states follow the owning list's alternating depth color:
+  root children and their ListControl are `ACCENT_ONE`, the next level is
+  `ACCENT_TWO`, and deeper levels continue alternating. The former
+  first-item corner overlays and
+  compensating width calculations have been removed. NEW is enabled only
   for a non-empty name that does not already exist case-insensitively.
-  `ListControlListSizeButton` is controlled by the list owner, displays only
-  its current page size, and requests changes through `3 → 5 → 9 → 3`;
-  each tree level owns the resulting setting independently.
+  `ListControlListSizeButton` displays the active size first and the remaining
+  `S / M / L / X` cycle after it, and requests changes
+  through `4 → 7 → 10 → 15 → 4`. It controls its owner's child list;
+  changing it while content is shown switches that owner back to list view.
+  Each tree level owns the resulting setting independently.
   `TreeBrowser` supplies the selected-row color by depth, alternating from
   `ACCENT_ONE` to `ACCENT_TWO`.
   Selecting a row makes it the only active item in its sibling list and checks
@@ -141,7 +180,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   item and its descendant list/content remain active even while another page
   of the owning list is visible.
 - `DataBrowser` and `FunctionBrowser` specialize `TreeBrowser` and are shown
-  in DATA and FUNC. `DataBrowser` owns broad dummy data categories.
+  in DATA and FUNC. `DataBrowser` renders the workspace replica's canonical
+  DATA tree.
   `FunctionBrowser` starts with `Widgets`, `System`, and `User`; `System`
   contains a `DeviceInfo` item. `Widgets → Compass` builds category lists from
   `assets/sayings.json`, with the matching sayings below every category; the
@@ -158,18 +198,19 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `ClientStateScopeProvider`; descendant slices no longer collapse into the
   previous anonymous/default scope. No other production source accesses
   `localStorage` directly.
-- Canonical DATA is being separated from that UI/preference store. The first
+- Canonical DATA is separated from that UI/preference store. The
   `WorkspaceReplicaStorage` contract defines user/workspace isolation,
   revisioned tree/content records, a typed mutation outbox, sync status, and
   atomic transactions. Its tested memory adapter is the deterministic test
   boundary; the production IndexedDB adapter stores each replica in a single
-  read/write transaction. DataBrowser now hydrates its tree and node content
-  cache-first from that replica and refreshes each from confirmed server data.
-  Inventory uses the same cached tree/content projection, refreshes it from the
-  server, and writes confirmed create, rename, reparent, and content results
-  back through the replica. A local cache failure is reported globally without
-  turning an already confirmed server mutation into a failed mutation.
-  Offline mutation queuing is active through that same replica.
+  read/write transaction. `WorkspaceReplica` owns one observable in-memory
+  snapshot per user/workspace, hydrates it once from IndexedDB, and publishes
+  transactional changes through `useSyncExternalStore`. DataBrowser and APPS,
+  including Inventory, read only that snapshot and never fetch canonical DATA
+  directly. `WorkspaceSyncEngine` is the sole DATA backend boundary: it
+  refreshes trees, hydrates requested node content, publishes confirmed data,
+  and retries desired content after connectivity returns. Offline mutation
+  queuing is active through that same replica.
 - Every shared DATA mutation contract now carries a UUID request ID, including
   create, rename, move, reparent, delete, enabled state, selection, and content.
   Create additionally carries its client-assigned node UUID and sibling-local
@@ -189,6 +230,11 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   complete optimistic writer: New, Name, Desc, and Parent update DATA plus
   outbox in one IndexedDB transaction, immediately re-project from the replica,
   and use the same path whether online or offline.
+- `V2ApiClient` reads response bodies explicitly before decoding JSON. Empty or
+  malformed server/proxy responses now become typed retryable
+  `SERVICE_UNAVAILABLE` errors with HTTP status and request ID instead of
+  leaking a browser `JSON.parse` exception. Outbox commands therefore retain
+  their idempotent request ID and remain safely retryable after such a response.
 - `WorkspaceSyncEngine.submit` returns the durable optimistic replica record
   immediately after that single local transaction. Server dispatch, outbox
   acknowledgement, and the final confirmed-tree refresh continue in the
@@ -218,6 +264,14 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   normalization and validation while inheriting the complete configured
   InputControl, Input, Button, and Keyboard property chain; neither feature
   recreates or replaces that visual contract.
+- App DataSource drafts are free tree paths rather than Set-Parent targets.
+  ConfigEditor validates every changed draft synchronously against the
+  in-memory replica tree; there is no debounce or validation request. The input
+  becomes green and Set Datasource becomes enabled only for a valid, non-empty
+  path different from the saved path. Inventory
+  now applies valid empty branches as an
+  empty inventory and clears its previous root/items instead of retaining the
+  earlier source or fixture.
 - Tree view state owns `contentVisible`; children and content are independent,
   so every item can switch between both views. `TreeBrowser` controls only
   navigation, mode switching, and content height; a generic
@@ -261,7 +315,7 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   the button in `COLOR_ERROR`; a second click within `UNLOCK_BUTTON_TIMEOUT`
   deletes, otherwise it disarms automatically without manipulating its owner.
 - Interactive style composition now uses explicit derived chains:
-  `Button → ListControlButton → ListControlListSizeButton`,
+  `Button → PressButton → CycleButton → ListControlListSizeButton`,
   `Button → BrowserItemLabelButton`, `Button → DeleteButton`,
   `Button → DialerButton → DialerCenterButton`, and
   `Button → DeviceInfoButton`. Parent Base properties are resolved first and
@@ -301,14 +355,15 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 ## Development lab
 
 - `src/config/componentManifest.ts` is now the authoritative inventory and
-  single-parent inheritance graph for all 73 production component TSX files.
+  single-parent inheritance graph for all 75 production component TSX files.
   The application catalog, composition depth colors, and component-family
   lists derive from that manifest. Architecture tests compare the manifest to
   the complete `components` and `modules` source tree, reject missing parents
   and cycles, and require every component to terminate at `Base`.
 - The catalog now includes isolated previews for `AppView`, `CompassApp`,
   `ConfigEditor`, `ContentEditor`, `DataSourceInput`, `DataTree`,
-  `DeviceInfoView`, `DialSurface`, `Dialer`, `InventoryApp`, `PressButton`,
+  `BackupApp`, `DeviceInfoView`, `DialSurface`, `Dialer`, `InlineAppView`,
+  `InventoryApp`, `PressButton`,
   `ParentInput`, `RootInputControl`, and `ShoppingListView`. Every selected application
   component displays its manifest-derived complete inheritance chain.
 - Composition depth is no longer capped at two; depths three and four expose
@@ -319,7 +374,7 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `ListControlListSizeButton` resolve their Base properties through it.
   `AppStatusLine` is a noninteractive `Base` output and cannot open or focus a
   status dialog.
-  `ListControlListSizeButton` now derives from and renders `PressButton`, owns
+  `ListControlListSizeButton` now derives from and renders `CycleButton`, owns
   its `BUTTON_WIDTH`, and no longer advertises the unrelated
   `ListControlButton` contract. `DeleteButton` has one stable `Button` parent
   for both icon and text content instead of changing its runtime ancestry.
@@ -366,7 +421,7 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   The previous input-aid component has been fully renamed to `Keyboard`.
   `InputControl` is now the common keyboard-backed wrapper for an `Input` or a
   `Textarea`. In the APPS TreeBrowser it keeps Keyboard visible for the complete
-  input focus, spans Keyboard across the complete `ListControl`, and places
+  input focus, spans Keyboard across the complete selected-item input, and places
   `NEW`/`SAVE` or `SEND` in Keyboard's own action row below the tool keys.
   Keyboard initially suppresses the native mobile keyboard through
   `inputMode="none"`; its smartphone-keyboard button only releases and focuses
@@ -479,7 +534,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   input, so mobile browsers cannot remove or move the button before its click.
 - `Keyboard` has one target-independent toolbar contract: its time/date button
   is always present for both `Input` and `Textarea`; no caller-specific flag
-  controls that toolbar composition.
+  controls that toolbar composition. A far-right X button in `COLOR_SPEECH`
+  closes every Keyboard and blurs its target so it can be opened again normally.
 - Keyboard row two widens its `A` and `L` edge keys to the full keyboard
   bounds. Backspace composes the dedicated `BackspaceButton → PressButton`
   contract: it deletes once on press and repeats after a short hold delay until

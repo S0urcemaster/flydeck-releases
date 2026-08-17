@@ -1,5 +1,6 @@
 import {
   apiErrorDtoSchema,
+  backupStatusDtoSchema,
   createTreeNodeResponseSchema,
   cronTimerDtoSchema,
   cronTimerListDtoSchema,
@@ -61,6 +62,16 @@ export class V2ApiClient {
 
   readiness() {
     return this.request("/health/ready", { parse: parseReadiness });
+  }
+
+  backupStatus(workspaceId: string) {
+    return this.request(this.backupPath(workspaceId), backupStatusDtoSchema);
+  }
+
+  startBackup(workspaceId: string) {
+    return this.request(this.backupPath(workspaceId), backupStatusDtoSchema, {
+      method: "POST",
+    });
   }
 
   loadDataTree(workspaceId: string) {
@@ -176,6 +187,10 @@ export class V2ApiClient {
     return `/workspaces/${encodeURIComponent(workspaceId)}/cron`;
   }
 
+  private backupPath(workspaceId: string) {
+    return `/workspaces/${encodeURIComponent(workspaceId)}/backup`;
+  }
+
   private async request<TResult>(
     path: string,
     schema: ResponseSchema<TResult>,
@@ -187,6 +202,7 @@ export class V2ApiClient {
       throw error;
     }
     let response: Response;
+    let responseBody: string;
     try {
       response = await this.fetcher(`${this.basePath}${path}`, {
         method: options.method ?? "GET",
@@ -196,6 +212,7 @@ export class V2ApiClient {
           : { "Content-Type": "application/json" },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
       });
+      responseBody = await response.text();
       this.syncStatus.markOnline();
     } catch (error) {
       this.syncStatus.markOffline(
@@ -203,10 +220,33 @@ export class V2ApiClient {
       );
       throw error;
     }
-    const value: unknown = await response.json();
-    if (!response.ok) throw new V2ApiError(apiErrorDtoSchema.parse(value));
+    const value = parseJsonResponse(response, responseBody);
+    if (!response.ok) {
+      const errorResponse = apiErrorDtoSchema.safeParse(value);
+      if (!errorResponse.success) {
+        throw invalidJsonResponse(response, responseBody);
+      }
+      throw new V2ApiError(errorResponse.data);
+    }
     return schema.parse(value);
   }
+}
+
+function parseJsonResponse(response: Response, body: string): unknown {
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    throw invalidJsonResponse(response, body);
+  }
+}
+
+function invalidJsonResponse(response: Response, body: string) {
+  const responseKind = body.trim() === "" ? "an empty" : "an invalid";
+  return new V2ApiError({
+    error: "SERVICE_UNAVAILABLE",
+    message: `The server returned ${responseKind} response (HTTP ${response.status}) : please retry`,
+    requestId: response.headers.get("X-Request-ID") ?? "unknown",
+  });
 }
 
 function parseDeletedResource(value: unknown) {

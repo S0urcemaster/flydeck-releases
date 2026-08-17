@@ -11,14 +11,14 @@ describe("CycleButton", () => {
         value="S"
         onChange={() => undefined}
       />,
-    )).toContain("S <small>M L</small>");
+    )).toContain(">M L</small>");
     expect(renderToStaticMarkup(
       <CycleButton
         options={["S", "M", "L"]}
         value="M"
         onChange={() => undefined}
       />,
-    )).toContain("M <small>L S</small>");
+    )).toContain(">L S</small>");
   });
 
   it("accepts a separate action for the displayed value", () => {
@@ -29,6 +29,6 @@ describe("CycleButton", () => {
         onChange={() => undefined}
         onPress={() => undefined}
       />,
-    )).toContain("! <small>? %</small>");
+    )).toContain(">? %</small>");
   });
 });

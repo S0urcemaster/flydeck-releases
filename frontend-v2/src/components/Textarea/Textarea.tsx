@@ -24,7 +24,7 @@ export type TextareaProps = Omit<BaseProps<"textarea">, "as"> & {
   label?: ReactNode;
   keyboardProps?: Omit<
     KeyboardProps,
-    "fontStage" | "layout" | "onFontStageChange" | "targetRef"
+    "fontStage" | "layout" | "onClose" | "onFontStageChange" | "targetRef"
   >;
   resize?: "none" | "vertical";
   size?: "standard" | "large" | "properties" | "fill";
@@ -150,6 +150,11 @@ export function Textarea({
           fontStage={fontStage}
           layout={keyboardLayout}
           onFontStageChange={setFontStage}
+          onClose={() => {
+            setKeyboardVisible(false);
+            setControlHeight(undefined);
+            setSmartphoneKeyboardEnabled(false);
+          }}
           onSmartphoneKeyboardRequest={() => {
             const target = resolvedTextareaRef.current;
             const enabled = !smartphoneKeyboardEnabled;
