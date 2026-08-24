@@ -16,6 +16,7 @@ import {
 import {
   ArrowRightFromLine,
   ArrowRightToLine,
+  Clock12,
   DatabaseArrowDown,
   SearchCode,
   X,
@@ -68,12 +69,14 @@ export const CRON_HALF_RANGES_MS = [
   7 * dayMs,
   30 * dayMs,
   365 * dayMs,
+  5 * 365 * dayMs,
 ] as const;
 export const CRON_VERTICAL_STEPS_MS = [
   60 * 1_000,
   10 * 60 * 1_000,
   hourMs,
   12 * hourMs,
+  dayMs,
   dayMs,
 ] as const;
 export const CRON_MIN_HALF_RANGE_MS = CRON_HALF_RANGES_MS[0];
@@ -280,7 +283,7 @@ export function CronDialer(props: CronDialerProps) {
     validCronDate(eventDraft.endTime),
     initialHalfRangeMs,
   );
-  const [activeEndpoint, setActiveEndpoint] = useState<CronEndpointMode>("start");
+  const [activeEndpoint, setActiveEndpoint] = useState<CronEndpointMode>("off");
   const [centerTime, setCenterTime] = useState(initialStartTime);
   const [browseTime, setBrowseTime] = useState(initialStartTime);
   const [halfRangeMs, setHalfRangeMs] = useState(initialHalfRangeMs);
@@ -539,6 +542,27 @@ export function CronDialer(props: CronDialerProps) {
     if (nextRange === halfRangeMs) return;
     setHalfRangeMs(nextRange);
     props.onRangeChange?.(nextRange);
+  }
+
+  function setCurrentTime() {
+    const now = new Date();
+    if (activeEndpoint === "off") {
+      setEndpointTime(now);
+      return;
+    }
+    const nextRange = moveCronEndpointToTime(
+      startTime,
+      endTime,
+      activeEndpoint,
+      now,
+    );
+    setEventDraft((current) => ({
+      ...current,
+      endTime: nextRange.endTime.toISOString(),
+      startTime: nextRange.startTime.toISOString(),
+    }));
+    setCenterTime(now);
+    props.onTimeChange?.(now);
   }
 
   async function saveEvent() {
@@ -951,6 +975,24 @@ export function CronDialer(props: CronDialerProps) {
             <div className={styles.zoomControls} aria-label="Timeline controls">
               <Button
                 {...props.eventButtonProps}
+                aria-label="Datasources"
+                className={styles.zoomButton}
+                width="100%"
+                onClick={() => setView("datasources")}
+              >
+                <DatabaseArrowDown aria-hidden="true" size="1em" />
+              </Button>
+              <Button
+                {...props.eventButtonProps}
+                aria-label="Now"
+                className={styles.zoomButton}
+                width="100%"
+                onClick={setCurrentTime}
+              >
+                <Clock12 aria-hidden="true" size="1em" />
+              </Button>
+              <Button
+                {...props.eventButtonProps}
                 aria-label="Zoom out"
                 className={styles.zoomButton}
                 disabled={halfRangeMs === CRON_MAX_HALF_RANGE_MS}
@@ -958,15 +1000,6 @@ export function CronDialer(props: CronDialerProps) {
                 onClick={() => changeRange("out")}
               >
                 <ZoomOut aria-hidden="true" size="1em" />
-              </Button>
-              <Button
-                {...props.eventButtonProps}
-                aria-label="Datasources"
-                className={styles.zoomButton}
-                width="100%"
-                onClick={() => setView("datasources")}
-              >
-                <DatabaseArrowDown aria-hidden="true" size="1em" />
               </Button>
               <Button
                 {...props.eventButtonProps}
@@ -1224,13 +1257,39 @@ export function keepCronEndAfterStart(
   return candidate.getTime() > startTime.getTime() ? candidate : currentEnd;
 }
 
+export function moveCronEndpointToTime(
+  startTime: Date,
+  endTime: Date,
+  endpoint: CronEndpoint,
+  targetTime: Date,
+) {
+  const duration = Math.max(1, endTime.getTime() - startTime.getTime());
+  if (endpoint === "start") {
+    return {
+      startTime: targetTime,
+      endTime: targetTime.getTime() < endTime.getTime()
+        ? endTime
+        : new Date(targetTime.getTime() + duration),
+    };
+  }
+  return {
+    startTime: targetTime.getTime() > startTime.getTime()
+      ? startTime
+      : new Date(targetTime.getTime() - duration),
+    endTime: targetTime,
+  };
+}
+
 export function cronTimelineMarks(
   centerTime: Date,
   halfRangeMs: number,
 ): TimelineMark[] {
   const range = clampCronHalfRange(halfRangeMs);
-  if (range === CRON_MAX_HALF_RANGE_MS) {
+  if (range === CRON_HALF_RANGES_MS[4]) {
     return cronMonthlyTimelineMarks(centerTime, range);
+  }
+  if (range === CRON_MAX_HALF_RANGE_MS) {
+    return cronYearlyTimelineMarks(centerTime, range);
   }
   const fullRange = range * 2;
   const interval = range === CRON_HALF_RANGES_MS[2]
@@ -1366,6 +1425,27 @@ function cronMonthlyTimelineMarks(centerTime: Date, range: number) {
   return marks;
 }
 
+function cronYearlyTimelineMarks(centerTime: Date, range: number) {
+  const start = centerTime.getTime() - range;
+  const end = centerTime.getTime() + range;
+  const startTime = new Date(start);
+  let cursor = new Date(startTime.getFullYear(), 0, 1);
+  if (cursor.getTime() < start) {
+    cursor = new Date(cursor.getFullYear() + 1, 0, 1);
+  }
+  const marks: TimelineMark[] = [];
+  while (cursor.getTime() <= end) {
+    const time = new Date(cursor);
+    marks.push({
+      label: String(time.getFullYear()),
+      position: (time.getTime() - start) / (range * 2) * 100,
+      time,
+    });
+    cursor = new Date(cursor.getFullYear() + 1, 0, 1);
+  }
+  return marks;
+}
+
 export function formatCronTimelineTime(time: Date) {
   const year = String(time.getFullYear()).slice(-3).padStart(3, "0");
   const month = String(time.getMonth() + 1).padStart(2, "0");
@@ -1386,7 +1466,8 @@ export function formatCronRange(halfRangeMs: number) {
   if (range === CRON_HALF_RANGES_MS[1]) return "24 h";
   if (range === CRON_HALF_RANGES_MS[2]) return "7 d";
   if (range === CRON_HALF_RANGES_MS[3]) return "1 m";
-  return "1 y";
+  if (range === CRON_HALF_RANGES_MS[4]) return "1 y";
+  return "5 y";
 }
 
 export function formatCronGrid(halfRangeMs: number) {

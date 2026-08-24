@@ -20,6 +20,7 @@ import {
   ensureCronEndAfterStart,
   keepCronEndAfterStart,
   keepCronStartBeforeEnd,
+  moveCronEndpointToTime,
   formatCronGrid,
   formatCronRange,
   formatCronTimelineTime,
@@ -50,13 +51,18 @@ describe("CronDialer", () => {
     expect(markup).toContain('aria-label="Zoom out"');
     expect(markup).toContain('aria-label="Zoom in"');
     expect(markup).toContain('aria-label="Datasources"');
-    expect(markup.indexOf('aria-label="Zoom out"')).toBeLessThan(
-      markup.indexOf('aria-label="Datasources"'),
-    );
+    expect(markup).toContain('aria-label="Now"');
     expect(markup.indexOf('aria-label="Datasources"')).toBeLessThan(
+      markup.indexOf('aria-label="Now"'),
+    );
+    expect(markup.indexOf('aria-label="Now"')).toBeLessThan(
+      markup.indexOf('aria-label="Zoom out"'),
+    );
+    expect(markup.indexOf('aria-label="Zoom out"')).toBeLessThan(
       markup.indexOf('aria-label="Zoom in"'),
     );
-    expect(markup.match(/width:100%/g)).toHaveLength(7);
+    expect(markup).toContain("lucide-clock-12");
+    expect(markup.match(/width:100%/g)).toHaveLength(8);
     expect(markup).toContain(
       'aria-label="Create event at Mi 12.08.026 · 09:05"',
     );
@@ -70,7 +76,8 @@ describe("CronDialer", () => {
     );
     expect(markup).toContain('data-component-name="PointerButton"');
     expect(markup).toContain('aria-pressed="true"');
-    expect(markup).toContain('data-time-endpoint="start"');
+    expect(markup).toContain('data-time-endpoint="off"');
+    expect(markup).toContain('data-pointer-mode="browse"');
     expect(markup).toContain('data-pointer-mode="end"');
     expect(markup).toContain('data-component-name="Pointer"');
     expect(markup).toContain("--pointer-line-width:0.125rem");
@@ -131,6 +138,39 @@ describe("CronDialer", () => {
       .toBe(validEnd);
     expect(keepCronEndAfterStart(currentStart, currentStart, currentEnd))
       .toBe(currentEnd);
+  });
+
+  it("moves the opposite endpoint only when Now would cross it", () => {
+    const start = new Date(2026, 7, 12, 8);
+    const end = new Date(2026, 7, 12, 10);
+
+    expect(moveCronEndpointToTime(
+      start,
+      end,
+      "start",
+      new Date(2026, 7, 12, 9),
+    )).toEqual({
+      startTime: new Date(2026, 7, 12, 9),
+      endTime: end,
+    });
+    expect(moveCronEndpointToTime(
+      start,
+      end,
+      "start",
+      new Date(2026, 7, 12, 11),
+    )).toEqual({
+      startTime: new Date(2026, 7, 12, 11),
+      endTime: new Date(2026, 7, 12, 13),
+    });
+    expect(moveCronEndpointToTime(
+      start,
+      end,
+      "end",
+      new Date(2026, 7, 12, 7),
+    )).toEqual({
+      startTime: new Date(2026, 7, 12, 5),
+      endTime: new Date(2026, 7, 12, 7),
+    });
   });
 
   it("validates the persisted general event draft", () => {
@@ -263,6 +303,7 @@ describe("CronDialer", () => {
       7 * 24 * 60 * 60 * 1_000,
       30 * 24 * 60 * 60 * 1_000,
       365 * 24 * 60 * 60 * 1_000,
+      5 * 365 * 24 * 60 * 60 * 1_000,
     ]);
     expect(cronAdjacentRange(CRON_MIN_HALF_RANGE_MS, "out"))
       .toBe(CRON_HALF_RANGES_MS[1]);
@@ -271,7 +312,7 @@ describe("CronDialer", () => {
     expect(cronAdjacentRange(CRON_MAX_HALF_RANGE_MS, "out"))
       .toBe(CRON_MAX_HALF_RANGE_MS);
     expect(cronAdjacentRange(CRON_MAX_HALF_RANGE_MS, "in"))
-      .toBe(CRON_HALF_RANGES_MS[3]);
+      .toBe(CRON_HALF_RANGES_MS[4]);
   });
 
   it("fills only the viewport space remaining below its top edge", () => {
@@ -301,6 +342,7 @@ describe("CronDialer", () => {
       10 * 60 * 1_000,
       60 * 60 * 1_000,
       12 * 60 * 60 * 1_000,
+      24 * 60 * 60 * 1_000,
       24 * 60 * 60 * 1_000,
     ]);
     CRON_HALF_RANGES_MS.forEach((range, index) => {
@@ -400,7 +442,7 @@ describe("CronDialer", () => {
   it("shows every month in the 1-year range and the year at January", () => {
     const marks = cronTimelineMarks(
       new Date(2026, 7, 12, 12),
-      CRON_MAX_HALF_RANGE_MS,
+      CRON_HALF_RANGES_MS[4],
     );
 
     expect(marks).toHaveLength(24);
@@ -413,6 +455,19 @@ describe("CronDialer", () => {
       .toBe(true);
   });
 
+  it("shows yearly marks in the 5-year range", () => {
+    const marks = cronTimelineMarks(
+      new Date(2026, 7, 12, 12),
+      CRON_MAX_HALF_RANGE_MS,
+    );
+
+    expect(marks).toHaveLength(10);
+    expect(marks.map(({ label }) => label)).toEqual([
+      "2022", "2023", "2024", "2025", "2026",
+      "2027", "2028", "2029", "2030", "2031",
+    ]);
+  });
+
   it("formats the timeline center and half-range", () => {
     expect(formatCronTimelineTime(new Date(2026, 7, 12, 9, 5))).toBe(
       "12.08.026 · 09:05",
@@ -421,12 +476,14 @@ describe("CronDialer", () => {
     expect(formatCronRange(CRON_HALF_RANGES_MS[1])).toBe("24 h");
     expect(formatCronRange(CRON_HALF_RANGES_MS[2])).toBe("7 d");
     expect(formatCronRange(CRON_HALF_RANGES_MS[3])).toBe("1 m");
-    expect(formatCronRange(CRON_MAX_HALF_RANGE_MS)).toBe("1 y");
+    expect(formatCronRange(CRON_HALF_RANGES_MS[4])).toBe("1 y");
+    expect(formatCronRange(CRON_MAX_HALF_RANGE_MS)).toBe("5 y");
     expect(CRON_HALF_RANGES_MS.map(formatCronGrid)).toEqual([
       "1m",
       "10m",
       "1h",
       "12h",
+      "1d",
       "1d",
     ]);
   });
