@@ -8,6 +8,10 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 24.08.026 12:15 Pre-Release V2 (88c783fb4a80)
+- Probably final Cron Alpha
+- TreeBrowser : Images, list sizes, views
+
 ### 17.08.026 12:15 Pre-Release V2 (0141d2378d9b)
 - TreeBrowser final 1
 
