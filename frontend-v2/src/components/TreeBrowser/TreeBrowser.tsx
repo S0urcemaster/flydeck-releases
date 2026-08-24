@@ -609,10 +609,9 @@ export function TreeBrowser<TContent = unknown>({
     const ownerContentVisible = contentVisibleByNodeId[parentId] ?? false;
     const actionSelectedIds = actionSelectionByListId[parentId] ?? [];
     const actionSelectedSet = new Set(actionSelectedIds);
-    const actionNodes = nodes.filter(({ id }) => actionSelectedSet.has(id));
-    const actionNodesDeletable = actionNodes.length > 0 && actionNodes.every(
-      (actionNode) => canDeleteNode?.(actionNode, parentNode) ?? listEditable,
-    );
+    const selectedNodeDeletable = Boolean(selectedNode && (
+      canDeleteNode?.(selectedNode, parentNode) ?? listEditable
+    ));
     const selectedIndex = nodes.findIndex(({ id }) => id === selectedId);
     const canMoveUp = selectedNode ? canMoveNode(selectedNode, -1, nodes) : false;
     const canMoveDown = selectedNode ? canMoveNode(selectedNode, 1, nodes) : false;
@@ -729,7 +728,7 @@ export function TreeBrowser<TContent = unknown>({
           : undefined}
         checkboxProps={browserItemProps?.checkboxProps}
         deleteButtonProps={listControlProps?.deleteButtonProps}
-        deleteEnabled={actionNodesDeletable}
+        deleteEnabled={selectedNodeDeletable}
         deleteLabel={selectedNode?.label}
         editable={listEditable}
         inputProps={configuredListInputProps}
@@ -749,7 +748,7 @@ export function TreeBrowser<TContent = unknown>({
           ));
         } : undefined}
         onDelete={selectedNode
-          ? () => removeNodes(actionNodes.map(({ id }) => id))
+          ? () => removeNodes([selectedNode.id])
           : undefined}
         onRename={listEditable && selectedNode ? renameSelected : undefined}
         selectedName={selectedNode?.label}
@@ -934,11 +933,9 @@ export function TreeBrowser<TContent = unknown>({
                         <DeleteButton
                           {...listControlProps?.buttonProps}
                           {...listControlProps?.deleteButtonProps}
-                          disabled={!actionNodesDeletable}
+                          disabled={!selectedNodeDeletable}
                           label={node.label}
-                          onDelete={() => removeNodes(
-                            actionNodes.map(({ id }) => id),
-                          )}
+                          onDelete={() => removeNodes([node.id])}
                         />
                       </div>
                     );
@@ -1003,7 +1000,8 @@ export function TreeBrowser<TContent = unknown>({
       {menuVisible ? <Base
         className={styles.menu}
         componentName="Base"
-        background="COLOR_APP"
+        background={menuView === "default" ? "COLOR_APP" : undefined}
+        data-overlay={menuView === "default" ? undefined : menuView}
         aria-label="Tree browser menu"
       >
         <InputControl
@@ -1028,7 +1026,7 @@ export function TreeBrowser<TContent = unknown>({
                 activeColor="COLOR_SUCCESS"
                 aria-label="Show saved views"
                 disabled={!savedViews}
-                selected={menuView === "views"}
+                selected={isViewsButtonActive(menuView, effectiveActiveViewId)}
                 symbol={<PanelsTopLeft aria-hidden="true" />}
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => setMenuView((current) => (
@@ -1055,7 +1053,7 @@ export function TreeBrowser<TContent = unknown>({
             </ListControlButton>
           )}
           keyboardLayout="block"
-          background="COLOR_APP"
+          background={menuView === "default" ? "COLOR_APP" : "transparent"}
           value={menuView === "search" ? globalSearch : pathValue}
           onChange={menuView === "search" ? (value) => {
             setGlobalSearch(value);
@@ -1071,7 +1069,7 @@ export function TreeBrowser<TContent = unknown>({
           } : (value) => setPathDraft({ selectedPathLabel, value })}
           inputProps={{
             ...listControlProps?.inputProps,
-            background: "COLOR_APP",
+            background: menuView === "default" ? "COLOR_APP" : "transparent",
             "aria-label": menuView === "search"
               ? activeView
                 ? `Search view ${activeView.name}`
@@ -1190,6 +1188,13 @@ export function createSelectedPathLabel<
     siblings = node.children;
   }
   return labels.length > 0 ? labels.join("/") : "root";
+}
+
+export function isViewsButtonActive(
+  menuView: "default" | "search" | "views",
+  activeViewId: string | null,
+) {
+  return menuView === "views" || activeViewId !== null;
 }
 
 export function resolveTreeLabelPath<

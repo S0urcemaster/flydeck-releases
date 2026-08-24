@@ -13,6 +13,19 @@
   z-index: 10;
 }
 
+.menu[data-overlay] {
+  background: color-mix(
+    in srgb,
+    var(--color-success) 18%,
+    var(--color-app)
+  );
+}
+
+.menu:not([data-overlay]) {
+  margin-block-start: calc(0rem - var(--space-xs));
+  margin-block-end: var(--space-xs);
+}
+
 .views {
   display: grid;
   min-width: 0;

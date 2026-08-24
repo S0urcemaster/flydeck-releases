@@ -215,6 +215,64 @@ describe("WorkspaceSyncEngine", () => {
     expect((await replica.load(scope))?.outbox).toEqual([]);
   });
 
+  it("keeps the optimistic tree visible when the server confirms a move", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const before = tree("First", 0, 1);
+    const secondNodeId = "00000000-0000-4000-8000-000000000006";
+    before.document.nodes.push({
+      ...before.document.nodes[0],
+      id: secondNodeId,
+      label: "Second",
+      localId: "second",
+      position: 1,
+    });
+    const after: TreeLoadDto = {
+      ...before,
+      document: {
+        ...before.document,
+        revision: 2,
+        nodes: before.document.nodes.map((node) => node.id === nodeId
+          ? { ...node, position: 1, revision: 1, updatedAt: "2026-08-24T12:00:00.000Z" }
+          : { ...node, position: 0, updatedAt: "2026-08-24T12:00:00.000Z" }),
+      },
+    };
+    await replica.replaceTree(scope, before);
+    const api = {
+      moveDataNode: vi.fn().mockResolvedValue({
+        node: after.document.nodes[0],
+        treeRevision: 2,
+      }),
+      loadDataTree: vi.fn().mockResolvedValue(after),
+    } as unknown as V2ApiClient;
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      new WorkspaceSyncStatusStore(false),
+      false,
+    );
+
+    await engine.submit(scope, {
+      type: "move-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000016",
+        afterNodeId: secondNodeId,
+        expectedTreeRevision: 1,
+      },
+    });
+    const optimisticTree = replica.getSnapshot(scope)?.tree;
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(replica.getSnapshot(scope)?.tree).toBe(optimisticTree);
+    const positions = (nodes: TreeLoadDto["document"]["nodes"]) => nodes.map((node) => ({
+      id: node.id,
+      position: node.position,
+      revision: node.revision,
+    }));
+    expect(positions(replica.getSnapshot(scope)?.tree?.document.nodes ?? []))
+      .toEqual(positions(after.document.nodes));
+  });
+
   it("hydrates requested content through the replica and deduplicates it", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     await replica.replaceTree(scope, tree("Before", 0, 1));

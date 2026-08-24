@@ -155,6 +155,76 @@ describe("MemoryWorkspaceReplicaStorage", () => {
     unsubscribe();
   });
 
+  it("persists an equivalent confirmed tree without replacing the visible tree", async () => {
+    const storage = new MemoryWorkspaceReplicaStorage();
+    const replica = new WorkspaceReplica(storage);
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const scope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    tree.document.nodes.push({
+      id: "00000000-0000-4000-8000-000000000006",
+      parentId: null,
+      kind: "data-file",
+      label: "One",
+      localId: "one",
+      position: 0,
+      revision: 1,
+      updatedAt: "2026-08-11T12:00:00.000Z",
+      capabilities: { contentEditable: true, listEditable: true, listItemLimit: null },
+    });
+    await replica.replaceTree(scope, tree);
+    const visibleTree = replica.getSnapshot(scope)?.tree;
+    const confirmed = {
+      ...tree,
+      document: {
+        ...tree.document,
+        nodes: tree.document.nodes.map((node) => ({
+          ...node,
+          updatedAt: "2026-08-11T12:01:00.000Z",
+        })),
+      },
+    };
+
+    await replica.replaceTree(scope, confirmed);
+
+    expect(replica.getSnapshot(scope)?.tree).toBe(visibleTree);
+    expect((await storage.read(scope))?.tree).toEqual(confirmed);
+  });
+
+  it("publishes a confirmed tree when its visible structure differs", async () => {
+    const storage = new MemoryWorkspaceReplicaStorage();
+    const replica = new WorkspaceReplica(storage);
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const scope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    tree.document.nodes.push({
+      id: "00000000-0000-4000-8000-000000000006",
+      parentId: null,
+      kind: "data-file",
+      label: "Optimistic",
+      localId: "one",
+      position: 0,
+      revision: 1,
+      capabilities: { contentEditable: true, listEditable: true, listItemLimit: null },
+    });
+    await replica.replaceTree(scope, tree);
+    const visibleTree = replica.getSnapshot(scope)?.tree;
+    const confirmed = {
+      ...tree,
+      document: {
+        ...tree.document,
+        nodes: tree.document.nodes.map((node) => ({
+          ...node,
+          label: "Confirmed",
+        })),
+      },
+    };
+
+    await replica.replaceTree(scope, confirmed);
+
+    expect(replica.getSnapshot(scope)?.tree).not.toBe(visibleTree);
+    expect(replica.getSnapshot(scope)?.tree?.document.nodes[0].label)
+      .toBe("Confirmed");
+  });
+
   it("durably deduplicates, counts, and acknowledges queued commands", async () => {
     const storage = new MemoryWorkspaceReplicaStorage();
     const replica = new WorkspaceReplica(storage);

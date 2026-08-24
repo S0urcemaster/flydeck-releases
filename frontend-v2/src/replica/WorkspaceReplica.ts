@@ -264,7 +264,7 @@ export class WorkspaceReplica {
       ...current,
       tree,
       lastServerSyncAt: this.now().toISOString(),
-    }), { preserveContents: true });
+    }), { preserveContents: true, preserveEquivalentTree: true });
   }
 
   resetToServerTree(scope: WorkspaceReplicaScope, tree: TreeLoadDto) {
@@ -370,7 +370,11 @@ export class WorkspaceReplica {
   private async transact(
     scope: WorkspaceReplicaScope,
     update: (current: WorkspaceReplicaRecord) => WorkspaceReplicaRecord,
-    preserve: { preserveTree?: boolean; preserveContents?: boolean } = {},
+    preserve: {
+      preserveTree?: boolean;
+      preserveEquivalentTree?: boolean;
+      preserveContents?: boolean;
+    } = {},
   ) {
     await this.load(scope);
     const record = await this.storage.transact(scope, update);
@@ -381,18 +385,90 @@ export class WorkspaceReplica {
   private publish(
     scope: WorkspaceReplicaScope,
     record: WorkspaceReplicaRecord | null,
-    preserve: { preserveTree?: boolean; preserveContents?: boolean } = {},
+    preserve: {
+      preserveTree?: boolean;
+      preserveEquivalentTree?: boolean;
+      preserveContents?: boolean;
+    } = {},
   ) {
     const key = replicaKey(scope);
     const previous = this.snapshots.get(key) ?? null;
+    const preserveTree = preserve.preserveTree
+      || Boolean(
+        preserve.preserveEquivalentTree
+        && previous?.tree
+        && record?.tree
+        && equivalentTreeState(previous.tree, record.tree),
+      );
     const snapshot = previous && record ? {
       ...record,
-      tree: preserve.preserveTree ? previous.tree : record.tree,
+      tree: preserveTree ? previous.tree : record.tree,
       contents: preserve.preserveContents ? previous.contents : record.contents,
     } : record;
     this.snapshots.set(key, snapshot);
     for (const listener of this.listeners.get(key) ?? []) listener();
   }
+}
+
+function equivalentTreeState(left: TreeLoadDto, right: TreeLoadDto) {
+  if (
+    left.document.id !== right.document.id
+    || left.document.workspaceId !== right.document.workspaceId
+    || left.document.kind !== right.document.kind
+    || left.document.revision !== right.document.revision
+    || left.document.nodes.length !== right.document.nodes.length
+    || left.semanticState.revision !== right.semanticState.revision
+    || left.selection.revision !== right.selection.revision
+  ) return false;
+
+  const rightNodes = new Map(right.document.nodes.map((node) => [node.id, node]));
+  if (!left.document.nodes.every((node) => {
+    const confirmed = rightNodes.get(node.id);
+    return confirmed
+      && node.parentId === confirmed.parentId
+      && node.kind === confirmed.kind
+      && node.label === confirmed.label
+      && node.localId === confirmed.localId
+      && node.position === confirmed.position
+      && node.revision === confirmed.revision
+      && node.capabilities.contentEditable === confirmed.capabilities.contentEditable
+      && node.capabilities.listEditable === confirmed.capabilities.listEditable
+      && node.capabilities.listItemLimit === confirmed.capabilities.listItemLimit;
+  })) return false;
+
+  return unorderedEqual(
+    left.semanticState.enabledNodeIds,
+    right.semanticState.enabledNodeIds,
+  )
+    && recordEqual(
+      left.semanticState.nodeRevisions,
+      right.semanticState.nodeRevisions,
+    )
+    && orderedEqual(
+      left.selection.selectedPath,
+      right.selection.selectedPath,
+    )
+    && recordEqual(left.selection.pageSizes, right.selection.pageSizes);
+}
+
+function orderedEqual<T>(left: readonly T[], right: readonly T[]) {
+  return left.length === right.length
+    && left.every((value, index) => value === right[index]);
+}
+
+function unorderedEqual<T>(left: readonly T[], right: readonly T[]) {
+  return left.length === right.length
+    && new Set(left).size === new Set(right).size
+    && left.every((value) => right.includes(value));
+}
+
+function recordEqual<T>(
+  left: Readonly<Record<string, T>>,
+  right: Readonly<Record<string, T>>,
+) {
+  const leftEntries = Object.entries(left);
+  return leftEntries.length === Object.keys(right).length
+    && leftEntries.every(([key, value]) => right[key] === value);
 }
 
 export const workspaceReplica = new WorkspaceReplica(

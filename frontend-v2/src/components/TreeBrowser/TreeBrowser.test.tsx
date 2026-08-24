@@ -8,6 +8,7 @@ import {
   createSelectedPathLabel,
   filterTreeLevelNodes,
   insertAt,
+  isViewsButtonActive,
   moveInTree,
   removeFromTree,
   removeNodesFromTree,
@@ -104,6 +105,41 @@ describe("TreeBrowser", () => {
       'aria-label="Select Pflanzen for actions" type="button" aria-pressed="false"',
     );
     expect(markup).not.toContain("var(--color-success)");
+  });
+
+  it("allows deleting the focused item without checking it for a view", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        initialSelectedPath={["plants"]}
+        model={createModel()}
+        onDeleteNode={() => true}
+      />,
+    );
+    const deleteButton = markup.match(
+      /<button[^>]*aria-label="Arm delete for Pflanzen"[^>]*>/,
+    )?.[0];
+
+    expect(markup).toContain(
+      'aria-label="Select Pflanzen for actions" type="button" aria-pressed="false"',
+    );
+    expect(deleteButton).toBeDefined();
+    expect(deleteButton).not.toContain("disabled");
+  });
+
+  it("still disables delete when the focused item is protected", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        canDeleteNode={() => false}
+        initialSelectedPath={["plants"]}
+        model={createModel()}
+        onDeleteNode={() => true}
+      />,
+    );
+    const deleteButton = markup.match(
+      /<button[^>]*aria-label="Arm delete for Pflanzen"[^>]*>/,
+    )?.[0];
+
+    expect(deleteButton).toContain("disabled");
   });
 
   it("renders each owner control before its own list", () => {
@@ -496,6 +532,13 @@ describe("TreeBrowser", () => {
     expect(toggleActiveViewId("focus", null)).toBe("focus");
     expect(toggleActiveViewId("focus", "other")).toBe("focus");
     expect(toggleActiveViewId("focus", "focus")).toBeNull();
+  });
+
+  it("keeps the views button active while a saved view filters the tree", () => {
+    expect(isViewsButtonActive("views", null)).toBe(true);
+    expect(isViewsButtonActive("default", "focus")).toBe(true);
+    expect(isViewsButtonActive("search", "focus")).toBe(true);
+    expect(isViewsButtonActive("default", null)).toBe(false);
   });
 
   it("removes several selected siblings and their subtrees at once", () => {

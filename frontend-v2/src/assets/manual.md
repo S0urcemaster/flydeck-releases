@@ -3,7 +3,13 @@
 Welcome to Flydeck V2 by Digi Craft
 Created by Sebastian Teister, Germany
 
-Work in Progress : DATA Module pretty functional
+Manual by Sebastian Teister in English
+
+Work in Progress :
+- AGNT Don,t know what for atm
+- DATA Module pretty functional
+- APPS need a rework
+- CRON feels done but is untested
 
 ## General
 
@@ -20,7 +26,7 @@ Work in progress ! Things might not function as intended
 ### Caution !
 
 Information is a weapon and can be used against you !
-During the development and to be able to fully test all functions : I made a fun game : writing down details about strangers that came up to me randomly + Looks, current action, direction and time -- and soon it became clear that in a couple of month : I,d had some library of what,s going on
+During the development and to be able to fully test all functions : I made a fun game : writing down details about strangers that came up to me randomly + Looks, current action, direction and time -- and soon it became clear that in a couple of month : I,d had some library of what,s going on in my town
 Now AI comes to play : "Show me patterns" could be a prompt
 People consist of habits and exceptions -- now : is Flydeck dangerous ?
 Yes ! Absolutely ! It,s a very powerful tool -- that,s why you should use it - ahead of others
@@ -33,6 +39,15 @@ Countries and companies are collecting data about you -- that isn,t the worst ne
 ### Start with collecting data - Today !
 
 It,s only 1 thing today that comes into your mind -- tomorrow it will be 2
+
+### What can you do with Flydeck ?
+
+Flydeck is a Database application for personal data that works off the usual internet grids / but runs on your own (little) homeserver hardware directly at your router
+
+You can store data from your smartphone - do you have some ?
+If you don,t have data around : Flydeck will be pretty useless to you
+
+Think about any data that could be useful to you or you don,t need to read on
 
 ### The Tree Browser
 
@@ -47,14 +62,14 @@ If you want : a plant is always somehow mirrored at the earth,s surface -- and "
 
 Drawers : You have big drawers and there you can put items - but you can also put other drawers with other items into the root drawers + And those drawers that are inside drawers can have more drawers with more drawers inside them -- infinitely
 
-Example : There,s a house (root) that has a kitchen (branch) that has a cupboard (branch) that has a drawer (branch) that has a box (branch) that has bread (leaf, a bread is no container) inside
+Example : There,s a house (branch) in a city (branch) in a country (branch) on planet Earth (branch) in the solar system (branch) in the Milky Way (branch) in the Universe (root) that has a kitchen (branch) that has a cupboard (branch) that has a drawer (branch) that has a box (branch) that has bread (leaf, a bread is no container) inside
 
-### Trees in Flydeck are flat
+### Trees in Flydeck are Flat
 
 This is a tribute to the small smartphone screen : you have no room to the sides -- but usually tree views need wide screens (That,s because you usually need to indent every deeper branch of a tree to keep track of where you are)
 That,s why Flydeck trees are flat - and that,s the reason why you can never see the whole tree in Flydeck -- you can just browse it branch by branch
 
-### Some ideas
+### Some #deas
 
 > Ok : this should be good - but where to start ?
 
@@ -97,48 +112,112 @@ Common lists are (for AI) :
 
 Buttons often have multiple functions :
 
-- *Cycling* whenn pressed multiple times
-- Second function when *long pressed*
-- *Unlock* function (like delete)
+- *Cycling* when pressed multiple times (list size)
+- *Dialing* when pressed : there is a small time window to move to another button in list (like old cellphones)
+- Second function when *long pressed* (copy, paste, select all)
+- *Unlock*/*Unarm* function (like delete)
 
 ### Tree Browser Hierarchy Control
 
 When working with trees : you need to create, update, delete and move items
-For a tree like TreeBrowser where every item is a branch : one should be able to pick one branch and stick it somwhere else
-For that : every branch (every branch is also an item in TreeBrowser) has its parent saved in itsels -- that,s how branches are connected : only through that parent
-The parent is written down in a certain syntax like : storage/box1 - separated with a slash /
-With this notation : sticking one branch name into the other : an unambigous path is created which cannot be misinterpreted
 
-#### Example
+For a tree like TreeBrowser : where every item is a branch : one should be able to pick one branch and stick it somwhere else
+
+For that : every branch (every branch is also an item in TreeBrowser) has its parent saved in itself -- that,s how branches are connected : only through that parent
+
+The parent is written down in a certain syntax like : parentID/branchID/ItemParentID - separated with a slash /
+
+With this notation : sticking one branch name (it is the ID written in small letters) into the other : an unambigous path is created which cannot be misinterpreted / like
+
+Example :
+
+"inventory/storage/box1/folderWithPaper" <- the item itself (eg "letterFromLawyer") is not mentioned in the path
+
+#### Real Life Example
 
 I have a path to my sock in my flat : flat/bedroom/cupboard/greenleftsock
 Now I take it to the kitchen : flat/kitchen/washingmachine/greenleftsock
 
-When you want to move an item or branch with items or a branch with many branches : you change the parent of just this branch - and all appended to that branch moves too
+When you want to move an item or branch with items or a branch with many branches : you change the parent of just this branch - and all appended "children" of that branch move too / because only the direct parent of each item is stored
 
 ## AGNT
 
-Agent Chat
-Communicates with the agent on the backend
+Agent chat missing use case for further development
 
 ## DATA
 
 Data Management
-Create and manage simple text files line-wise on the server
+
+Create and organize data on your smartphone and store it on your home server
+
+### ListControl
+
+At the top find the word "root" > this is the root for all of your data -- "root" keeps a list of your topmost categories where all your other stuff is included
+
+Click on "root" shows the Keyboard and you can create a new item inside root -- Every item you create : can be parent of other items or be a leaf with no other items - and you can change this any time : An item that has a list of children always also has a content view that is shown when you click on the icon very right of each parent : It flips the view from showing all the items in a list to a view : that shows all the information about that item
+
+On the "content" view of each item you can set id, change the label/name, change the parent and move it to another one, write some important text about that certain item and attach an image from your camera or filesystem of your smartphone
+
+(root is a special case and only has listsize to change)
+
+There are 4 more buttons with arrows :
+
+With **Top/Down** you can change the order of the items in a list and 
+
+with **left/right** you can change the page of the list if there are more items than you have set per page
+
+### Navigator, Search and Views
+
+To encounter with bigger data : there is a text input always at the top where you can type an path directly
+
+Activate the lens to use it for text search
+
+#### Views
+
+Views are meant to focus on parts of your data
+
+Use the checkboxes/numbers to the left of each item - and when checked : creating a new view stores that selection
+
+You can then recall that view to only show certain parts of your data (only 1 view atm)
+
+## APPS
+
+Data visualiszations / input forms
+
+V2 being planning
 
 ## CRON
 
-Create and manage reminders
-Center changes from DATE to DURAtion setting
+Zoomable timeline
 
+Can be datasourced for any historic data
+
+In planning
 
 ## Settings
 
 Useful app functions you rarely need
 
+not supported yet
+
 ## Text Input Section
 
 I like machine input
+
+There is a custom Keyboard used as default : Klick the icon to the left below the input to open your smarthphone,s system Keyboard
+
+### Features
+
+#### Microphone
+
+Browser API Speech recognition without the need to be online
+
+- Triple Shift layears ! Numbers are when you press shift twice -- long-press shift caps locks
+- Date/Timestamp insertion
+- Cursor left/right / word select
+- Copy/Paste/Select All as long press functions
+- Emotes button switches whole keyboard > shift button has 3 layers again
+
 
 ### Basic Navigation
 
