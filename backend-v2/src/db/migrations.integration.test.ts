@@ -140,11 +140,15 @@ integration("PostgreSQL migrations", () => {
     await trees.setEnabled(workspaceId, userId, second.node.id, false, 1);
     await trees.setSelection(workspaceId, userId, {
       requestId: "00000000-0000-4000-8000-000000000114",
-      selectedPath: [first.node.id], expectedRevision: 0,
+      selectedPath: [first.node.id],
+      pageSizes: { __tree_root__: 10, [first.node.id]: 4 },
+      expectedRevision: 0,
     });
     await trees.setSelection(workspaceId, userId, {
       requestId: "00000000-0000-4000-8000-000000000115",
-      selectedPath: [second.node.id], expectedRevision: 1,
+      selectedPath: [second.node.id],
+      pageSizes: { __tree_root__: 15, [first.node.id]: 7 },
+      expectedRevision: 1,
     });
     const loaded = await trees.load(workspaceId, userId, "data");
     expect(loaded.document.nodes.map(({ label }) => label).sort()).toEqual([
@@ -153,6 +157,10 @@ integration("PostgreSQL migrations", () => {
     expect(loaded.semanticState.enabledNodeIds).toEqual([]);
     expect(loaded.semanticState.nodeRevisions[first.node.id]).toBe(2);
     expect(loaded.selection.selectedPath).toEqual([second.node.id]);
+    expect(loaded.selection.pageSizes).toEqual({
+      __tree_root__: 15,
+      [first.node.id]: 7,
+    });
     expect(loaded.selection.revision).toBe(2);
     const reparented = await trees.reparentNode(
       workspaceId,

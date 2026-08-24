@@ -26,7 +26,7 @@ describe("V2ApiClient", () => {
         nodes: [],
       },
       semanticState: { revision: 0, enabledNodeIds: [], nodeRevisions: {} },
-      selection: { revision: 0, selectedPath: [] },
+      selection: { revision: 0, selectedPath: [], pageSizes: {} },
     }), { status: 200 }));
     const client = new V2ApiClient("/flydeck/api/v2", fetcher);
 
@@ -36,6 +36,58 @@ describe("V2ApiClient", () => {
     expect(fetcher).toHaveBeenCalledWith(
       "/flydeck/api/v2/workspaces/00000000-0000-4000-8000-000000000002/trees/data",
       expect.objectContaining({ credentials: "include", method: "GET" }),
+    );
+  });
+
+  it("uploads a DATA image as an authenticated binary body", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      nodeId: "00000000-0000-4000-8000-000000000003",
+      mimeType: "image/jpeg",
+      originalName: "photo.jpg",
+      byteSize: 3,
+      updatedAt: "2026-08-24T10:00:00.000Z",
+    }), { status: 200 }));
+    const client = new V2ApiClient("/flydeck/api/v2", fetcher);
+    const image = new Blob([new Uint8Array([1, 2, 3])], {
+      type: "image/jpeg",
+    });
+
+    await client.uploadDataImage(
+      "00000000-0000-4000-8000-000000000002",
+      "00000000-0000-4000-8000-000000000003",
+      image,
+      "photo.jpg",
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringMatching(/\/nodes\/00000000-0000-4000-8000-000000000003\/image$/),
+      expect.objectContaining({
+        body: image,
+        credentials: "include",
+        method: "PUT",
+        headers: {
+          "Content-Type": "image/jpeg",
+          "X-File-Name": "photo.jpg",
+        },
+      }),
+    );
+  });
+
+  it("removes a DATA image through its node endpoint", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      nodeId: "00000000-0000-4000-8000-000000000003",
+      deleted: true,
+    }), { status: 200 }));
+    const client = new V2ApiClient("/flydeck/api/v2", fetcher);
+
+    await client.deleteDataImage(
+      "00000000-0000-4000-8000-000000000002",
+      "00000000-0000-4000-8000-000000000003",
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringMatching(/\/nodes\/00000000-0000-4000-8000-000000000003\/image$/),
+      expect.objectContaining({ credentials: "include", method: "DELETE" }),
     );
   });
 

@@ -10,6 +10,7 @@ export type CycleButtonProps = Omit<
   onChange: (value: string) => void;
   onPress?: (value: string) => void;
   options: readonly string[];
+  selectedLabel?: string;
   value: string;
 };
 
@@ -18,6 +19,7 @@ export function CycleButton({
   onChange,
   onPress,
   options,
+  selectedLabel,
   value,
   ...buttonProps
 }: CycleButtonProps) {
@@ -33,7 +35,10 @@ export function CycleButton({
         ],
       );
   const alternatives = remaining.join(" ");
-  const label = alternatives ? `${selected} ${alternatives}` : selected;
+  const displayedSelected = selectedLabel ?? selected;
+  const label = alternatives
+    ? `${displayedSelected} ${alternatives}`
+    : displayedSelected;
 
   return (
     <PressButton
@@ -48,7 +53,7 @@ export function CycleButton({
       }}
     >
       <span className={styles.content}>
-        <span>{selected}</span>
+        <span>{displayedSelected}</span>
         {alternatives && (
           <small style={{ fontSize: CYCLE_BUTTON_QUEUE_FONT_SIZE }}>
             {alternatives}

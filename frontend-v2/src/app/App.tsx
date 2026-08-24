@@ -118,6 +118,22 @@ export function App() {
   const shellBase = resolveBaseProperties(properties.AppShell.base);
   const panelBase = resolveBaseProperties(properties.ModulePanel.base);
   const buttonBase = resolveBaseProperties(properties.Button.base);
+  const pointerButtonBase = resolveBaseProperties(properties.PointerButton.base);
+  const pointerButtonProps = {
+    border: pointerButtonBase.border,
+    color: pointerButtonBase.color,
+    deltaY: properties.PointerButton.deltaY,
+    height: pointerButtonBase.height,
+    margin: pointerButtonBase.margin,
+    padding: properties.PointerButton.padding,
+    primaryFontSize: properties.PointerButton.primaryFontSize,
+    secondaryFontSize: properties.PointerButton.secondaryFontSize,
+    width: pointerButtonBase.width,
+  };
+  const pointerProps = {
+    lineWidth: properties.Pointer.lineWidth,
+    tipRadius: properties.Pointer.tipRadius,
+  };
   const compactButtonBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.CompactButton.base,
@@ -233,11 +249,7 @@ export function App() {
     properties.DialerCenterButton.base,
   );
   const dialSurfaceBase = resolveBaseProperties(properties.DialSurface.base);
-  const dialerBase = resolveBaseProperties(properties.Dialer.base);
-  const cronDialerBase = resolveDerivedBaseProperties(
-    dialerBase,
-    properties.CronDialer.base,
-  );
+  const cronDialerBase = resolveBaseProperties(properties.CronDialer.base);
   const dialerProps = {
     ...cronDialerBase,
     centerFontSize: properties.CronDialer.centerFontSize,
@@ -794,7 +806,28 @@ export function App() {
             activeColor: properties.Button.activeColor,
           }}
           dialerCenterButtonProps={dialerCenterButtonBase}
-          dialerProps={dialerProps}
+          dialerProps={{
+            ...dialerProps,
+            workspaceId,
+            dataSourceBrowserProps: {
+              ...treeBrowserBase,
+              rowGap: properties.TreeBrowser.rowGap,
+              ...sharedTreeChildProps,
+            },
+            eventButtonProps: {
+              ...buttonBase,
+              activeColor: properties.Button.activeColor,
+            },
+            eventDeleteButtonProps: {
+              ...deleteButtonBase,
+              armedColor: properties.DeleteButton.armedColor,
+              timeout: unlockButtonTimeout,
+            },
+            eventInputProps: configuredInputProps,
+            eventTextareaProps: configuredTextareaProps,
+            pointerButtonProps,
+            pointerProps,
+          }}
         />
       )}
       {activeMenuItem === "HELP" && <HelpModule {...helpModuleBase} />}

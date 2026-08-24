@@ -6,7 +6,10 @@ import {
   treeNodeDtoSchema,
   treeNodeContentDtoSchema,
   type CreateTreeNodeRequest,
+  type CreateTreeNodeWithContentRequest,
+  type EditTreeNodeRequest,
   type SetTreeSelectionRequest,
+  type TreePageSize,
   type TreeLoadDto,
 } from "@flydeck/shared/v2";
 import { randomUUID } from "node:crypto";
@@ -22,6 +25,8 @@ type NodeRow = {
   local_id: string;
   position: number;
   revision: string | number;
+  created_at: Date;
+  updated_at: Date;
   content_editable: boolean;
   list_editable: boolean;
   list_item_limit: number | null;
@@ -29,8 +34,18 @@ type NodeRow = {
   enabled_revision: string | number;
 };
 type MutableNodeRow = Omit<NodeRow, "enabled" | "enabled_revision">;
-type SelectionRow = { selected_path: string[]; revision: string | number };
-type ContentRow = { node_id: string; format: "text" | "markdown" | "json"; content: string; revision: string | number };
+type SelectionRow = {
+  selected_path: string[];
+  page_sizes: Record<string, TreePageSize>;
+  revision: string | number;
+};
+type ContentRow = {
+  node_id: string;
+  format: "text" | "markdown" | "json";
+  content: string;
+  revision: string | number;
+  updated_at: Date;
+};
 
 export class TreeService {
   constructor(private readonly database: Database) {}
@@ -88,7 +103,7 @@ export class TreeService {
         SELECT
           tree_nodes.id, tree_nodes.parent_id, tree_nodes.kind,
           tree_nodes.label, tree_nodes.local_id, tree_nodes.position,
-          tree_nodes.revision,
+          tree_nodes.revision, tree_nodes.created_at, tree_nodes.updated_at,
           tree_nodes.content_editable, tree_nodes.list_editable,
           tree_nodes.list_item_limit,
           COALESCE(node_user_states.enabled, false) AS enabled,
@@ -101,7 +116,7 @@ export class TreeService {
         ORDER BY tree_nodes.parent_id NULLS FIRST, tree_nodes.position, tree_nodes.id
       `, [tree.id, userId]),
       this.database.query<SelectionRow>(`
-        SELECT selected_path, revision
+        SELECT selected_path, page_sizes, revision
         FROM tree_user_states
         WHERE tree_id = $1 AND user_id = $2
       `, [tree.id, userId]),
@@ -121,6 +136,8 @@ export class TreeService {
           localId: node.local_id,
           position: node.position,
           revision: Number(node.revision),
+          createdAt: node.created_at.toISOString(),
+          updatedAt: node.updated_at.toISOString(),
           capabilities: {
             contentEditable: node.content_editable,
             listEditable: node.list_editable,
@@ -139,6 +156,7 @@ export class TreeService {
       selection: {
         revision: Number(state?.revision ?? 0),
         selectedPath: state?.selected_path ?? [],
+        pageSizes: state?.page_sizes ?? {},
       },
     } satisfies TreeLoadDto);
   }
@@ -159,7 +177,7 @@ export class TreeService {
   async createNode(
     workspaceId: string,
     userId: string,
-    input: CreateTreeNodeRequest,
+    input: CreateTreeNodeRequest | CreateTreeNodeWithContentRequest,
   ) {
     return this.database.transaction(async (client) => {
       await lockIdempotencyKey(client, userId, workspaceId, input.requestId);
@@ -201,8 +219,8 @@ export class TreeService {
       ]);
       await client.query(`
         INSERT INTO node_contents (node_id, format, content)
-        VALUES ($1, 'markdown', '')
-      `, [nodeId]);
+        VALUES ($1, 'markdown', $2)
+      `, [nodeId, "content" in input ? input.content : ""]);
       await client.query(`
         INSERT INTO node_user_states (node_id, user_id, enabled, revision)
         VALUES ($1, $2, true, 1)
@@ -221,6 +239,122 @@ export class TreeService {
         )
       `, [userId, workspaceId, input.requestId, response]);
       return response;
+    });
+  }
+
+  async editNode(
+    workspaceId: string,
+    nodeId: string,
+    input: EditTreeNodeRequest,
+  ) {
+    return this.database.transaction(async (client) => {
+      const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
+      assertRevision(tree.revision, input.expectedTreeRevision, "Tree");
+      await assertMutableDataNode(client, tree.id, nodeId);
+      const sourceResult = await client.query<MutableNodeRow>(`
+        SELECT *, false AS enabled, 0 AS enabled_revision
+        FROM tree_nodes WHERE tree_id = $1 AND id = $2
+      `, [tree.id, nodeId]);
+      const source = sourceResult.rows[0];
+      if (!source) throw new HttpError(404, "NOT_FOUND", "Node was not found");
+      assertRevision(source.revision, input.expectedNodeRevision, "Node");
+      const currentContent = await client.query<ContentRow>(`
+        SELECT * FROM node_contents WHERE node_id = $1 FOR UPDATE
+      `, [nodeId]);
+      if (!currentContent.rows[0]) {
+        throw new HttpError(404, "NOT_FOUND", "Node content was not found");
+      }
+      assertRevision(
+        currentContent.rows[0].revision,
+        input.expectedContentRevision,
+        "Content",
+      );
+      const contentChanged = currentContent.rows[0].content !== input.content;
+      if (contentChanged && !source.content_editable) {
+        throw new HttpError(403, "FORBIDDEN", "Node content is read-only");
+      }
+      if (input.parentId === nodeId) {
+        throw new HttpError(400, "INVALID_REQUEST", "A node cannot be its own parent");
+      }
+      if (source.parent_id !== input.parentId) {
+        await assertWritableParent(client, tree.id, input.parentId);
+      }
+      await assertLocalIdAvailable(
+        client, tree.id, input.parentId, input.localId, nodeId,
+      );
+      if (input.parentId) {
+        const cycle = await client.query<{ found: boolean }>(`
+          WITH RECURSIVE descendants AS (
+            SELECT id FROM tree_nodes WHERE tree_id = $1 AND parent_id = $2
+            UNION ALL
+            SELECT child.id
+            FROM tree_nodes child
+            JOIN descendants parent ON child.parent_id = parent.id
+            WHERE child.tree_id = $1
+          )
+          SELECT EXISTS (
+            SELECT 1 FROM descendants WHERE id = $3
+          ) AS found
+        `, [tree.id, nodeId, input.parentId]);
+        if (cycle.rows[0].found) {
+          throw new HttpError(
+            400,
+            "INVALID_REQUEST",
+            "A node cannot be moved below its descendant",
+          );
+        }
+      }
+
+      let position = source.position;
+      if (source.parent_id !== input.parentId) {
+        position = await insertionPosition(client, tree.id, input.parentId, null);
+        await client.query(`
+          UPDATE tree_nodes SET position = position - 1, updated_at = now()
+          WHERE tree_id = $1
+            AND parent_id IS NOT DISTINCT FROM $2
+            AND position > $3
+        `, [tree.id, source.parent_id, source.position]);
+      }
+
+      const updatedNode = await client.query<MutableNodeRow>(`
+        UPDATE tree_nodes
+        SET label = $1, local_id = $2, parent_id = $3, position = $4,
+            revision = revision + 1, updated_at = now()
+        WHERE id = $5 AND tree_id = $6 AND revision = $7
+        RETURNING *, false AS enabled, 0 AS enabled_revision
+      `, [
+        input.label,
+        input.localId,
+        input.parentId,
+        position,
+        nodeId,
+        tree.id,
+        input.expectedNodeRevision,
+      ]);
+      if (!updatedNode.rows[0]) {
+        const current = await nodeRevision(client, tree.id, nodeId);
+        throwRevisionConflict("Node", current);
+      }
+
+      if (contentChanged) {
+        const updatedContent = await client.query<ContentRow>(`
+          UPDATE node_contents
+          SET content = $1, revision = revision + 1, updated_at = now()
+          WHERE node_id = $2 AND revision = $3
+          RETURNING *
+        `, [input.content, nodeId, input.expectedContentRevision]);
+        if (!updatedContent.rows[0]) {
+          const current = await client.query<{ revision: string | number }>(`
+            SELECT revision FROM node_contents WHERE node_id = $1
+          `, [nodeId]);
+          throwRevisionConflict("Content", current.rows[0]?.revision ?? 0);
+        }
+      }
+
+      return createTreeNodeResponseSchema.parse({
+        node: toNodeDto(updatedNode.rows[0]),
+        treeRevision: await bumpTree(client, tree.id),
+      });
     });
   }
 
@@ -558,23 +692,34 @@ export class TreeService {
   ) {
     const tree = await this.findTree(workspaceId, "data");
     await assertValidPath(this.database, tree.id, input.selectedPath);
+    await assertValidPageSizeOwners(this.database, tree.id, input.pageSizes);
     const result = await this.database.query<SelectionRow>(`
-      INSERT INTO tree_user_states (tree_id, user_id, selected_path, revision)
-      SELECT $1, $2, $3, 1
-      WHERE $4 = 0 OR EXISTS (
+      INSERT INTO tree_user_states (
+        tree_id, user_id, selected_path, page_sizes, revision
+      )
+      SELECT $1, $2, $3, $4, 1
+      WHERE $5 = 0 OR EXISTS (
         SELECT 1 FROM tree_user_states existing
         WHERE existing.tree_id = $1 AND existing.user_id = $2
       )
       ON CONFLICT (tree_id, user_id) DO UPDATE
       SET selected_path = EXCLUDED.selected_path,
+          page_sizes = EXCLUDED.page_sizes,
           revision = tree_user_states.revision + 1,
           updated_at = now()
-      WHERE tree_user_states.revision = $4
-      RETURNING selected_path, revision
-    `, [tree.id, userId, input.selectedPath, input.expectedRevision]);
+      WHERE tree_user_states.revision = $5
+      RETURNING selected_path, page_sizes, revision
+    `, [
+      tree.id,
+      userId,
+      input.selectedPath,
+      input.pageSizes,
+      input.expectedRevision,
+    ]);
     if (result.rows[0]) {
       return {
         selectedPath: result.rows[0].selected_path,
+        pageSizes: result.rows[0].page_sizes,
         revision: Number(result.rows[0].revision),
       };
     }
@@ -890,6 +1035,26 @@ async function assertValidPath(client: Queryable, treeId: string, selectedPath: 
   }
 }
 
+async function assertValidPageSizeOwners(
+  client: Queryable,
+  treeId: string,
+  pageSizes: Record<string, number>,
+) {
+  const nodeIds = Object.keys(pageSizes).filter((id) => id !== "__tree_root__");
+  if (nodeIds.length === 0) return;
+  const result = await client.query<{ id: string }>(`
+    SELECT id FROM tree_nodes
+    WHERE tree_id = $1 AND id = ANY($2::uuid[])
+  `, [treeId, nodeIds]);
+  if (new Set(result.rows.map(({ id }) => id)).size !== new Set(nodeIds).size) {
+    throw new HttpError(
+      400,
+      "INVALID_REQUEST",
+      "List sizes contain a parent outside the DATA tree",
+    );
+  }
+}
+
 function assertRevision(current: string | number, expected: number, resource: string) {
   if (Number(current) !== expected) throwRevisionConflict(resource, current);
 }
@@ -912,6 +1077,8 @@ function toNodeDto(node: MutableNodeRow) {
     localId: node.local_id,
     position: node.position,
     revision: Number(node.revision),
+    createdAt: node.created_at.toISOString(),
+    updatedAt: node.updated_at.toISOString(),
     capabilities: {
       contentEditable: node.content_editable,
       listEditable: node.list_editable,
@@ -926,6 +1093,7 @@ function toContentDto(row: ContentRow) {
     format: row.format,
     content: row.content,
     revision: Number(row.revision),
+    updatedAt: row.updated_at.toISOString(),
   });
 }
 

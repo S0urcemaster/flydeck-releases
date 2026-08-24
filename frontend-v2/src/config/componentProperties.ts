@@ -22,6 +22,11 @@ type ResolvedBaseProperties = StoredBaseProperties;
 
 export type ComponentPropertiesConfig = {
   Base: StoredBaseProperties & { showComponentName: boolean };
+  Pointer: {
+    lineWidth: string;
+    tipRadius: string;
+    base: StoredBaseProperties;
+  };
   BackgroundLogo: {
     symbol: string;
     fontSizeFactor: number;
@@ -33,6 +38,13 @@ export type ComponentPropertiesConfig = {
     activeColor: string;
     fontSize: string;
     fontWeight: string;
+    base: StoredBaseProperties;
+  };
+  PointerButton: {
+    deltaY: string;
+    padding: string;
+    primaryFontSize: string;
+    secondaryFontSize: string;
     base: StoredBaseProperties;
   };
   CompactButton: {
@@ -197,8 +209,10 @@ export function parseComponentPropertiesConfig(
   }
 
   const baseInput = input.Base;
+  const pointer = input.Pointer;
   const backgroundLogo = input.BackgroundLogo;
   const button = input.Button;
+  const pointerButton = input.PointerButton;
   const compactButton = input.CompactButton;
   const block = input.Block;
   const breadcrumb = input.Breadcrumb;
@@ -276,9 +290,11 @@ export function parseComponentPropertiesConfig(
   if (
     !base
     || !isRecord(baseInput)
+    || !isRecord(pointer)
     || typeof baseInput.showComponentName !== "boolean"
     || !isRecord(backgroundLogo)
     || !isRecord(button)
+    || !isRecord(pointerButton)
     || !isRecord(compactButton)
     || !isRecord(block)
     || !isRecord(breadcrumb)
@@ -356,6 +372,8 @@ export function parseComponentPropertiesConfig(
   }
 
   const buttonBase = parseStoredBaseProperties(button.base);
+  const pointerBase = parseStoredBaseProperties(pointer.base);
+  const pointerButtonBase = parseStoredBaseProperties(pointerButton.base);
   const compactButtonBase = parseStoredBaseProperties(compactButton.base);
   const blockBase = parseStoredBaseProperties(block.base);
   const breadcrumbBase = parseStoredBaseProperties(breadcrumb.base);
@@ -440,7 +458,9 @@ export function parseComponentPropertiesConfig(
 
   if (
     !backgroundLogoBase
+    || !pointerBase
     || !buttonBase
+    || !pointerButtonBase
     || !compactButtonBase
     || !blockBase
     || !breadcrumbBase
@@ -522,6 +542,23 @@ export function parseComponentPropertiesConfig(
     || !submoduleButtonBase
     || !submodulePanelBase
     || !textareaBase
+    || typeof pointer.lineWidth !== "string"
+    || pointer.lineWidth.trim() === ""
+    || isUnitlessNonZeroDimension(pointer.lineWidth)
+    || typeof pointer.tipRadius !== "string"
+    || pointer.tipRadius.trim() === ""
+    || isUnitlessNonZeroDimension(pointer.tipRadius)
+    || typeof pointerButton.deltaY !== "string"
+    || pointerButton.deltaY.trim() === ""
+    || isUnitlessNonZeroDimension(pointerButton.deltaY)
+    || typeof pointerButton.padding !== "string"
+    || pointerButton.padding.trim() === ""
+    || typeof pointerButton.primaryFontSize !== "string"
+    || pointerButton.primaryFontSize.trim() === ""
+    || isUnitlessNonZeroDimension(pointerButton.primaryFontSize)
+    || typeof pointerButton.secondaryFontSize !== "string"
+    || pointerButton.secondaryFontSize.trim() === ""
+    || isUnitlessNonZeroDimension(pointerButton.secondaryFontSize)
     || typeof backgroundLogo.symbol !== "string"
     || Array.from(backgroundLogo.symbol).length !== 1
     || !isNumberInRange(backgroundLogo.fontSizeFactor, 0.1, 3)
@@ -636,6 +673,11 @@ export function parseComponentPropertiesConfig(
       ...base,
       showComponentName: baseInput.showComponentName,
     },
+    Pointer: {
+      lineWidth: pointer.lineWidth,
+      tipRadius: pointer.tipRadius,
+      base: pointerBase,
+    },
     BackgroundLogo: {
       symbol: backgroundLogo.symbol,
       fontSizeFactor: backgroundLogo.fontSizeFactor,
@@ -648,6 +690,13 @@ export function parseComponentPropertiesConfig(
       fontSize: button.fontSize,
       fontWeight: button.fontWeight,
       base: buttonBase,
+    },
+    PointerButton: {
+      deltaY: pointerButton.deltaY,
+      padding: pointerButton.padding,
+      primaryFontSize: pointerButton.primaryFontSize,
+      secondaryFontSize: pointerButton.secondaryFontSize,
+      base: pointerButtonBase,
     },
     CompactButton: {
       fontSize: compactButton.fontSize,

@@ -17,6 +17,7 @@ import { errorHandler } from "./http/errorHandler.js";
 import { HttpError } from "./http/HttpError.js";
 import { requestContext } from "./http/requestContext.js";
 import { TreeService } from "./tree/TreeService.js";
+import { NodeImageService } from "./tree/NodeImageService.js";
 import { createTreeRouter } from "./tree/treeRouter.js";
 
 export function createApp(config: AppConfig, database: Database) {
@@ -25,6 +26,10 @@ export function createApp(config: AppConfig, database: Database) {
   const sessions = new SessionService(database, config);
   const cron = new CronService(database);
   const trees = new TreeService(database);
+  const images = new NodeImageService(
+    database,
+    config.imageDirectory ?? path.resolve("../flydon-server/images"),
+  );
   app.disable("x-powered-by");
   if (config.trustProxy) app.set("trust proxy", 1);
   app.use(requestContext);
@@ -88,7 +93,7 @@ export function createApp(config: AppConfig, database: Database) {
   });
   app.use(
     `${apiPath}/workspaces/:workspaceId/trees/data`,
-    createTreeRouter(sessions, trees),
+    createTreeRouter(sessions, trees, images),
   );
   app.use(
     `${apiPath}/workspaces/:workspaceId/cron`,

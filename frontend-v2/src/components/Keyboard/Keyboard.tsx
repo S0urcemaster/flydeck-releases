@@ -75,15 +75,14 @@ export const keyboardKeys: readonly KeyboardKey[] = [
 export const lowerKeyboardCharacters = [..."qwertzuiopasdfghjklyxcvbnm"];
 export const symbolKeyboardCharacters = [
   "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-  "@", "#", "&", "*", "§", "+", "=", "(", ")", "_", "€", "23", "24", "25", "26", ";",
+  "@", "#", "&", "*", "§", "+", "=", "(", ")", "_", "€", "%", "24", "25", "26", ";",
 ];
 export const commaDialCharacters = [",", '"', "'"] as const;
-export const periodDialCharacters = [".", "-", ":", "/"] as const;
+export const periodDialCharacters = [".", "-", ":"] as const;
 export const COMMA_DIAL_QUEUE_GAP = "3px";
-export const symbolCycleCharacters = {
-  "23": ["!", "?", "%"],
-  "24": ["[", "]", "\\"],
-  "25": ["{", "}", "|"],
+export const symbolDialCharacters = {
+  "24": ["/", "\\", "|"],
+  "25": ["{", "}", "[", "]"],
   "26": ["^", "~", "`"],
 } as const;
 export const emojiKeyboardLayouts = [
@@ -165,23 +164,12 @@ export function Keyboard({
   });
   const [emojiLayout, setEmojiLayout] =
     useState<EmojiKeyboardLayout | null>(null);
-  const [symbolCycleValues, setSymbolCycleValues] = useState<
-    Record<keyof typeof symbolCycleCharacters, string>
-  >({
-    "23": symbolCycleCharacters["23"][0],
-    "24": symbolCycleCharacters["24"][0],
-    "25": symbolCycleCharacters["25"][0],
-    "26": symbolCycleCharacters["26"][0],
-  });
   const longPressButtonClassName = buttonProps?.className
     ? `${styles.button} ${buttonProps.className}`
     : styles.button;
   const cycleButtonClassName = cycleButtonProps?.className
     ? `${styles.button} ${cycleButtonProps.className}`
     : styles.button;
-  const cycleKeyClassName = cycleButtonProps?.className
-    ? `${styles.key} ${cycleButtonProps.className}`
-    : styles.key;
   const dialKeyClassName = dialButtonProps?.className
     ? `${styles.key} ${dialButtonProps.className}`
     : styles.key;
@@ -362,7 +350,7 @@ export function Keyboard({
       renderedKeys.push(
         <DialButton
           {...dialButtonProps}
-          aria-label={`${letterDialOptions[0]} or ${letterDialOptions[1]}`}
+          aria-label={letterDialOptions.join(" or ")}
           className={dialKeyClassName}
           data-key-id={key.id}
           data-position={key.position}
@@ -437,16 +425,16 @@ export function Keyboard({
       );
       continue;
     }
-    if (["23", "24", "25", "26"].includes(key.id)
+    if (["24", "25", "26"].includes(key.id)
       && emojiLayout === null
       && shiftState.mode === "symbols") {
-      const cycleKeyId = key.id as keyof typeof symbolCycleCharacters;
-      const options = symbolCycleCharacters[cycleKeyId];
+      const dialKeyId = key.id as keyof typeof symbolDialCharacters;
+      const options = symbolDialCharacters[dialKeyId];
       renderedKeys.push(
-        <CycleButton
-          {...cycleButtonProps}
+        <DialButton
+          {...dialButtonProps}
           aria-label={`Symbols ${options.join(" ")}`}
-          className={cycleKeyClassName}
+          className={dialKeyClassName}
           data-key-id={key.id}
           data-position={key.position}
           data-row={key.row}
@@ -454,12 +442,12 @@ export function Keyboard({
           height={buttonHeight}
           width="100%"
           options={options}
-          value={symbolCycleValues[cycleKeyId]}
-          onPress={(symbol) => insertKeyboardText(targetRef.current, symbol)}
-          onChange={(value) => setSymbolCycleValues((current) => ({
-            ...current,
-            [cycleKeyId]: value,
-          }))}
+          onDial={(dialCharacter, replacePrevious) => insertDialKeyboardText(
+            targetRef.current,
+            dialCharacter,
+            replacePrevious,
+            options,
+          )}
         />,
       );
       continue;
@@ -474,7 +462,7 @@ export function Keyboard({
             {...dialButtonProps}
             aria-label={segment === 1
               ? "Comma, double quote, or single quote"
-              : "Period, hyphen, colon, or slash"}
+              : "Period, hyphen, or colon"}
             className={dialKeyClassName}
             data-key-id={key.id}
             data-key-segment={segment}
@@ -708,7 +696,7 @@ export function keyboardCharacter(
 export function keyboardLetterDialOptions(
   keyId: string,
   layout: ShiftButtonMode,
-): readonly [string, string] | null {
+): readonly string[] | null {
   if (layout === "symbols") return null;
   const options = keyId === "07"
     ? ["u", "ü"] as const
@@ -716,9 +704,11 @@ export function keyboardLetterDialOptions(
       ? ["o", "ö"] as const
       : keyId === "11"
         ? ["a", "ä"] as const
+        : keyId === "19"
+          ? ["l", "!", "?"] as const
         : null;
   if (!options || layout === "lower") return options;
-  return [options[0].toLocaleUpperCase(), options[1].toLocaleUpperCase()];
+  return options.map((option) => option.toLocaleUpperCase());
 }
 
 export function emojiKeyboardCharacter(

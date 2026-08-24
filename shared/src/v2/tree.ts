@@ -46,6 +46,8 @@ export const treeNodeDtoSchema = z.object({
   localId: treeNodeLocalIdSchema,
   position: z.number().int().nonnegative(),
   revision: revisionSchema,
+  createdAt: z.iso.datetime().optional(),
+  updatedAt: z.iso.datetime().optional(),
   capabilities: treeNodeCapabilitiesDtoSchema,
 });
 
@@ -63,9 +65,27 @@ export const treeSemanticStateDtoSchema = z.object({
   nodeRevisions: z.record(z.uuid(), revisionSchema),
 });
 
+export const treePageSizeSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(4),
+  z.literal(7),
+  z.literal(10),
+  z.literal(15),
+]);
+export const treeListIdSchema = z.union([
+  z.literal("__tree_root__"),
+  z.uuid(),
+]);
+export const treePageSizesSchema = z.record(
+  treeListIdSchema,
+  treePageSizeSchema,
+);
+
 export const treeSelectionDtoSchema = z.object({
   revision: revisionSchema,
   selectedPath: z.array(z.uuid()),
+  pageSizes: treePageSizesSchema,
 });
 
 export const treeLoadDtoSchema = z.object({
@@ -83,6 +103,10 @@ export const createTreeNodeRequestSchema = z.object({
   label: treeNodeLabelSchema,
   localId: treeNodeLocalIdSchema,
   expectedTreeRevision: revisionSchema,
+}).strict();
+
+export const createTreeNodeWithContentRequestSchema = createTreeNodeRequestSchema.extend({
+  content: z.string().max(1_000_000),
 }).strict();
 
 export const createTreeNodeResponseSchema = z.object({
@@ -114,6 +138,17 @@ export const reparentTreeNodeRequestSchema = z.object({
   expectedTreeRevision: revisionSchema,
 }).strict();
 
+export const editTreeNodeRequestSchema = z.object({
+  requestId: requestIdSchema,
+  label: treeNodeLabelSchema,
+  localId: treeNodeLocalIdSchema,
+  parentId: z.uuid().nullable(),
+  content: z.string().max(1_000_000),
+  expectedNodeRevision: revisionSchema,
+  expectedContentRevision: revisionSchema,
+  expectedTreeRevision: revisionSchema,
+}).strict();
+
 export const deleteTreeNodeRequestSchema = z.object({
   requestId: requestIdSchema,
   expectedTreeRevision: revisionSchema,
@@ -134,6 +169,7 @@ export const setTreeNodeEnabledResponseSchema = z.object({
 export const setTreeSelectionRequestSchema = z.object({
   requestId: requestIdSchema,
   selectedPath: z.array(z.uuid()),
+  pageSizes: treePageSizesSchema,
   expectedRevision: revisionSchema,
 }).strict();
 
@@ -142,6 +178,7 @@ export const treeNodeContentDtoSchema = z.object({
   format: z.enum(["text", "markdown", "json"]),
   content: z.string().max(1_000_000),
   revision: revisionSchema,
+  updatedAt: z.iso.datetime().optional(),
 });
 
 export const updateTreeNodeContentRequestSchema = z.object({
@@ -150,13 +187,28 @@ export const updateTreeNodeContentRequestSchema = z.object({
   expectedRevision: revisionSchema,
 }).strict();
 
+export const treeNodeImageDtoSchema = z.object({
+  nodeId: z.uuid(),
+  mimeType: z.string().startsWith("image/").max(100),
+  originalName: z.string().max(255),
+  byteSize: z.number().int().positive(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const deleteTreeNodeImageResponseSchema = z.object({
+  nodeId: z.uuid(),
+  deleted: z.boolean(),
+});
+
 export type TreeKind = z.infer<typeof treeKindSchema>;
 export type TreeNodeDto = z.infer<typeof treeNodeDtoSchema>;
 export type TreeDocumentDto = z.infer<typeof treeDocumentDtoSchema>;
 export type TreeSemanticStateDto = z.infer<typeof treeSemanticStateDtoSchema>;
 export type TreeSelectionDto = z.infer<typeof treeSelectionDtoSchema>;
+export type TreePageSize = z.infer<typeof treePageSizeSchema>;
 export type TreeLoadDto = z.infer<typeof treeLoadDtoSchema>;
 export type CreateTreeNodeRequest = z.infer<typeof createTreeNodeRequestSchema>;
+export type CreateTreeNodeWithContentRequest = z.infer<typeof createTreeNodeWithContentRequestSchema>;
 export type CreateTreeNodeResponse = z.infer<typeof createTreeNodeResponseSchema>;
 export type RenameTreeNodeRequest = z.infer<typeof renameTreeNodeRequestSchema>;
 export type UpdateTreeNodeLocalIdRequest = z.infer<
@@ -164,9 +216,14 @@ export type UpdateTreeNodeLocalIdRequest = z.infer<
 >;
 export type MoveTreeNodeRequest = z.infer<typeof moveTreeNodeRequestSchema>;
 export type ReparentTreeNodeRequest = z.infer<typeof reparentTreeNodeRequestSchema>;
+export type EditTreeNodeRequest = z.infer<typeof editTreeNodeRequestSchema>;
 export type DeleteTreeNodeRequest = z.infer<typeof deleteTreeNodeRequestSchema>;
 export type SetTreeNodeEnabledRequest = z.infer<typeof setTreeNodeEnabledRequestSchema>;
 export type SetTreeNodeEnabledResponse = z.infer<typeof setTreeNodeEnabledResponseSchema>;
 export type SetTreeSelectionRequest = z.infer<typeof setTreeSelectionRequestSchema>;
 export type TreeNodeContentDto = z.infer<typeof treeNodeContentDtoSchema>;
 export type UpdateTreeNodeContentRequest = z.infer<typeof updateTreeNodeContentRequestSchema>;
+export type TreeNodeImageDto = z.infer<typeof treeNodeImageDtoSchema>;
+export type DeleteTreeNodeImageResponse = z.infer<
+  typeof deleteTreeNodeImageResponseSchema
+>;

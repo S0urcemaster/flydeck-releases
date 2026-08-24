@@ -1,0 +1,39 @@
+.root {
+  position: absolute;
+  z-index: 3;
+  top: var(--pointer-position);
+  right: 0;
+  left: var(--cron-axis-x);
+  height: var(--pointer-line-width);
+  transform: translateY(-50%);
+  background: var(--color-accent-two);
+  pointer-events: none;
+}
+
+.root[data-pointer-mode="browse"] {
+  background: var(--color-accent-three);
+}
+
+.root[data-pointer-mode="end"] {
+  background: var(--color-accent-one);
+}
+
+.root[data-shadow] {
+  z-index: 2;
+  opacity: 0.38;
+}
+
+.dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: calc(var(--pointer-tip-radius) * 2);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: inherit;
+}
+
+.root[data-shadow] .dot {
+  border: var(--pointer-line-width) solid currentColor;
+}

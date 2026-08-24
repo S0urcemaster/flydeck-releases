@@ -23,7 +23,7 @@ import {
   previousGrapheme,
   releaseKeyboardShiftAfterCharacter,
   scaledFontSize,
-  symbolCycleCharacters,
+  symbolDialCharacters,
   wordRangeAtCursor,
 } from "./Keyboard";
 
@@ -66,7 +66,7 @@ describe("Keyboard", () => {
     expect(markup.match(/lucide-space/g)).toHaveLength(1);
     expect(markup).toContain('aria-label="Comma, double quote, or single quote"');
     expect(markup).toContain('aria-label="Space"');
-    expect(markup).toContain('aria-label="Period, hyphen, colon, or slash"');
+    expect(markup).toContain('aria-label="Period, hyphen, or colon"');
     expect(markup).toContain('aria-label="Enter"');
     expect(markup).toContain('aria-label="Start dictation"');
     expect(markup).toContain('background:var(--color-speech)');
@@ -75,8 +75,10 @@ describe("Keyboard", () => {
     expect(markup).toContain(">ä</small>");
     expect(markup).toContain(">ö</small>");
     expect(markup).toContain(">ü</small>");
+    expect(markup).toContain('aria-label="l or ! or ?"');
+    expect(markup).toContain(">! ?</small>");
     expect(markup).toContain(">&quot; &#x27;</small>");
-    expect(markup).toContain(">- : /</small>");
+    expect(markup).toContain(">- :</small>");
     expect(markup).toContain("gap:3px");
   });
 
@@ -200,7 +202,7 @@ describe("Keyboard", () => {
     expect(keyboardCharacter("15", "symbols")).toBe("§");
     expect(keyboardCharacter("21", "symbols")).toBe("_");
     expect(keyboardCharacter("22", "symbols")).toBe("€");
-    expect(keyboardCharacter("23", "symbols")).toBe("23");
+    expect(keyboardCharacter("23", "symbols")).toBe("%");
     expect(keyboardCharacter("26", "symbols")).toBe("26");
     expect(keyboardCharacter("27", "symbols")).toBe(";");
     expect(keyboardCharacter("20", "lower")).toBeNull();
@@ -208,20 +210,21 @@ describe("Keyboard", () => {
 
   it("defines the punctuation multi-tap order", () => {
     expect(commaDialCharacters).toEqual([",", '"', "'"]);
-    expect(periodDialCharacters).toEqual([".", "-", ":", "/"]);
+    expect(periodDialCharacters).toEqual([".", "-", ":"]);
   });
 
-  it("fills symbol keys 23 through 26 with three-value CycleButtons", () => {
-    expect(symbolCycleCharacters).toEqual({
-      "23": ["!", "?", "%"],
-      "24": ["[", "]", "\\"],
-      "25": ["{", "}", "|"],
+  it("defines the symbol DialButtons without exclamation and question marks", () => {
+    expect(symbolDialCharacters).toEqual({
+      "24": ["/", "\\", "|"],
+      "25": ["{", "}", "[", "]"],
       "26": ["^", "~", "`"],
     });
   });
 
   it("maps umlaut DialButtons in lower and uppercase layouts", () => {
     expect(keyboardLetterDialOptions("11", "lower")).toEqual(["a", "ä"]);
+    expect(keyboardLetterDialOptions("19", "lower")).toEqual(["l", "!", "?"]);
+    expect(keyboardLetterDialOptions("19", "upper")).toEqual(["L", "!", "?"]);
     expect(keyboardLetterDialOptions("09", "upper")).toEqual(["O", "Ö"]);
     expect(keyboardLetterDialOptions("07", "upper")).toEqual(["U", "Ü"]);
     expect(keyboardLetterDialOptions("11", "symbols")).toBeNull();

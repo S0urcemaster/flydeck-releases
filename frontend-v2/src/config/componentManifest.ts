@@ -31,7 +31,9 @@ function defineComponentManifest<
  */
 export const componentManifest = defineComponentManifest({
   Base: { parent: null, source: "components/Base/Base.tsx", labGroup: "individual" },
+  Pointer: { parent: "Base", source: "components/Pointer/Pointer.tsx", labGroup: "individual" },
   Button: { parent: "Base", source: "components/Button/Button.tsx", labGroup: "individual" },
+  PointerButton: { parent: "Base", source: "components/PointerButton/PointerButton.tsx", labGroup: "individual" },
   CompactButton: { parent: "Button", source: "components/CompactButton/CompactButton.tsx", labGroup: "individual" },
   PressButton: { parent: "Button", source: "components/PressButton/PressButton.tsx", labGroup: "individual" },
   BackspaceButton: { parent: "PressButton", source: "components/BackspaceButton/BackspaceButton.tsx", labGroup: "individual" },
@@ -95,7 +97,7 @@ export const componentManifest = defineComponentManifest({
   ContentEditor: { parent: "InputControl", source: "components/TreeBrowser/ContentEditor.tsx", labGroup: "individual" },
   DataSourceInput: { parent: "RootInputControl", source: "components/DataSourceInput/DataSourceInput.tsx", labGroup: "individual" },
   ColorDialer: { parent: "Dialer", source: "components/ColorDialer/ColorDialer.tsx", labGroup: "individual" },
-  CronDialer: { parent: "Dialer", source: "components/CronDialer/CronDialer.tsx", labGroup: "individual" },
+  CronDialer: { parent: "Base", source: "components/CronDialer/CronDialer.tsx", labGroup: "individual" },
   CompassApp: { parent: "AppView", source: "components/CompassApp/CompassApp.tsx", labGroup: "individual" },
   DeviceInfoView: { parent: "AppView", source: "components/DeviceInfoView/DeviceInfoView.tsx", labGroup: "individual" },
   InventoryApp: { parent: "AppView", source: "components/InventoryApp/InventoryApp.tsx", labGroup: "individual" },

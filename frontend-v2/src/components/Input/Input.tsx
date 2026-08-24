@@ -132,6 +132,7 @@ export function Input({
           ? smartphoneKeyboardEnabled ? inputMode ?? "text" : "none"
           : inputMode}
         defaultValue={defaultValue}
+        spellCheck={false}
         value={value}
         onChange={(event) => {
           setUncontrolledContentLength(event.currentTarget.value.length);

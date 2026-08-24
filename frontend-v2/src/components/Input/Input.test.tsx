@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 import { Input } from "./Input";
 
 describe("Input", () => {
+  it("disables native spell checking", () => {
+    expect(renderToStaticMarkup(<Input aria-label="Name" />))
+      .toContain('spellCheck="false"');
+  });
+
   it("composes Base as a text input", () => {
     const markup = renderToStaticMarkup(
       <Input aria-label="Name" width="100%" fontSize="15px" />,

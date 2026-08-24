@@ -7,6 +7,9 @@ export function DataTree({ workspaceId, ...props }: DataTreeProps) {
     <DataBrowser
       {...props}
       componentName="DataTree"
+      contentHeightScale={1.5}
+      contentPageSize={7}
+      itemRenameVisible={false}
       workspaceId={workspaceId}
       canDeleteNode={(node, parent) => {
         if (node.kind === "system-directory" || node.kind === "trash-directory") {

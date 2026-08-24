@@ -5,15 +5,18 @@ import {
   TreeBrowser,
   createBatchRootTargets,
   createRootTargets,
-  filterDirectListNodes,
-  findFirstMatchingNodePath,
+  createSelectedPathLabel,
+  filterTreeLevelNodes,
   insertAt,
   moveInTree,
   removeFromTree,
   removeNodesFromTree,
   reparentInTree,
   reparentNodesInTree,
+  resolveTreeLabelPath,
+  toggleActiveViewId,
   updateActionSelection,
+  updateTreeActionSelection,
   type TreeBrowserNode,
 } from "./TreeBrowser";
 import { TreeBrowserModel } from "./TreeBrowserModel";
@@ -44,15 +47,63 @@ describe("TreeBrowser", () => {
     );
 
     expect(markup).toContain('aria-label="Tree browser"');
+    expect(markup).toContain('aria-label="Tree browser menu"');
+    expect(markup).toContain("background:var(--color-app)");
+    expect(markup).toContain('aria-label="Search tree"');
+    expect(markup).toContain('aria-label="Show saved views"');
+    expect(markup).toContain('aria-label="Tree path"');
+    expect(markup).toContain('value="root"');
+    expect(markup).toContain('color:var(--color-success)');
     expect(markup).toContain('aria-label="Root children"');
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).not.toContain('data-component-name="ListControlListSizeButton"');
     expect(markup).toContain('aria-label="List controls for root"');
     expect(markup.indexOf('aria-label="List controls for root"')).toBeLessThan(
-      markup.indexOf(">Pflanzen</button>"),
+      markup.lastIndexOf(">Pflanzen</button>"),
     );
     expect(markup).not.toContain('aria-label="Show content"');
     expect(markup).not.toContain("Children of plants");
+  });
+
+  it("offers the content switch when the virtual root has content", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        model={createModel()}
+        renderRootContent={() => <div>Root settings</div>}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Show content"');
+  });
+
+  it("can hide its own menu and name the virtual root for a referenced browser", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        menuVisible={false}
+        model={createModel([])}
+        rootLabel="views"
+      />,
+    );
+
+    expect(markup).not.toContain('aria-label="Tree browser menu"');
+    expect(markup).toContain('aria-label="List controls for views"');
+    expect(markup).toContain('aria-label="Create child in views"');
+  });
+
+  it("does not check a focused item in a referenced views tree", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        initialSelectedPath={["plants"]}
+        menuVisible={false}
+        model={createModel()}
+        selectionActiveColor="COLOR_SUCCESS"
+      />,
+    );
+
+    expect(markup).toContain(
+      'aria-label="Select Pflanzen for actions" type="button" aria-pressed="false"',
+    );
+    expect(markup).not.toContain("var(--color-success)");
   });
 
   it("renders each owner control before its own list", () => {
@@ -67,7 +118,7 @@ describe("TreeBrowser", () => {
         model={createModel(contextualTree)}
       />,
     );
-    const input = 'aria-label="New item name"';
+    const input = 'aria-label="Item name"';
     expect(markup.indexOf('aria-label="List controls for root"')).toBeLessThan(
       markup.indexOf(">One</button>"),
     );
@@ -83,15 +134,66 @@ describe("TreeBrowser", () => {
       markup.indexOf('aria-label="List controls for Two"'),
     );
     expect(markup).toContain('value="Two"');
-    expect(markup).toContain('aria-label="Search children of Two"');
+    expect(markup).toContain('aria-label="Tree path"');
+    expect(markup).toContain('value="Two"');
+    expect(markup).toContain('aria-label="Create child in Two"');
     expect(markup).not.toContain('data-component-name="ListControlListSizeButton"');
     expect(markup).not.toContain("autofocus");
     expect(markup).toContain('aria-label="Previous page"');
     expect(markup).toContain('aria-label="Next page"');
-    expect(markup.indexOf('aria-label="Search list"')).toBeLessThan(
+    expect(markup.indexOf('aria-label="Create root item"')).toBeLessThan(
       markup.indexOf('aria-label="Previous page"'),
     );
     expect(markup).toContain("width:100%");
+  });
+
+  it("builds the current label path and stops at invalid segments", () => {
+    const nodes = [{
+      id: "desk",
+      label: "Desk",
+      children: [{ id: "drawer", label: "Drawer", children: [] }],
+    }];
+
+    expect(createSelectedPathLabel(nodes, ["desk", "drawer"]))
+      .toBe("Desk/Drawer");
+    expect(createSelectedPathLabel(nodes, ["desk", "missing"]))
+      .toBe("Desk");
+    expect(createSelectedPathLabel(nodes, [])).toBe("root");
+
+    const identifiedNodes = [{
+      id: "desk",
+      label: "My Desk",
+      localId: "my-desk",
+      children: [{
+        id: "drawer",
+        label: "Top Drawer",
+        localId: "top-drawer",
+        children: [],
+      }],
+    }];
+    expect(createSelectedPathLabel(identifiedNodes, ["desk", "drawer"]))
+      .toBe("my-desk/top-drawer");
+  });
+
+  it("resolves label and local-ID paths for direct navigation", () => {
+    const nodes = [{
+      id: "desk-id",
+      label: "My Desk",
+      localId: "desk",
+      children: [{
+        id: "drawer-id",
+        label: "Top Drawer",
+        localId: "top",
+        children: [],
+      }],
+    }];
+
+    expect(resolveTreeLabelPath(nodes, "My Desk / Top Drawer"))
+      .toEqual(["desk-id", "drawer-id"]);
+    expect(resolveTreeLabelPath(nodes, "desk/top"))
+      .toEqual(["desk-id", "drawer-id"]);
+    expect(resolveTreeLabelPath(nodes, "missing")).toBeNull();
+    expect(resolveTreeLabelPath(nodes, "root")).toEqual([]);
   });
 
   it("opens the active item in its contextual list control", () => {
@@ -104,7 +206,22 @@ describe("TreeBrowser", () => {
 
     expect(markup).toContain('data-component-name="ListControl"');
     expect(markup).toContain('value="Pflanzen"');
-    expect(markup).not.toContain('aria-label="Select Pflanzen for actions"');
+    expect(markup).toContain(
+      'aria-label="Select Pflanzen for actions" type="button" aria-pressed="false"',
+    );
+  });
+
+  it("keeps rename out of an item when its content editor owns the name", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        initialSelectedPath={["plants"]}
+        itemRenameVisible={false}
+        model={createModel()}
+      />,
+    );
+
+    expect(markup).toContain('data-component-name="BrowserItem"');
+    expect(markup).not.toContain('aria-label="Item name"');
   });
 
   it("places the mode switch at the far right of the fixed list control", () => {
@@ -164,11 +281,11 @@ describe("TreeBrowser", () => {
 
     expect(markup).toContain(">Pflanzen</button>");
     expect(markup).toContain("data-inline-app");
-    expect(markup.indexOf(">Pflanzen</button>")).toBeLessThan(
+    expect(markup.lastIndexOf(">Pflanzen</button>")).toBeLessThan(
       markup.indexOf("data-inline-app"),
     );
     expect(markup.indexOf('aria-label="List controls for root"')).toBeLessThan(
-      markup.indexOf(">Pflanzen</button>"),
+      markup.lastIndexOf(">Pflanzen</button>"),
     );
     expect(markup.match(/data-component-name="ListControl"/g)).toHaveLength(1);
     expect(markup).not.toContain('data-component-name="BrowserItemModeButton"');
@@ -197,6 +314,19 @@ describe("TreeBrowser", () => {
     expect(markup).not.toMatch(/emptySpace[^>]*style=/);
   });
 
+  it("uses authoritative initial page sizes instead of the local default", () => {
+    const markup = renderToStaticMarkup(
+      <TreeBrowser
+        initialPageSizes={{ __tree_root__: 4 }}
+        model={createModel()}
+      />,
+    );
+
+    expect(markup.match(
+      /<span[^>]*class="[^"]*emptySpace[^"]*"/g,
+    )).toHaveLength(3);
+  });
+
   it("updates arbitrary tree levels", () => {
     const nestedTree = [{
       ...tree[0],
@@ -222,43 +352,32 @@ describe("TreeBrowser", () => {
     expect(moveInTree(nestedTree, "oak", -1)[0].children[0].id).toBe("oak");
   });
 
-  it("filters only the direct list by its label", () => {
-    const nodes = [
-      { label: "Alpha", children: [{ label: "Needle", children: [] }] },
-      { label: "Beta", children: [] },
-    ];
-
-    expect(filterDirectListNodes(nodes, "alp")).toEqual([nodes[0]]);
-    expect(filterDirectListNodes(nodes, "needle")).toEqual([]);
-    expect(filterDirectListNodes(nodes, "needle", true)).toEqual([nodes[0]]);
-    expect(filterDirectListNodes(nodes, " ")).toEqual(nodes);
-  });
-
-  it("keeps the complete parent path for a descendant search hit", () => {
-    const desk = [{
+  it("combines a saved view with global descendant search", () => {
+    const nodes = [{
       id: "desk",
-      label: "Schreibtisch",
-      children: [{
-        id: "drawer",
-        label: "Schublade",
-        children: [{ id: "pen", label: "Stift", children: [] }],
-      }],
+      label: "Desk",
+      children: [{ id: "pen", label: "Pen", children: [] }],
+    }, {
+      id: "garden",
+      label: "Garden",
+      children: [{ id: "rose", label: "Rose", children: [] }],
     }];
 
-    expect(findFirstMatchingNodePath(desk, "stift")).toEqual([
-      "desk",
-      "drawer",
-      "pen",
+    expect(filterTreeLevelNodes(nodes, new Set(["pen"]), "")).toEqual([
+      nodes[0],
     ]);
+    expect(filterTreeLevelNodes(nodes, new Set(["pen"]), "pen")).toEqual([
+      nodes[0],
+    ]);
+    expect(filterTreeLevelNodes(nodes, new Set(["pen"]), "rose")).toEqual([]);
   });
 
-  it("adds checkbox selections without allowing the active item to be unchecked", () => {
+  it("keeps checkbox state independent from the active item", () => {
     const selected = updateActionSelection(
       { plants: ["rose"] },
       "plants",
       "oak",
       true,
-      "rose",
     );
 
     expect(selected.plants).toEqual(["rose", "oak"]);
@@ -267,15 +386,116 @@ describe("TreeBrowser", () => {
       "plants",
       "rose",
       false,
-      "rose",
-    )).toBe(selected);
-    expect(updateActionSelection(
-      selected,
-      "plants",
-      "oak",
+    ).plants).toEqual(["oak"]);
+  });
+
+  it("checks and unchecks a complete subtree from its parent", () => {
+    const branch = {
+      id: "garden",
+      children: [{
+        id: "flowers",
+        children: [{ id: "rose", children: [] }],
+      }, { id: "shed", children: [] }],
+    };
+    const checked = updateTreeActionSelection(
+      {},
+      [branch],
+      "__tree_root__",
+      branch,
+      true,
+    );
+    expect(checked).toEqual({
+      __tree_root__: ["garden"],
+      garden: ["flowers", "shed"],
+      flowers: ["rose"],
+    });
+    expect(updateTreeActionSelection(
+      checked,
+      [branch],
+      "__tree_root__",
+      branch,
       false,
-      "rose",
-    ).plants).toEqual(["rose"]);
+    ))
+      .toEqual({
+        __tree_root__: [],
+        garden: [],
+        flowers: [],
+      });
+  });
+
+  it("selects a checked child's ancestors without selecting its siblings", () => {
+    const sibling = { id: "shed", children: [] };
+    const child = {
+      id: "flowers",
+      children: [{ id: "rose", children: [] }],
+    };
+    const parent = { id: "garden", children: [child, sibling] };
+    expect(updateTreeActionSelection(
+      {},
+      [parent],
+      "garden",
+      child,
+      true,
+    )).toEqual({
+      __tree_root__: ["garden"],
+      garden: ["flowers"],
+      flowers: ["rose"],
+    });
+  });
+
+  it("unchecks empty ancestors after their last checked child", () => {
+    const rose = { id: "rose", children: [] };
+    const flowers = { id: "flowers", children: [rose] };
+    const garden = { id: "garden", children: [flowers] };
+    const checked = updateTreeActionSelection(
+      {},
+      [garden],
+      "flowers",
+      rose,
+      true,
+    );
+
+    expect(updateTreeActionSelection(
+      checked,
+      [garden],
+      "flowers",
+      rose,
+      false,
+    )).toEqual({
+      __tree_root__: [],
+      garden: [],
+      flowers: [],
+    });
+  });
+
+  it("keeps ancestors checked while another child remains checked", () => {
+    const rose = { id: "rose", children: [] };
+    const oak = { id: "oak", children: [] };
+    const garden = { id: "garden", children: [rose, oak] };
+    const checked = updateTreeActionSelection(
+      updateTreeActionSelection({}, [garden], "garden", rose, true),
+      [garden],
+      "garden",
+      oak,
+      true,
+    );
+
+    expect(updateTreeActionSelection(
+      checked,
+      [garden],
+      "garden",
+      rose,
+      false,
+    )).toEqual({
+      __tree_root__: ["garden"],
+      garden: ["oak"],
+    });
+  });
+
+  it("activates and deactivates only the selected saved view", () => {
+    expect(toggleActiveViewId("focus", null)).toBe("focus");
+    expect(toggleActiveViewId("focus", "other")).toBe("focus");
+    expect(toggleActiveViewId("focus", "focus")).toBeNull();
   });
 
   it("removes several selected siblings and their subtrees at once", () => {

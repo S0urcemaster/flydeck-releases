@@ -25,7 +25,7 @@ import {
   type UpdateTreeNodeLocalIdRequest,
 } from "@flydeck/shared/v2";
 
-export const workspaceReplicaSchemaVersion = 2;
+export const workspaceReplicaSchemaVersion = 3;
 
 export type WorkspaceReplicaScope = {
   userId: string;
@@ -336,7 +336,8 @@ export class WorkspaceReplica {
     const id = command.input.requestId;
     return this.transact(scope, (current) => {
       if (current.outbox.some((entry) => entry.id === id)) return current;
-      const optimistic = applyOptimisticCommand(current, command);
+      const rebasedCommand = rebaseCommand(current, command);
+      const optimistic = applyOptimisticCommand(current, rebasedCommand);
       return {
         ...optimistic,
         outbox: [...current.outbox, {
@@ -344,7 +345,7 @@ export class WorkspaceReplica {
           createdAt,
           attempts: 0,
           userCommandId,
-          command,
+          command: rebasedCommand,
         }],
       };
     });
@@ -429,14 +430,22 @@ function assertReplicaRecord(record: unknown): asserts record is WorkspaceReplic
 export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
   if (!record || typeof record !== "object") return record;
   const candidate = clone(record) as Record<string, unknown>;
-  if (candidate.schemaVersion !== 1) return candidate;
+  const sourceVersion = candidate.schemaVersion;
+  if (sourceVersion !== 1 && sourceVersion !== 2) return candidate;
   let localIdByNodeId = new Map<string, string>();
   const tree = candidate.tree;
   if (tree && typeof tree === "object") {
     const document = (tree as Record<string, unknown>).document;
-    if (document && typeof document === "object") {
+    if (sourceVersion === 1 && document && typeof document === "object") {
       const nodes = (document as Record<string, unknown>).nodes;
       if (Array.isArray(nodes)) localIdByNodeId = assignMissingLocalIds(nodes);
+    }
+    const selection = (tree as Record<string, unknown>).selection;
+    if (selection && typeof selection === "object") {
+      const selectionRecord = selection as Record<string, unknown>;
+      if (!selectionRecord.pageSizes || typeof selectionRecord.pageSizes !== "object") {
+        selectionRecord.pageSizes = {};
+      }
     }
   }
   const outbox = candidate.outbox;
@@ -447,15 +456,20 @@ export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
       if (!command || typeof command !== "object") continue;
       const commandRecord = command as Record<string, unknown>;
       const input = commandRecord.input;
-      if (commandRecord.type !== "create-node"
-        || !input || typeof input !== "object") continue;
+      if (!input || typeof input !== "object") continue;
       const inputRecord = input as Record<string, unknown>;
-      if (typeof inputRecord.localId !== "string"
+      if (sourceVersion === 1
+        && commandRecord.type === "create-node"
+        && typeof inputRecord.localId !== "string"
         && typeof inputRecord.label === "string") {
         inputRecord.localId = typeof inputRecord.nodeId === "string"
           ? localIdByNodeId.get(inputRecord.nodeId)
             ?? createTreeNodeLocalId(inputRecord.label)
           : createTreeNodeLocalId(inputRecord.label);
+      }
+      if (commandRecord.type === "set-selection"
+        && (!inputRecord.pageSizes || typeof inputRecord.pageSizes !== "object")) {
+        inputRecord.pageSizes = {};
       }
     }
   }
@@ -554,6 +568,58 @@ function invalidReplica(): never {
   throw new Error("Invalid workspace replica record");
 }
 
+function rebaseCommand(
+  current: WorkspaceReplicaRecord,
+  command: WorkspaceDataCommand,
+): WorkspaceDataCommand {
+  const tree = current.tree;
+  switch (command.type) {
+    case "create-node":
+    case "move-node":
+    case "reparent-node":
+    case "delete-node":
+      return tree ? {
+        ...command,
+        input: {
+          ...command.input,
+          expectedTreeRevision: tree.document.revision,
+        },
+      } as WorkspaceDataCommand : command;
+    case "rename-node":
+    case "update-local-id": {
+      const revision = tree?.document.nodes.find(
+        ({ id }) => id === command.nodeId,
+      )?.revision;
+      return revision === undefined ? command : {
+        ...command,
+        input: { ...command.input, expectedRevision: revision },
+      } as WorkspaceDataCommand;
+    }
+    case "set-node-enabled": {
+      const revision = tree?.semanticState.nodeRevisions[command.nodeId];
+      return revision === undefined ? command : {
+        ...command,
+        input: { ...command.input, expectedRevision: revision },
+      };
+    }
+    case "set-selection":
+      return tree ? {
+        ...command,
+        input: {
+          ...command.input,
+          expectedRevision: tree.selection.revision,
+        },
+      } : command;
+    case "update-content": {
+      const revision = current.contents[command.nodeId]?.revision;
+      return revision === undefined ? command : {
+        ...command,
+        input: { ...command.input, expectedRevision: revision },
+      };
+    }
+  }
+}
+
 function applyOptimisticCommand(
   current: WorkspaceReplicaRecord,
   command: WorkspaceDataCommand,
@@ -627,6 +693,7 @@ function applyOptimisticCommand(
       ...tree,
       selection: {
         selectedPath: command.input.selectedPath,
+        pageSizes: command.input.pageSizes,
         revision: command.input.expectedRevision + 1,
       },
     }));

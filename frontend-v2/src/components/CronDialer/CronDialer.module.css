@@ -1,80 +1,301 @@
 .root {
-  max-width: none;
-}
-
-.root.root [data-layer="outer"] {
+  position: relative;
+  display: grid;
   width: 100%;
-  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
 }
 
-.root.root [data-layer="inner"] {
-  width: 66%;
-  height: 66%;
+.timelineView {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  gap: var(--app-section-gap);
+}
+
+.timelineMenu {
+  display: grid;
+  gap: var(--app-section-gap);
+  min-width: 0;
+}
+
+.timeline {
+  --cron-axis-x: 4.8125rem;
+
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.timeline:active {
+  cursor: grabbing;
+}
+
+.timeline:focus-visible {
+  outline: 0.125rem solid var(--color-accent-two);
+  outline-offset: -0.125rem;
 }
 
 .scale {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
   pointer-events: none;
 }
 
-.timeSegment {
+.axis {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  transform: rotate(var(--cron-segment-rotation));
-  background: conic-gradient(
-    from 0deg,
-    var(--cron-gradient-start, color-mix(in srgb, var(--color-accent-one) 30%, var(--color-surface))) 0deg,
-    var(--cron-gradient-end, color-mix(in srgb, var(--color-accent-one) 70%, var(--color-text))) var(--cron-segment-angle),
-    transparent var(--cron-segment-angle),
-    transparent 360deg
-  );
-}
-
-.zoomSegments {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    var(--cron-gradient-start, color-mix(in srgb, var(--color-accent-two) 25%, var(--color-app))) 0deg,
-    var(--cron-gradient-end, color-mix(in srgb, var(--color-accent-two) 70%, var(--color-text))) 54deg,
-    var(--cron-gradient-start, color-mix(in srgb, var(--color-accent-two) 25%, var(--color-app))) 54deg,
-    var(--cron-gradient-end, color-mix(in srgb, var(--color-accent-two) 70%, var(--color-text))) 108deg,
-    var(--cron-gradient-start, color-mix(in srgb, var(--color-accent-two) 25%, var(--color-app))) 108deg,
-    var(--cron-gradient-end, color-mix(in srgb, var(--color-accent-two) 70%, var(--color-text))) 162deg,
-    var(--cron-gradient-start, color-mix(in srgb, var(--color-accent-two) 25%, var(--color-app))) 162deg,
-    var(--cron-gradient-end, color-mix(in srgb, var(--color-accent-two) 70%, var(--color-text))) 216deg,
-    var(--cron-gradient-start, color-mix(in srgb, var(--color-accent-two) 25%, var(--color-app))) 216deg,
-    var(--cron-gradient-end, color-mix(in srgb, var(--color-accent-two) 70%, var(--color-text))) 270deg,
-    transparent 270deg,
-    transparent 360deg
-  );
+  top: 0;
+  bottom: 0;
+  left: calc(var(--cron-axis-x) - 0.0625rem);
+  width: 0.125rem;
+  background: currentColor;
+  opacity: 0.62;
 }
 
 .mark {
   position: absolute;
-  inset: 0;
-  transform: rotate(var(--cron-mark-angle));
+  top: var(--cron-mark-position);
+  left: 0;
+  width: var(--cron-axis-x);
+  transform: translateY(-50%);
+}
+
+.minorMark {
+  position: absolute;
+  top: var(--cron-mark-position);
+  left: 0;
+  width: var(--cron-axis-x);
+  transform: translateY(-50%);
+}
+
+.minorTick {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 0.4rem;
+  height: 0.0625rem;
+  transform: translateY(-50%);
+  background: currentColor;
+  opacity: 0.5;
 }
 
 .tick {
   position: absolute;
-  top: 0;
-  left: 50%;
-  width: 1px;
-  height: 5%;
+  top: 50%;
+  right: 0;
+  width: 0.8rem;
+  height: 0.125rem;
+  transform: translateY(-50%);
   background: currentColor;
 }
 
-.label {
-  position: absolute;
-  top: 7%;
-  left: 50%;
-  transform: translateX(-50%) rotate(var(--cron-label-angle));
-  transform-origin: center;
+.markLabel {
+  display: block;
+  padding-right: 1.15rem;
+  overflow: hidden;
+  font-size: var(--cron-scale-font-size, 0.82rem);
+  font-weight: var(--cron-scale-font-weight, 400);
   line-height: 1;
+  text-align: right;
+  text-overflow: clip;
   white-space: nowrap;
+}
+
+.mark[data-day-tone="saturday"] .markLabel {
+  color: var(--color-accent-one);
+}
+
+.mark[data-day-tone="sunday"] .markLabel {
+  color: var(--color-error);
+}
+
+.intervalBand {
+  position: absolute;
+  z-index: 0;
+  top: var(--cron-interval-top);
+  right: 0;
+  left: var(--cron-axis-x);
+  height: var(--cron-interval-height);
+  background: color-mix(
+    in srgb,
+    var(--color-accent-two) 16%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.eventBlocks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.eventBlock {
+  position: absolute;
+  z-index: 1;
+  top: var(--cron-event-top);
+  right: var(--space-sm);
+  left: calc(var(--cron-axis-x) + var(--space-sm));
+  box-sizing: border-box;
+  height: var(--cron-event-height);
+  min-height: 0.25rem;
+  padding: var(--space-xs) var(--space-sm);
+  overflow: hidden;
+  color: var(--color-text);
+  background: color-mix(
+    in srgb,
+    var(--color-accent-one) 78%,
+    var(--color-app)
+  );
+  border: 0.125rem solid var(--color-accent-one);
+  border-radius: var(--radius-control);
+  font-size: 0.82rem;
+  font-family: inherit;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.eventBlock:not(:disabled) {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.eventBlock strong,
+.eventBlock span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventBlock span {
+  opacity: 0.78;
+}
+
+.centerLabel {
+  position: absolute;
+  z-index: 4;
+  top: auto;
+  right: 0;
+  bottom: calc(50% + var(--space-sm));
+  display: grid;
+  gap: var(--space-xs);
+  max-width: calc(100% - 6rem);
+  color: var(--color-text);
+  border: var(--border-standard);
+  font-weight: var(--cron-center-font-weight, 400);
+  line-height: 1.1;
+  text-align: right;
+  cursor: pointer;
+}
+
+.zoomControls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--app-section-gap);
+  min-width: 0;
+}
+
+.endpointControls,
+.eventTimes {
+  display: grid;
+  gap: var(--app-section-gap);
+  min-width: 0;
+}
+
+.endpointControls {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.eventTimes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.zoomButton,
+.endpointButton {
+  min-width: 0;
+}
+
+.zoomButton svg,
+.endpointButton svg {
+  transform: translateY(0.1875rem);
+}
+
+.eventForm {
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: auto;
+  touch-action: pan-y;
+  user-select: text;
+}
+
+.eventMenu {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, auto);
+  align-items: center;
+  gap: var(--app-section-gap);
+}
+
+.eventMenu > span {
+  min-width: 0;
+  padding-inline: var(--space-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventTimeButton {
+  display: grid;
+  min-width: 0;
+  height: auto;
+  padding-block: var(--space-sm);
+  overflow: hidden;
+  font-size: 0.82rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.closeButton {
+  grid-column: -2 / -1;
+  min-width: 3rem;
+}
+
+.eventDeleteButton {
+  min-width: 3rem;
+}
+
+.eventText {
+  min-height: 0;
+}
+
+.saveButton {
+  min-width: 0;
+}
+
+.dataSourceView {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  gap: var(--app-section-gap);
+  overflow: hidden;
+}
+
+.dataSourceView > [data-component-name="CronDataSourceBrowser"] {
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dataSourceContent {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

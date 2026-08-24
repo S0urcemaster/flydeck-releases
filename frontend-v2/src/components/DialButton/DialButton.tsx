@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PressButton, type PressButtonProps } from "../PressButton";
 import styles from "./DialButton.module.css";
 
 export const DIAL_BUTTON_QUEUE_FONT_SIZE = "0.55em";
+export const DIAL_BUTTON_TIMEOUT = 500;
 
 export type DialButtonProps = Omit<
   PressButtonProps,
@@ -18,15 +19,17 @@ export type DialButtonProps = Omit<
 
 export function DialButton({
   componentName = "DialButton",
-  dialTimeout = 800,
+  dialTimeout = DIAL_BUTTON_TIMEOUT,
   queueGap,
   onDial,
   onDialComplete,
   options,
+  pressed,
   ...buttonProps
 }: DialButtonProps) {
   const optionIndex = useRef(-1);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dialActive, setDialActive] = useState(false);
   const normalizedOptions = [...new Set(options)];
   const primary = normalizedOptions[0] ?? "";
   const alternatives = normalizedOptions.slice(1).join(" ");
@@ -42,10 +45,12 @@ export function DialButton({
     optionIndex.current = replacePrevious
       ? (optionIndex.current + 1) % normalizedOptions.length
       : 0;
+    setDialActive(true);
     onDial(normalizedOptions[optionIndex.current], replacePrevious);
     timer.current = setTimeout(() => {
       timer.current = null;
       optionIndex.current = -1;
+      setDialActive(false);
       onDialComplete?.();
     }, Math.max(0, dialTimeout));
   }
@@ -57,6 +62,7 @@ export function DialButton({
         ?? `Dial ${normalizedOptions.join(" ")}`}
       componentName={componentName}
       preserveFocus
+      pressed={dialActive ? true : pressed}
       onClick={dial}
     >
       <span className={styles.content} style={{ gap: queueGap }}>

@@ -1,7 +1,10 @@
 node_modules/
 frontend/dist/
+desktop-v2/dist/
+desktop-v2/src-tauri/target/
 *.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
 .env
 backend/.env
+backend-v2/backups/*.dump

@@ -1,6 +1,6 @@
 import { CycleButton, type CycleButtonProps } from "../CycleButton";
 
-export type ListControlListSize = 4 | 7 | 10 | 15;
+export type ListControlListSize = 1 | 2 | 4 | 7 | 10 | 15;
 
 export type ListControlListSizeButtonProps = Omit<
   CycleButtonProps,
@@ -17,37 +17,37 @@ export function ListControlListSizeButton({
   ...buttonProps
 }: ListControlListSizeButtonProps) {
   const nextPageSize = nextListControlListSize(pageSize);
+  const label = String(pageSize);
   return (
     <CycleButton
       {...buttonProps}
       componentName={componentName}
-      aria-label={`List size ${listSizeLabel(pageSize)} (${pageSize} items); change to ${listSizeLabel(nextPageSize)} (${nextPageSize} items)`}
-      options={["S", "M", "L", "X"]}
-      value={listSizeLabel(pageSize)}
+      aria-label={`List size ${pageSize} items; change to ${nextPageSize} items`}
+      options={["1", "2", "4", "7", "10", "15"]}
+      selectedLabel={`Listsize ${pageSize}`}
+      value={label}
+      width="100%"
       onChange={(value) => onPageSizeChange(pageSizeForLabel(value))}
     />
   );
 }
 
-function listSizeLabel(pageSize: ListControlListSize) {
-  if (pageSize === 4) return "S";
-  if (pageSize === 7) return "M";
-  if (pageSize === 10) return "L";
-  return "X";
-}
-
 function pageSizeForLabel(label: string): ListControlListSize {
-  if (label === "S") return 4;
-  if (label === "M") return 7;
-  if (label === "L") return 10;
+  if (label === "1") return 1;
+  if (label === "2") return 2;
+  if (label === "4") return 4;
+  if (label === "7") return 7;
+  if (label === "10") return 10;
   return 15;
 }
 
 export function nextListControlListSize(
   currentPageSize: ListControlListSize,
 ): ListControlListSize {
+  if (currentPageSize === 1) return 2;
+  if (currentPageSize === 2) return 4;
   if (currentPageSize === 4) return 7;
   if (currentPageSize === 7) return 10;
   if (currentPageSize === 10) return 15;
-  return 4;
+  return 1;
 }

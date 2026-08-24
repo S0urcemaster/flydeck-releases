@@ -18,6 +18,7 @@ export const baseColors = [
   "COLOR_TEXT_MUTED",
   "COLOR_ACCENT_ONE",
   "COLOR_ACCENT_TWO",
+  "COLOR_ACCENT_THREE",
 ] as const;
 export const baseBackgrounds = [
   "inherit",
@@ -26,6 +27,7 @@ export const baseBackgrounds = [
   "COLOR_SURFACE",
   "COLOR_ACCENT_ONE",
   "COLOR_ACCENT_TWO",
+  "COLOR_ACCENT_THREE",
 ] as const;
 export const baseBorders = ["inherit", "BORDER_STANDARD"] as const;
 export const baseSpaces = [

@@ -11,6 +11,7 @@
       "item": "#e4e3e2ff",
       "accentOne": "#2468b2ff",
       "accentTwo": "#287a3fff",
+      "accentThree": "#8a5a32ff",
       "speech": "#f2b36fff",
       "success": "#287a3fff",
       "error": "#a52b2bff"
@@ -25,6 +26,7 @@
       "item": "#d9e1dfff",
       "accentOne": "#4da5dbff",
       "accentTwo": "#58b957ff",
+      "accentThree": "#94633aff",
       "speech": "#f2b36fff",
       "success": "#58b957ff",
       "error": "#fc512bff"
@@ -39,6 +41,7 @@
       "item": "#dddddaff",
       "accentOne": "#555555ff",
       "accentTwo": "#777777ff",
+      "accentThree": "#666666ff",
       "speech": "#f2b36fff",
       "success": "#707070ff",
       "error": "#303030ff"

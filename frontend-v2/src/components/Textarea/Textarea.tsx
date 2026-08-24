@@ -21,6 +21,7 @@ export type TextareaProps = Omit<BaseProps<"textarea">, "as"> & {
   fontSize?: string;
   keyboard?: boolean;
   keyboardLayout?: "inline" | "block";
+  keyboardResize?: "preserve" | "shrink";
   label?: ReactNode;
   keyboardProps?: Omit<
     KeyboardProps,
@@ -39,6 +40,7 @@ export function Textarea({
   size = "standard",
   keyboard,
   keyboardLayout = "inline",
+  keyboardResize = "preserve",
   keyboardProps,
   inputMode,
   label,
@@ -86,11 +88,12 @@ export function Textarea({
       ref={wrapperRef}
       className={classes}
       data-keyboard-layout={keyboardLayout}
+      data-keyboard-resize={keyboardResize}
       data-keyboard-visible={keyboardVisible || undefined}
       data-size={size}
       style={keyboardLayout === "block" ? undefined : controlStyle}
       onFocusCapture={() => {
-        if (!keyboardVisible) {
+        if (!keyboardVisible && keyboardResize === "preserve") {
           const measuredHeight = wrapperRef.current?.getBoundingClientRect().height;
           if (measuredHeight && measuredHeight > 0) {
             setControlHeight(`${measuredHeight}px`);
@@ -129,6 +132,7 @@ export function Textarea({
           ? smartphoneKeyboardEnabled ? inputMode ?? "text" : "none"
           : inputMode}
         defaultValue={defaultValue}
+        spellCheck={false}
         value={value}
         onChange={(event) => {
           setUncontrolledContentLength(event.currentTarget.value.length);

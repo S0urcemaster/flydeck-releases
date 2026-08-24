@@ -5,6 +5,27 @@
   min-width: 0;
 }
 
+.menu {
+  display: grid;
+  min-width: 0;
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+}
+
+.views {
+  display: grid;
+  min-width: 0;
+}
+
+.viewContent {
+  display: block;
+  min-width: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .level {
   margin: 0;
   padding: 0;
@@ -17,6 +38,12 @@
 }
 
 .inlineContent {
+  min-width: 0;
+}
+
+.selectedItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   min-width: 0;
 }
 

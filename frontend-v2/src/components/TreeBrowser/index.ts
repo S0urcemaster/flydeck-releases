@@ -9,12 +9,16 @@ export {
   createRootTargets,
   removeNodesFromTree,
   updateActionSelection,
+  updateTreeActionSelection,
   removeFromTree,
   type TreeBrowserNode,
   type TreeBrowserInitialNode,
   type TreeBrowserContentRenderProps,
+  type TreeBrowserRootContentRenderProps,
   type TreeBrowserRootControl,
   type TreeBrowserRootTarget,
+  type TreeBrowserSavedView,
+  type TreeBrowserSavedViewsControl,
   type TreeBrowserProps,
 } from "./TreeBrowser";
 export { ContentEditor, type ContentEditorProps } from "./ContentEditor";

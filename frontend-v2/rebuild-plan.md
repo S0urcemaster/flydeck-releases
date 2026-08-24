@@ -55,25 +55,62 @@ The dial implementation is already farther along than the old prompt assumed:
 ```text
 DialSurface
 └── Dialer
-    ├── CronDialer
     └── ColorDialer
+
+Base
+└── CronDialer
 ```
 
 `DialSurface` converts pointer input into a normalized angle and phase.
 `Dialer` owns inner/outer dial state, corner buttons, the center button, and
 value selection. `ColorDialer` supplies its own scales and value conversion.
-`Dialer` supports movable-pointer and fixed-north/rotating-wheel interaction
-without changing its logical angle model. `CronDialer` specializes the wheel
-mode with a time scale and a logarithmic one-hour to five-year range zoom that
-keeps the selected timestamp at north.
+The earlier circular CronDialer experiment is parked under
+`parked/CronWheelDialer`. The active CRON prototype is a separate vertical timeline:
+two top-menu buttons select the fixed ±1h, ±24h, ±7d, ±1m, and ±1y ranges, while
+vertical input moves the timestamp fixed at the center marker on corresponding
+1min, 10min, 1h, 12h-at-06:00/18:00, and 1d grids. Its height follows the
+remaining dynamic viewport so the interaction does not add page scrolling.
+Its center timestamp opens a full-height general Event form with Title,
+Subtitle, Text, close, and Save actions; the eventual domain is broader than
+notification timers and also covers logs, diaries, and biographical entries.
+Start and End are independent radio-style edit targets above the scale; End is
+always normalized after Start. The complete unsaved event draft, including
+both timestamps, uses the scoped ClientStateStore local persistence boundary.
 
 ### TreeBrowser
 
 `TreeBrowser` renders one complete sibling list per visible depth. Selecting a
 row appends either its child list or its content below the current list. Every
-level independently owns paging and page size. Rows expose selection,
-visibility/enabled state, content/list mode, guarded deletion, creation,
-renaming, and ordering where permitted.
+level independently owns paging. Rows expose selection, visibility/enabled
+state, content/list mode, guarded deletion, creation, renaming, and ordering
+where permitted. One menu above the complete browser owns recursive search and
+saved situational views. Its permanent row gives the current slash-separated
+local-ID path all remaining width and keeps compact Search and Views symbol
+buttons visible. Search reuses the path input, and only Search or Views can be
+open at once. The complete menu is sticky at the safe top viewport edge; all
+expanded input content, keyboards, Search, and Views controls remain attached
+below its permanent row over an opaque `COLOR_APP` background; the fixed
+path/search input explicitly uses the same background. Views is a
+TreeBrowser projection referencing `_system/views`,
+like an app data source. Each child is a canonical DATA node whose content is
+the newline-separated selected local-ID paths. Its create, rename, move,
+content, and delete operations therefore use the normal replica/outbox and
+backend idempotency boundaries. Activating one projects only those paths and
+their required ancestors; canonical source DATA is not duplicated.
+The referenced Views browser uses the compact `S`/four-item list. Selection and
+application are separate: a full-width `active` button above its virtual root
+toggles filtering for the selected view; creating a view selects and activates
+it immediately. The Views menu symbol, the `active` button, and selected
+controls inside the referenced tree share the success-green active state.
+Action selections are retained per parent while navigating elsewhere in the
+tree, including direct path navigation, so a new view captures the accumulated
+selection across the complete tree rather than only the currently visible path.
+Per-owner search has been removed. The owner label now creates a child after
+the active sibling or at the list end, selected-item editing exposes only
+`Save`, and the list-size switch is currently parked.
+DATA page sizes are nevertheless canonical per-user server state. They load
+with selection and use its revisioned optimistic replica/outbox mutation;
+local TreeBrowser storage acts only as a cache/fallback for non-server trees.
 
 `TreeBrowserModel` currently stores one JSON document per composition in
 `localStorage`. It persists:
@@ -97,7 +134,7 @@ migration protocol beyond the single model version.
 | AGNT | CHAT placeholder; MEMO shows a locally persisted plant fixture | Chat API, conversations, prompt drafts, agent state, real memo tree and content |
 | DATA | Generic tree with dummy categories and local UI state | Server projection, records/content, revisions, CRUD error/loading states |
 | FUNC | Tree-backed DeviceInfo, Compass, and ShoppingList prototypes | Server catalog, persisted user functions/content, execution contract |
-| CRON | North-anchored CronDialer time scale with logarithmic range zoom | Timer API, timer list, notifications, final action semantics |
+| CRON | Vertical timeline with two-axis gesture control from ±1 hour to ±1 year | Timer API, timer list, notifications, final action semantics |
 | HELP | Bundled manual | Versioned help content if server-controlled help is later required |
 | CONFIG | Connected empty module | Typed runtime settings projected through TreeBrowser |
 
@@ -232,7 +269,10 @@ optimistic projection, and automatic replay are implemented for Inventory.
 The sync engine serializes replay per user/workspace and retries registered
 scopes when connectivity returns. DataBrowser now uses the same command path
 for every tree, semantic, selection, and content mutation, completing the
-offline DATA writer migration.
+offline DATA writer migration. Normal writes are collected by a one-second
+trailing write-behind window; enqueue transactions atomically rebase expected
+revisions against the optimistic replica. DataBrowser reconciles replica models
+in one mounted TreeBrowser, and conflict recovery no longer reloads the page.
 
 The title actions include a deliberate Offline test toggle before Help. It
 uses the same global transport boundary as real connection failures rather
@@ -586,7 +626,7 @@ drafts survive locally and completed history is server-authoritative.
 
 ### Phase 5 — CRON and notifications
 
-- Design the production CRON interaction model and accessible alternatives from the generic Dialer basis.
+- Evaluate the vertical timeline prototype and finalize its accessible creation controls.
 - Add title input and the timer list next to/below the creation control at phone
   width according to the established module composition.
 - Implement durable timers, job claiming, ntfy outbox, retries, editing,

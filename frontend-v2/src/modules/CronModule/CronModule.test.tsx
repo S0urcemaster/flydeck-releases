@@ -8,12 +8,13 @@ describe("CronModule", () => {
     const markup = renderToStaticMarkup(<CronModule padding="SPACE_SM" />);
 
     expect(markup).toContain('aria-label="Cron module"');
-    expect(markup).toContain('aria-label="Cron dialer"');
-    expect(markup).toContain(">SCALE</button>");
-    expect(markup).toContain(">SEND</button>");
-    expect(markup).toContain(">RANGE</button>");
-    expect(markup).toContain(">ZOOM</button>");
-    expect(markup.match(/data-component-name="DialerButton"/g)).toHaveLength(4);
-    expect(markup.match(/data-component-name="DialerCenterButton"/g)).toHaveLength(1);
+    expect(markup).toContain('aria-label="Cron timeline"');
+    expect(markup).toContain('data-component-name="CronDialer"');
+    expect(markup).toContain('aria-label="Zoom out"');
+    expect(markup).toContain('aria-label="Zoom in"');
+    expect(markup).toContain('aria-label="Set start"');
+    expect(markup).toContain('aria-label="Set end"');
+    expect(markup).toContain('aria-label="Create event at ');
+    expect(markup).not.toContain('data-component-name="DialerButton"');
   });
 });

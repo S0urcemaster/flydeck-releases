@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 import { Textarea } from "./Textarea";
 
 describe("Textarea", () => {
+  it("disables native spell checking", () => {
+    expect(renderToStaticMarkup(<Textarea aria-label="Text" />))
+      .toContain('spellCheck="false"');
+  });
+
   it("owns its size and resize variants", () => {
     const markup = renderToStaticMarkup(
       <Textarea
@@ -37,6 +42,15 @@ describe("Textarea", () => {
 
     expect(markup).toContain('data-keyboard-layout="block"');
     expect(markup).toContain('inputMode="none"');
+  });
+
+  it("can shrink a fill field while its inline Keyboard is visible", () => {
+    const markup = renderToStaticMarkup(
+      <Textarea keyboard keyboardResize="shrink" size="fill" />,
+    );
+
+    expect(markup).toContain('data-keyboard-resize="shrink"');
+    expect(markup).toContain('data-size="fill"');
   });
 
   it("hides its embedded label after eight content characters", () => {

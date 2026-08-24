@@ -4,8 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
-  ListTree,
-  Search,
 } from "lucide-react";
 
 import { Base, type BaseStyleProps } from "../Base";
@@ -23,7 +21,6 @@ import {
   type ListControlButtonProps,
 } from "../ListControlButton";
 import {
-  ListControlListSizeButton,
   type ListControlListSize,
   type ListControlListSizeButtonProps,
 } from "../ListControlListSizeButton";
@@ -44,18 +41,14 @@ export type ListControlProps = BaseStyleProps & {
   activeColor?: string;
   showPageButtons?: boolean;
   showModeButton?: boolean;
-  initialView?: "default" | "search";
+  initialView?: "default" | "new";
   itemCount: number;
+  itemLimit?: number;
+  itemNames?: readonly string[];
+  newItemCount?: number;
   selectedName?: string;
-  searchValue?: string;
-  searchDisabled?: boolean;
-  searchActive?: boolean;
-  searchEnabled?: boolean;
-  searchLocked?: boolean;
-  searchDescendants?: boolean;
-  onSearchChange?: (value: string) => void;
-  onSearchEnabledChange?: (enabled: boolean) => void;
-  onSearchDescendantsChange?: (enabled: boolean) => void;
+  newDisabled?: boolean;
+  onNew?: (name: string) => void | Promise<void>;
   page: number;
   pageSize: ListControlListSize;
   onPageChange: (page: number) => void;
@@ -82,7 +75,11 @@ export type ListControlProps = BaseStyleProps & {
     BrowserItemModeButtonProps,
     "mode" | "onModeChange"
   >;
-  searchInputProps?: ListControlTextInputProps;
+  inputProps?: ListControlTextInputProps;
+  newButtonProps?: Omit<
+    ListControlButtonProps,
+    "aria-label" | "symbol" | "disabled" | "onClick"
+  >;
 };
 
 export function ListControl({
@@ -91,16 +88,12 @@ export function ListControl({
   showModeButton = false,
   initialView = "default",
   itemCount,
+  itemLimit,
+  itemNames = [],
+  newItemCount = itemCount,
   selectedName,
-  searchValue = "",
-  searchDisabled = false,
-  searchActive,
-  searchEnabled = true,
-  searchLocked = false,
-  searchDescendants = true,
-  onSearchChange,
-  onSearchEnabledChange,
-  onSearchDescendantsChange,
+  newDisabled = false,
+  onNew,
   page,
   pageSize,
   onPageChange,
@@ -115,24 +108,29 @@ export function ListControl({
   buttonProps,
   listSizeButtonProps,
   modeButtonProps,
-  searchInputProps,
+  inputProps,
+  newButtonProps,
   color,
   background,
   border,
   ...baseProps
 }: ListControlProps) {
-  const [searchView, setSearchView] = useState<{
+  const [newView, setNewView] = useState<{
     selectedName?: string;
     visible: boolean;
   }>({
     selectedName,
-    visible: initialView === "search",
+    visible: initialView === "new",
   });
-  const searchVisible = searchView.visible
-    && searchView.selectedName === selectedName
-    && !searchDisabled;
+  const newVisible = newView.visible
+    && newView.selectedName === selectedName
+    && !newDisabled;
   const pageCount = Math.max(1, Math.ceil(itemCount / pageSize));
   const safePage = Math.min(page, pageCount - 1);
+  // Page-size switching is intentionally parked while the tree menu is rebuilt.
+  void childPageSize;
+  void onChildPageSizeChange;
+  void listSizeButtonProps;
 
   return (
     <Base
@@ -145,67 +143,23 @@ export function ListControl({
       aria-label={selectedName
         ? `List controls for ${selectedName}`
         : `${pageSize} items per page`}
-      data-view={searchVisible ? "search" : "default"}
+      data-view={newVisible ? "new" : "default"}
     >
-      {searchVisible ? (
-        <div className={styles.searchInput}>
-          <InputControl
-            control="input"
-            keyboardActions={null}
-            keyboardLayout="block"
+      {newVisible ? (
+        <div className={styles.input}>
+          <ListControlInput
+            activeColor={activeColor}
+            buttonProps={buttonProps}
+            editable={!newDisabled}
+            inputProps={inputProps}
+            itemCount={newItemCount}
+            itemLimit={itemLimit}
+            itemNames={itemNames}
+            newButtonProps={newButtonProps}
             onEditingChange={(editing) => {
-              if (!editing) setSearchView({ visible: false });
+              if (!editing) setNewView({ visible: false });
             }}
-            value={searchValue}
-            onChange={onSearchChange}
-            inputProps={{
-              ...searchInputProps,
-              autoFocus: true,
-              "aria-label": `Search children of ${selectedName ?? "selected item"}`,
-              label: "Search",
-              type: "search",
-              disabled: searchDisabled || searchLocked,
-            }}
-            controlActions={(
-              <>
-                <Checkbox
-                  {...buttonProps}
-                  activeColor={activeColor}
-                  checked={searchEnabled}
-                  disabled={searchDisabled
-                    || searchLocked
-                    || !searchValue.trim()
-                    || !onSearchEnabledChange}
-                  label="Search filter"
-                  onPointerDown={(event) => event.preventDefault()}
-                  onChange={(checked) => onSearchEnabledChange?.(checked)}
-                >
-                  <Search aria-hidden="true" />
-                </Checkbox>
-                <Checkbox
-                  {...buttonProps}
-                  activeColor={activeColor}
-                  checked={searchDescendants}
-                  disabled={searchDisabled
-                    || searchLocked
-                    || !onSearchDescendantsChange}
-                  label="Search descendants"
-                  onPointerDown={(event) => event.preventDefault()}
-                  onChange={(checked) => onSearchDescendantsChange?.(checked)}
-                >
-                  <ListTree aria-hidden="true" />
-                </Checkbox>
-                <ListControlListSizeButton
-                  {...buttonProps}
-                  {...listSizeButtonProps}
-                  pageSize={childPageSize}
-                  onPageSizeChange={(nextPageSize) => {
-                    onChildPageSizeChange(nextPageSize);
-                    if (mode === "content") onModeChange?.("list");
-                  }}
-                />
-              </>
-            )}
+            onNew={onNew}
           />
         </div>
       ) : (
@@ -213,17 +167,16 @@ export function ListControl({
           <ListControlButton
             {...buttonProps}
             aria-label={selectedName
-              ? `Search children of ${selectedName}`
-              : "No selected item"}
+              ? `Create child in ${selectedName}`
+              : "Create root item"}
             background="COLOR_SURFACE"
             activeColor={activeColor}
             className={styles.label}
-            disabled={!selectedName || searchDisabled || searchLocked}
+            disabled={newDisabled || !onNew}
             padding="0"
-            selected={searchActive
-              ?? (searchEnabled && Boolean(searchValue.trim()))}
+            selected={newVisible}
             width="100%"
-            onClick={() => setSearchView({ selectedName, visible: true })}
+            onClick={() => setNewView({ selectedName, visible: true })}
           >
             <span className={styles.labelText}>{selectedName ?? ""}</span>
           </ListControlButton>
@@ -299,10 +252,11 @@ export type ListControlInputProps = {
     ListControlButtonProps,
     "aria-label" | "symbol" | "disabled" | "onClick"
   >;
-  onNew?: (name: string) => void;
+  onNew?: (name: string) => void | Promise<void>;
   onCheckedChange?: (checked: boolean) => void;
   onDelete?: () => void | Promise<void>;
   onRename?: (name: string) => void;
+  onEditingChange?: (editing: boolean) => void;
   selectedName?: string;
 };
 
@@ -326,6 +280,7 @@ export function ListControlInput({
   onCheckedChange,
   onDelete,
   onRename,
+  onEditingChange,
   selectedName,
 }: ListControlInputProps) {
   const [draft, setDraft] = useState({
@@ -393,20 +348,32 @@ export function ListControlInput({
       onChange={(value) => setDraft({ selectedName, value })}
       inputProps={{
         ...inputProps,
-        autoFocus: false,
-        "aria-label": "New item name",
+        autoFocus: selectedName ? false : true,
+        "aria-label": selectedName ? "Item name" : "New item name",
         label: "",
         type: "text",
         disabled: !editable,
         onKeyDown: (event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            createItem();
+            if (selectedName) renameItem();
+            else createItem();
           }
         },
       }}
-      keyboardActions={(
-        <>
+      onEditingChange={onEditingChange}
+      keyboardActions={selectedName ? (
+        <ListControlButton
+          {...buttonProps}
+          disabled={!canRename}
+          aria-label="Rename selected item"
+          width="100%"
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={renameItem}
+        >
+          SAVE
+        </ListControlButton>
+      ) : (
           <ListControlButton
             {...buttonProps}
             {...newButtonProps}
@@ -418,17 +385,6 @@ export function ListControlInput({
           >
             NEW
           </ListControlButton>
-          <ListControlButton
-            {...buttonProps}
-            disabled={!canRename}
-            aria-label="Rename selected item"
-            width="100%"
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={renameItem}
-          >
-            SAVE
-          </ListControlButton>
-        </>
       )}
     />
   );

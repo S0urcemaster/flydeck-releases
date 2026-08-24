@@ -15,6 +15,7 @@ const envSchema = z.object({
   AUTH_SECURE_COOKIE: z.enum(["true", "false"]).default("false"),
   BACKUP_DIRECTORY: z.string().trim().default("backups"),
   BACKUP_RETENTION: z.coerce.number().int().min(1).max(365).default(7),
+  IMAGE_DIRECTORY: z.string().trim().default("../flydon-server/images"),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   FRONTEND_DIST: z.string().trim().optional(),
   FRONTEND_BASE_PATH: z.string().default("/v2"),
@@ -34,6 +35,7 @@ export type AppConfig = {
   authSecureCookie: boolean;
   backupDirectory: string;
   backupRetention: number;
+  imageDirectory?: string;
   sessionTtlDays: number;
   frontendDist?: string;
   frontendBasePath: string;
@@ -55,6 +57,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     authSecureCookie: parsed.AUTH_SECURE_COOKIE === "true",
     backupDirectory: path.resolve(parsed.BACKUP_DIRECTORY),
     backupRetention: parsed.BACKUP_RETENTION,
+    imageDirectory: path.resolve(parsed.IMAGE_DIRECTORY),
     sessionTtlDays: parsed.SESSION_TTL_DAYS,
     frontendDist: parsed.FRONTEND_DIST
       ? path.resolve(parsed.FRONTEND_DIST)

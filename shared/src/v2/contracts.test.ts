@@ -5,9 +5,14 @@ import {
   createCronTimerRequestSchema,
   createTreeNodeLocalId,
   createTreeNodeRequestSchema,
+  createTreeNodeWithContentRequestSchema,
+  editTreeNodeRequestSchema,
   reparentTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
+  setTreeSelectionRequestSchema,
   treeDocumentDtoSchema,
+  treeNodeContentDtoSchema,
+  treeNodeDtoSchema,
   treeNodeLocalIdSchema,
 } from "./index.js";
 
@@ -49,6 +54,29 @@ describe("V2 network contracts", () => {
     })).toMatchObject({ revision: 3, nodes: [] });
   });
 
+  it("carries persisted node and content timestamps when the server provides them", () => {
+    const timestamp = "2026-08-21T17:00:00.000Z";
+    expect(treeNodeDtoSchema.parse({
+      id: firstId,
+      parentId: null,
+      kind: "data-file",
+      label: "Zeitstempel",
+      localId: "zeitstempel",
+      position: 0,
+      revision: 0,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      capabilities: { contentEditable: true, listEditable: true, listItemLimit: null },
+    })).toMatchObject({ createdAt: timestamp, updatedAt: timestamp });
+    expect(treeNodeContentDtoSchema.parse({
+      nodeId: firstId,
+      format: "markdown",
+      content: "",
+      revision: 0,
+      updatedAt: timestamp,
+    }).updatedAt).toBe(timestamp);
+  });
+
   it("keeps create and enabled changes as narrow commands", () => {
     expect(createTreeNodeRequestSchema.parse({
       requestId: firstId,
@@ -68,6 +96,21 @@ describe("V2 network contracts", () => {
     })).toEqual({ requestId: firstId, enabled: true, expectedRevision: 2 });
   });
 
+  it("validates server-synchronized page sizes by tree list owner", () => {
+    expect(setTreeSelectionRequestSchema.parse({
+      requestId: firstId,
+      selectedPath: [secondId],
+      pageSizes: { __tree_root__: 10, [secondId]: 1 },
+      expectedRevision: 3,
+    }).pageSizes).toEqual({ __tree_root__: 10, [secondId]: 1 });
+    expect(setTreeSelectionRequestSchema.safeParse({
+      requestId: firstId,
+      selectedPath: [],
+      pageSizes: { __tree_root__: 6 },
+      expectedRevision: 3,
+    }).success).toBe(false);
+  });
+
   it("keeps normal node creation independent from node content", () => {
     expect(createTreeNodeRequestSchema.safeParse({
       requestId: "00000000-0000-4000-8000-000000000001",
@@ -80,6 +123,30 @@ describe("V2 network contracts", () => {
       content: "This must not become the item name",
       expectedTreeRevision: 0,
     }).success).toBe(false);
+    expect(createTreeNodeWithContentRequestSchema.parse({
+      requestId: firstId,
+      nodeId: secondId,
+      parentId: null,
+      afterNodeId: null,
+      kind: "data-file",
+      label: "New item",
+      localId: "new-item",
+      content: "Created atomically",
+      expectedTreeRevision: 0,
+    }).content).toBe("Created atomically");
+  });
+
+  it("edits node metadata, parent and content as one revision-checked command", () => {
+    expect(editTreeNodeRequestSchema.parse({
+      requestId: firstId,
+      label: "Edited",
+      localId: "edited",
+      parentId: secondId,
+      content: "Changed together",
+      expectedNodeRevision: 2,
+      expectedContentRevision: 3,
+      expectedTreeRevision: 4,
+    })).toMatchObject({ label: "Edited", content: "Changed together" });
   });
 
   it("uses a narrow parent command for tree restructuring", () => {

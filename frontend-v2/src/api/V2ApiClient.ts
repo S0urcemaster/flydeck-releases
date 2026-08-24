@@ -1,6 +1,7 @@
 import {
   apiErrorDtoSchema,
   backupStatusDtoSchema,
+  deleteTreeNodeImageResponseSchema,
   createTreeNodeResponseSchema,
   cronTimerDtoSchema,
   cronTimerListDtoSchema,
@@ -10,6 +11,7 @@ import {
   setTreeNodeEnabledResponseSchema,
   treeLoadDtoSchema,
   treeNodeContentDtoSchema,
+  treeNodeImageDtoSchema,
   treeSelectionDtoSchema,
   type ApiErrorDto,
   type CreateCronTimerRequest,
@@ -132,6 +134,56 @@ export class V2ApiClient {
     return this.request(`${this.dataNodePath(workspaceId, nodeId)}/content`, treeNodeContentDtoSchema, {
       method: "PUT", body: input,
     });
+  }
+
+  dataImageUrl(workspaceId: string, nodeId: string) {
+    return `${this.basePath}${this.dataNodePath(workspaceId, nodeId)}/image`;
+  }
+
+  async uploadDataImage(
+    workspaceId: string,
+    nodeId: string,
+    image: Blob,
+    fileName: string,
+  ) {
+    if (this.syncStatus.isForcedOffline()) {
+      throw new TypeError("Offline test mode is enabled.");
+    }
+    let response: Response;
+    let responseBody: string;
+    try {
+      response = await this.fetcher(this.dataImageUrl(workspaceId, nodeId), {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": image.type,
+          "X-File-Name": encodeURIComponent(fileName),
+        },
+        body: image,
+      });
+      responseBody = await response.text();
+      this.syncStatus.markOnline();
+    } catch (error) {
+      this.syncStatus.markOffline(
+        error instanceof Error ? error.message : "The server is not reachable.",
+      );
+      throw error;
+    }
+    const value = parseJsonResponse(response, responseBody);
+    if (!response.ok) {
+      const errorResponse = apiErrorDtoSchema.safeParse(value);
+      if (!errorResponse.success) throw invalidJsonResponse(response, responseBody);
+      throw new V2ApiError(errorResponse.data);
+    }
+    return treeNodeImageDtoSchema.parse(value);
+  }
+
+  deleteDataImage(workspaceId: string, nodeId: string) {
+    return this.request(
+      `${this.dataNodePath(workspaceId, nodeId)}/image`,
+      deleteTreeNodeImageResponseSchema,
+      { method: "DELETE" },
+    );
   }
 
   setDataNodeEnabled(

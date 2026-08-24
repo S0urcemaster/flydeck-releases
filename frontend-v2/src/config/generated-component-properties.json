@@ -9,6 +9,19 @@
     "width": "unset",
     "height": "unset"
   },
+  "Pointer": {
+    "lineWidth": "0.15rem",
+    "tipRadius": "0.4rem",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "BackgroundLogo": {
     "symbol": "𐦍",
     "fontSizeFactor": 1.8,
@@ -36,6 +49,21 @@
       "margin": "0",
       "width": "inherit",
       "height": "40px"
+    }
+  },
+  "PointerButton": {
+    "deltaY": "0.3125rem",
+    "padding": "0.3rem 0.8rem 0.3rem 0.3rem",
+    "primaryFontSize": "1.5em",
+    "secondaryFontSize": "1em",
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "BORDER_STANDARD",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "min(16.5rem, calc(100% - 6.9375rem))",
+      "height": "inherit"
     }
   },
   "CompactButton": {

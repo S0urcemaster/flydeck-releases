@@ -4,7 +4,7 @@ import {
   type ClientStateStore,
 } from "../../state";
 
-export type TreeBrowserPageSize = 4 | 7 | 10 | 15;
+export type TreeBrowserPageSize = 1 | 2 | 4 | 7 | 10 | 15;
 
 export type TreeBrowserModelNode<TData = unknown> = {
   id: string;
@@ -500,7 +500,8 @@ function isPageSizeRecord(
 ): value is Record<string, TreeBrowserPageSize> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
     && Object.values(value as Record<string, unknown>).every(
-      (size) => size === 3 || size === 4 || size === 5 || size === 6
+      (size) => size === 1 || size === 2 || size === 3 || size === 4
+        || size === 5 || size === 6
         || size === 7 || size === 9 || size === 10 || size === 12
         || size === 15,
     );
@@ -511,6 +512,10 @@ function normalizePageSizes(
 ): Record<string, TreeBrowserPageSize> {
   return Object.fromEntries(Object.entries(pageSizes).map(([id, size]) => [
     id,
-    size <= 4 ? 4 : size <= 7 ? 7 : size <= 10 ? 10 : 15,
+    size === 1 ? 1
+      : size === 2 ? 2
+        : size <= 4 ? 4
+          : size <= 7 ? 7
+            : size <= 10 ? 10 : 15,
   ]));
 }

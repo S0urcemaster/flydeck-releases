@@ -35,6 +35,8 @@ import { CompactButton } from "../components/CompactButton";
 import { ColorDialer } from "../components/ColorDialer";
 import { CompassApp } from "../components/CompassApp";
 import { CronDialer } from "../components/CronDialer";
+import { PointerButton, type PointerButtonProps } from "../components/PointerButton";
+import { Pointer, type PointerProps } from "../components/Pointer";
 import { CycleButton } from "../components/CycleButton";
 import { ConfigModuleButton } from "../components/ConfigModuleButton";
 import { DataBrowser } from "../components/DataBrowser";
@@ -226,6 +228,8 @@ const manifestPreviewComponentNames = [
   "ItemList",
   "NodeIdInput",
   "ParentInput",
+  "Pointer",
+  "PointerButton",
   "RootInputControl",
   "ShoppingListView",
 ] as const satisfies readonly AppComponentName[];
@@ -347,6 +351,22 @@ export function LabApp() {
     useState(storedComponentProperties.Button.fontSize);
   const [buttonFontWeight, setButtonFontWeight] =
     useState(storedComponentProperties.Button.fontWeight);
+  const [pointerBaseValues, setPointerBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.Pointer.base);
+  const [pointerLineWidth, setPointerLineWidth] =
+    useState(storedComponentProperties.Pointer.lineWidth);
+  const [pointerTipRadius, setPointerTipRadius] =
+    useState(storedComponentProperties.Pointer.tipRadius);
+  const [pointerButtonBaseValues, setPointerButtonBaseValues] =
+    useState<BaseLabValues>(storedComponentProperties.PointerButton.base);
+  const [pointerButtonDeltaY, setPointerButtonDeltaY] =
+    useState(storedComponentProperties.PointerButton.deltaY);
+  const [pointerButtonPadding, setPointerButtonPadding] =
+    useState(storedComponentProperties.PointerButton.padding);
+  const [pointerButtonPrimaryFontSize, setPointerButtonPrimaryFontSize] =
+    useState(storedComponentProperties.PointerButton.primaryFontSize);
+  const [pointerButtonSecondaryFontSize, setPointerButtonSecondaryFontSize] =
+    useState(storedComponentProperties.PointerButton.secondaryFontSize);
   const [pressButtonBaseValues, setPressButtonBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.PressButton.base);
   const [backspaceButtonBaseValues, setBackspaceButtonBaseValues] =
@@ -748,6 +768,11 @@ export function LabApp() {
   function buildComponentPropertiesConfig(): ComponentPropertiesConfig {
     return {
       Base: { ...basePreviewValues, showComponentName },
+      Pointer: {
+        lineWidth: pointerLineWidth,
+        tipRadius: pointerTipRadius,
+        base: pointerBaseValues,
+      },
       BackgroundLogo: {
         symbol: backgroundLogoSymbol,
         fontSizeFactor: backgroundLogoFontSizeFactor,
@@ -760,6 +785,13 @@ export function LabApp() {
         fontSize: buttonFontSize,
         fontWeight: buttonFontWeight,
         base: buttonBaseValues,
+      },
+      PointerButton: {
+        deltaY: pointerButtonDeltaY,
+        padding: pointerButtonPadding,
+        primaryFontSize: pointerButtonPrimaryFontSize,
+        secondaryFontSize: pointerButtonSecondaryFontSize,
+        base: pointerButtonBaseValues,
       },
       PressButton: { base: pressButtonBaseValues },
       BackspaceButton: { base: backspaceButtonBaseValues },
@@ -1877,8 +1909,126 @@ export function LabApp() {
                   smartphoneButtonProps: toBaseStyleProps(buttonBaseValues),
                 },
               },
+              {
+                lineWidth: pointerLineWidth,
+                tipRadius: pointerTipRadius,
+              },
+              {
+                border: pointerButtonBaseValues.border,
+                color: pointerButtonBaseValues.color,
+                deltaY: pointerButtonDeltaY,
+                height: pointerButtonBaseValues.height,
+                margin: pointerButtonBaseValues.margin,
+                padding: pointerButtonPadding,
+                primaryFontSize: pointerButtonPrimaryFontSize,
+                secondaryFontSize: pointerButtonSecondaryFontSize,
+                width: pointerButtonBaseValues.width,
+              },
             )}
           </div>
+          {selectedComponent === "PointerButton" && (
+            <>
+              <BasePropertyControls
+                componentName="PointerButton"
+                excludedBaseProperties={["background", "padding"]}
+                ownPropertyComments={{
+                  deltaY: "Vertical CSS offset; positive values move it down",
+                  padding: "CSS padding for the complete two-line label",
+                  primaryFontSize: "Upper timestamp font-size",
+                  secondaryFontSize: "Lower range/grid font-size",
+                }}
+                ownProperties={{
+                  deltaY: pointerButtonDeltaY,
+                  padding: pointerButtonPadding,
+                  primaryFontSize: pointerButtonPrimaryFontSize,
+                  secondaryFontSize: pointerButtonSecondaryFontSize,
+                }}
+                values={pointerButtonBaseValues}
+                onChange={(name, value) => setPointerButtonBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }))}
+                onOwnPropertyChange={(name, value) => {
+                  if (typeof value !== "string") return;
+                  if (name === "deltaY") setPointerButtonDeltaY(value);
+                  if (name === "padding") setPointerButtonPadding(value);
+                  if (name === "primaryFontSize") {
+                    setPointerButtonPrimaryFontSize(value);
+                  }
+                  if (name === "secondaryFontSize") {
+                    setPointerButtonSecondaryFontSize(value);
+                  }
+                }}
+              />
+              <div className={styles.actions}>
+                <Button onClick={() => {
+                  setPointerButtonBaseValues({
+                    ...storedComponentProperties.PointerButton.base,
+                  });
+                  setPointerButtonDeltaY(
+                    storedComponentProperties.PointerButton.deltaY,
+                  );
+                  setPointerButtonPadding(
+                    storedComponentProperties.PointerButton.padding,
+                  );
+                  setPointerButtonPrimaryFontSize(
+                    storedComponentProperties.PointerButton.primaryFontSize,
+                  );
+                  setPointerButtonSecondaryFontSize(
+                    storedComponentProperties.PointerButton.secondaryFontSize,
+                  );
+                }}>
+                  RESET
+                </Button>
+                <Button onClick={applyComponentProperties} disabled={isApplying}>
+                  {isApplying ? "APPLYING…" : "APPLY"}
+                </Button>
+              </div>
+            </>
+          )}
+          {selectedComponent === "Pointer" && (
+            <>
+              <BasePropertyControls
+                componentName="Pointer"
+                excludedBaseProperties={[
+                  "background",
+                  "height",
+                  "padding",
+                  "width",
+                ]}
+                ownPropertyComments={{
+                  lineWidth: "Pointer line-width",
+                  tipRadius: "Pointer tip radius",
+                }}
+                ownProperties={{
+                  lineWidth: pointerLineWidth,
+                  tipRadius: pointerTipRadius,
+                }}
+                values={pointerBaseValues}
+                onChange={(name, value) => setPointerBaseValues((current) => ({
+                  ...current,
+                  [name]: value,
+                }))}
+                onOwnPropertyChange={(name, value) => {
+                  if (typeof value !== "string") return;
+                  if (name === "lineWidth") setPointerLineWidth(value);
+                  if (name === "tipRadius") setPointerTipRadius(value);
+                }}
+              />
+              <div className={styles.actions}>
+                <Button onClick={() => {
+                  setPointerBaseValues({ ...storedComponentProperties.Pointer.base });
+                  setPointerLineWidth(storedComponentProperties.Pointer.lineWidth);
+                  setPointerTipRadius(storedComponentProperties.Pointer.tipRadius);
+                }}>
+                  RESET
+                </Button>
+                <Button onClick={applyComponentProperties} disabled={isApplying}>
+                  {isApplying ? "APPLYING…" : "APPLY"}
+                </Button>
+              </div>
+            </>
+          )}
           {appViewFamilyComponentNames.includes(
             selectedComponent as AppViewFamilyComponentName,
           ) && (() => {
@@ -2327,7 +2477,7 @@ export function LabApp() {
         <BasePropertyControls
           componentName="Button"
           ownPropertyComments={{
-            activeColor: "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+            activeColor: "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
             fontSize: "CSS font-size value, for example 14px or 0.9rem",
             fontWeight:
               "CSS font-weight value, for example 400, 700, normal, or bold",
@@ -2409,7 +2559,7 @@ export function LabApp() {
               componentName: "Button",
               comments: {
                 activeColor:
-                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
               },
               properties: { activeColor: buttonActiveColor },
             },
@@ -2502,7 +2652,7 @@ export function LabApp() {
             componentName: "Button",
             comments: {
               activeColor:
-                "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
             },
             properties: { activeColor: buttonActiveColor },
           }]}
@@ -2586,7 +2736,7 @@ export function LabApp() {
                 componentName: "Button",
                 comments: {
                   activeColor:
-                    "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                    "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
                 },
                 properties: { activeColor: buttonActiveColor },
               },
@@ -2660,7 +2810,7 @@ export function LabApp() {
               componentName: "Button",
               comments: {
                 activeColor:
-                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                  "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
               },
               properties: {
                 activeColor: "COLOR_ACCENT_TWO",
@@ -2861,17 +3011,14 @@ export function LabApp() {
             <div>
               <h2 className={styles.componentName}>CronDialer</h2>
               <p className={styles.description}>
-                North-anchored time scale with logarithmic range zoom.
+                Vertical time scale with horizontal zoom and vertical travel.
               </p>
             </div>
             <code className={styles.path}>components/CronDialer</code>
           </div>
           <div className={styles.preview}>
             <CronDialer
-              {...toBaseStyleProps(resolveDerivedBaseProperties(
-                dialBaseValues.Dialer,
-                dialBaseValues.CronDialer,
-              ))}
+              {...toBaseStyleProps(dialBaseValues.CronDialer)}
               buttonProps={{ activeColor: buttonActiveColor }}
               centerFontSize={cronDialerCenterFontSize}
               centerFontWeight={cronDialerCenterFontWeight}
@@ -2918,10 +3065,6 @@ export function LabApp() {
               outerScaleFontSize: cronDialerOuterScaleFontSize,
               outerScaleFontWeight: cronDialerOuterScaleFontWeight,
             }}
-            inheritedPropertySections={[{
-              componentName: "Dialer",
-              properties: dialBaseValues.Dialer,
-            }]}
             values={dialBaseValues.CronDialer}
             onChange={(name, value) => setDialBaseValues((current) => ({
               ...current,
@@ -3602,7 +3745,7 @@ export function LabApp() {
               : componentName === "Checkbox"
               ? {
                   activeColor:
-                    "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                    "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
                   fontSize:
                     "Checkbox mark CSS font-size; inherit uses Button.fontSize",
                 }
@@ -3657,7 +3800,7 @@ export function LabApp() {
                   componentName: "Button",
                   comments: {
                     activeColor:
-                      "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                      "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
                     ...(componentName === "Checkbox"
                       || componentName === "BrowserItemLabelButton"
                       || componentName === "ListControlListSizeButton"
@@ -3992,7 +4135,7 @@ export function LabApp() {
                 componentName: "Button",
                 comments: {
                   activeColor:
-                    "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | custom CSS value",
+                    "COLOR_ACCENT_ONE | COLOR_ACCENT_TWO | COLOR_ACCENT_THREE | custom CSS value",
                 },
                 properties: { activeColor: buttonActiveColor },
               },
@@ -4759,6 +4902,11 @@ function renderManifestComponentPreview(
   itemListBaseValues?: BaseLabValues,
   inputProps?: InputProps,
   textareaProps?: TextareaProps,
+  pointerProps?: Omit<PointerProps, "mode" | "position" | "shadow">,
+  pointerButtonProps?: Omit<
+    PointerButtonProps,
+    "mode" | "primary" | "secondary"
+  >,
 ) {
   const baseProps = baseValues ? toBaseStyleProps(baseValues) : {};
   const rootTarget = {
@@ -4941,6 +5089,24 @@ function renderManifestComponentPreview(
           value=""
           onChange={() => undefined}
           onSetParent={() => undefined}
+        />
+      );
+    case "PointerButton":
+      return (
+        <PointerButton
+          {...baseProps}
+          {...pointerButtonProps}
+          mode="browse"
+          primary="So 23.08.026 · 10:45"
+          secondary="± 24 h · 10m"
+        />
+      );
+    case "Pointer":
+      return (
+        <Pointer
+          {...pointerProps}
+          mode="browse"
+          position="50%"
         />
       );
     case "ShoppingListView":

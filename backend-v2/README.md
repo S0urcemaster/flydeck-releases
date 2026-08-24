@@ -88,8 +88,14 @@ POST /flydeck/api/v2/workspaces/:workspaceId/backup
 
 All workspace routes require the opaque session cookie. Viewers can load DATA,
 content, and CRON; mutations require `owner` or `editor`. Tree, node content,
-per-user enabled state, selection, and CRON mutations use expected revisions.
-Creation requests are idempotent for 24 hours via their UUID request ID.
+per-user enabled state, selection, list page sizes, and CRON mutations use
+expected revisions. Selection and page sizes share the per-user tree-state
+revision and are cached optimistically by the V2 frontend. Creation requests
+are idempotent for 24 hours via their UUID request ID.
+
+DATA node images are stored outside PostgreSQL below `IMAGE_DIRECTORY`, grouped
+by upload month as `YYYY-MM`. The deployment uses the persistent
+`/home/flydon/flydon-server/images` directory rather than a release directory.
 
 ## PostgreSQL backups
 

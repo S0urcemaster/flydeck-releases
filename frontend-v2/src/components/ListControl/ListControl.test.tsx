@@ -23,7 +23,7 @@ describe("ListControl", () => {
     );
 
     expect(markup).toContain('data-component-name="ListControl"');
-    expect(markup).toContain('aria-label="Search children of Alpha"');
+    expect(markup).toContain('aria-label="Create child in Alpha"');
     expect(markup).toContain('background:var(--color-surface)');
     expect(markup).toContain('padding:0');
     expect(markup).toContain('>Alpha</span>');
@@ -38,14 +38,16 @@ describe("ListControl", () => {
     expect(markup).not.toContain("List size M");
   });
 
-  it("marks the label button active while its child-list search is active", () => {
+  it("opens a dedicated new-item input from the owner label", () => {
     const markup = renderToStaticMarkup(
       <ListControl
         activeColor="COLOR_ACCENT_TWO"
         buttonProps={{ height: "40px" }}
+        initialView="new"
         itemCount={1}
+        itemNames={["Existing"]}
         selectedName="Alpha"
-        searchValue="needle"
+        onNew={() => undefined}
         page={0}
         pageSize={7}
         childPageSize={7}
@@ -53,21 +55,19 @@ describe("ListControl", () => {
         onChildPageSizeChange={() => undefined}
       />,
     );
-    const labelButton = markup.match(
-      /<button[^>]*aria-label="Search children of Alpha"[^>]*>/,
-    )?.[0];
-
-    expect(labelButton).toContain('aria-pressed="true"');
-    expect(labelButton).toContain('background:var(--color-accent-two)');
+    expect(markup).toContain('aria-label="New item name"');
+    expect(markup).toContain("autofocus");
+    expect(markup).not.toContain('aria-label="Create child in Alpha"');
   });
 
-  it("locks another item's search controls while a different search is active", () => {
+  it("keeps new-item controls closed when creation is disabled", () => {
     const markup = renderToStaticMarkup(
       <ListControl
-        initialView="search"
+        initialView="new"
         itemCount={1}
         selectedName="Beta"
-        searchLocked
+        newDisabled
+        onNew={() => undefined}
         page={0}
         pageSize={7}
         childPageSize={7}
@@ -75,15 +75,10 @@ describe("ListControl", () => {
         onChildPageSizeChange={() => undefined}
       />,
     );
-    const input = markup.match(
-      /<input[^>]*aria-label="Search children of Beta"[^>]*>/,
-    )?.[0];
-
-    expect(input).toContain("disabled");
-    expect(markup.match(/<button[^>]*aria-label="Search filter"[^>]*>/)?.[0])
-      .toContain("disabled");
-    expect(markup.match(/<button[^>]*aria-label="Search descendants"[^>]*>/)?.[0])
-      .toContain("disabled");
+    expect(markup).not.toContain("<input");
+    expect(markup.match(
+      /<button[^>]*aria-label="Create child in Beta"[^>]*>/,
+    )?.[0]).toContain("disabled");
   });
 
   it("only accepts a non-empty, unique name", () => {
@@ -125,10 +120,10 @@ describe("ListControl", () => {
       />,
     );
 
-    expect(markup).toContain('aria-label="New item name"');
+    expect(markup).toContain('aria-label="Item name"');
     expect(markup).toContain('aria-label="Deselect Alpha for actions"');
     expect(markup.indexOf("Deselect Alpha for actions")).toBeLessThan(
-      markup.indexOf('aria-label="New item name"'),
+      markup.indexOf('aria-label="Item name"'),
     );
     expect(markup).not.toContain(">Name</span>");
     expect(markup).toContain('value="Alpha"');
@@ -157,18 +152,18 @@ describe("ListControl", () => {
     expect(deleteButton).not.toContain("disabled");
     expect(markup).toContain('data-component-name="InputControl"');
     expect(markup).toContain("height:40px");
-    expect(markup.indexOf('aria-label="New item name"')).toBeLessThan(
+    expect(markup.indexOf('aria-label="Item name"')).toBeLessThan(
       markup.indexOf("Arm delete for Discarded"),
     );
   });
 
-  it("does not enter search when the owner list is empty", () => {
+  it("allows creating the first item in an empty owner list", () => {
     const markup = renderToStaticMarkup(
       <ListControl
-        initialView="search"
+        initialView="new"
         itemCount={0}
         selectedName="Empty"
-        searchDisabled
+        onNew={() => undefined}
         page={0}
         pageSize={7}
         childPageSize={7}
@@ -177,11 +172,9 @@ describe("ListControl", () => {
       />,
     );
 
-    expect(markup).not.toContain('<input');
+    expect(markup).toContain('aria-label="New item name"');
+    expect(markup).toContain("autofocus");
     expect(markup).not.toContain('data-component-name="ListControlListSizeButton"');
-    expect(markup.match(
-      /<button[^>]*aria-label="Search children of Empty"[^>]*>/,
-    )?.[0]).toContain("disabled");
   });
 
   it("can delegate its page buttons to the list owner", () => {

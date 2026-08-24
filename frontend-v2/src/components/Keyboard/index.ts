@@ -30,7 +30,7 @@ export {
   selectAll,
   selectWordAtCursor,
   scaledFontSize,
-  symbolCycleCharacters,
+  symbolDialCharacters,
   symbolKeyboardCharacters,
   wordRangeAtCursor,
   type KeyboardProps,

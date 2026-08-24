@@ -125,6 +125,96 @@ describe("WorkspaceSyncEngine", () => {
     await expect(draining).resolves.toBe(true);
   });
 
+  it("waits for one quiet second before dispatching cached writes", async () => {
+    vi.useFakeTimers();
+    try {
+      const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+      const before = tree("Before", 0, 1);
+      const after = tree("After", 1, 2);
+      await replica.replaceTree(scope, before);
+      const renameDataNode = vi.fn().mockResolvedValue({
+        node: after.document.nodes[0],
+        treeRevision: 2,
+      });
+      const api = {
+        renameDataNode,
+        loadDataTree: vi.fn().mockResolvedValue(after),
+      } as unknown as V2ApiClient;
+      const engine = new WorkspaceSyncEngine(
+        replica,
+        api,
+        new WorkspaceSyncStatusStore(false),
+        false,
+        1_000,
+      );
+
+      await engine.submit(scope, {
+        type: "rename-node",
+        nodeId,
+        input: {
+          requestId: "00000000-0000-4000-8000-000000000013",
+          label: "After",
+          expectedRevision: 0,
+        },
+      });
+      await vi.advanceTimersByTimeAsync(999);
+      expect(renameDataNode).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(renameDataNode).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("replays rapid moves with consecutive optimistic revisions", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const before = tree("Before", 0, 1);
+    const after = tree("Before", 2, 3);
+    await replica.replaceTree(scope, before);
+    const moveDataNode = vi.fn().mockResolvedValue({
+      node: after.document.nodes[0],
+      treeRevision: 3,
+    });
+    const api = {
+      moveDataNode,
+      loadDataTree: vi.fn().mockResolvedValue(after),
+    } as unknown as V2ApiClient;
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      new WorkspaceSyncStatusStore(false),
+      false,
+    );
+
+    await Promise.all([
+      engine.submit(scope, {
+        type: "move-node",
+        nodeId,
+        input: {
+          requestId: "00000000-0000-4000-8000-000000000014",
+          afterNodeId: null,
+          expectedTreeRevision: 1,
+        },
+      }),
+      engine.submit(scope, {
+        type: "move-node",
+        nodeId,
+        input: {
+          requestId: "00000000-0000-4000-8000-000000000015",
+          afterNodeId: null,
+          expectedTreeRevision: 1,
+        },
+      }),
+    ]);
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(moveDataNode.mock.calls.map(([, , input]) => (
+      input.expectedTreeRevision
+    ))).toEqual([1, 2]);
+    expect((await replica.load(scope))?.outbox).toEqual([]);
+  });
+
   it("hydrates requested content through the replica and deduplicates it", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     await replica.replaceTree(scope, tree("Before", 0, 1));
@@ -154,13 +244,18 @@ describe("WorkspaceSyncEngine", () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const before = tree("Before", 0, 1);
     const after = tree("After", 1, 2);
-    after.selection = { revision: 4, selectedPath: [nodeId] };
+    after.selection = {
+      revision: 4,
+      selectedPath: [nodeId],
+      pageSizes: { __tree_root__: 10 },
+    };
     await replica.replaceTree(scope, before);
     await replica.enqueue(scope, {
       type: "set-selection",
       input: {
         requestId: "00000000-0000-4000-8000-000000000008",
         selectedPath: [nodeId],
+        pageSizes: { __tree_root__: 10 },
         expectedRevision: 0,
       },
     });
@@ -225,13 +320,11 @@ describe("WorkspaceSyncEngine", () => {
       loadDataTree: vi.fn().mockResolvedValue(confirmed),
     } as unknown as V2ApiClient;
     const status = new WorkspaceSyncStatusStore(false);
-    const reloadPage = vi.fn();
     const engine = new WorkspaceSyncEngine(
       replica,
       api,
       status,
       false,
-      reloadPage,
     );
 
     await expect(engine.flush(scope)).resolves.toBe(true);
@@ -242,10 +335,9 @@ describe("WorkspaceSyncEngine", () => {
       outbox: [],
     });
     expect(status.getSnapshot()).toEqual({ state: "idle" });
-    expect(reloadPage).toHaveBeenCalledOnce();
   });
 
-  it("discards the local replica and reloads after a tree revision conflict", async () => {
+  it("reconciles the replica without reloading after a tree revision conflict", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const stale = tree("Stale", 0, 1);
     const confirmed = tree("Server", 2, 3);
@@ -286,13 +378,11 @@ describe("WorkspaceSyncEngine", () => {
       loadDataTree: vi.fn().mockResolvedValue(confirmed),
     } as unknown as V2ApiClient;
     const status = new WorkspaceSyncStatusStore(false);
-    const reloadPage = vi.fn();
     const engine = new WorkspaceSyncEngine(
       replica,
       api,
       status,
       false,
-      reloadPage,
     );
 
     await expect(engine.flush(scope)).resolves.toBe(true);
@@ -304,7 +394,6 @@ describe("WorkspaceSyncEngine", () => {
       outbox: [],
     });
     expect(status.getSnapshot()).toEqual({ state: "idle" });
-    expect(reloadPage).toHaveBeenCalledOnce();
   });
 });
 
@@ -331,6 +420,6 @@ function tree(
       }],
     },
     semanticState: { revision: 0, enabledNodeIds: [], nodeRevisions: { [nodeId]: 0 } },
-    selection: { revision: 0, selectedPath: [] },
+    selection: { revision: 0, selectedPath: [], pageSizes: {} },
   };
 }

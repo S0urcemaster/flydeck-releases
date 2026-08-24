@@ -2,7 +2,8 @@
 
 Welcome to Flydeck V2 by Digi Craft
 Created by Sebastian Teister, Germany
-Images follow when finished
+
+Work in Progress : DATA Module pretty functional
 
 ## General
 
@@ -13,14 +14,19 @@ The following manual is intended for those : who don,t have a clue about anythin
 All others will find their way through just by trial and error
 The UI is designed to be self-explaining + This cannot always be fully achieved - so there will be some explanation needed (Sorry my German English - I,m a little DJ)
 
+Work in progress ! Things might not function as intended
+--------------------------------------------------------
+
 ### Caution !
 
 Information is a weapon and can be used against you !
 During the development and to be able to fully test all functions : I made a fun game : writing down details about strangers that came up to me randomly + Looks, current action, direction and time -- and soon it became clear that in a couple of month : I,d had some library of what,s going on
 Now AI comes to play : "Show me patterns" could be a prompt
-People consist of habits and exceptions -- now : is Flydeck dangerous !
+People consist of habits and exceptions -- now : is Flydeck dangerous ?
 Yes ! Absolutely ! It,s a very powerful tool -- that,s why you should use it - ahead of others
+Police is checking you - takes your knife and gives your phone back ?
 Know your life better than anyone else could possibly do
+Countries and companies are collecting data about you -- that isn,t the worst news - as long as you are conscious about it
 
 > Chart your life : know yourself - and you know your limits and options
 
@@ -31,10 +37,11 @@ It,s only 1 thing today that comes into your mind -- tomorrow it will be 2
 ### The Tree Browser
 
 This is your machine of organization : a tree - an infinite tree if you like
-It,s callde tree in data science - even if it,s more like a root : top down
-Now the "tree" grows with its stem (wich is called "root") from the first line down into its branches (which are called branches) into its leafes (which are called leafs)
-So the semantic is a mixture of words we have : words from tree are mixed with the root
+It,s called tree in data science - even if it,s more like a root : top down
+Now the data "tree" grows with its stem (wich is called "root") "down" into its branches (which are called branches) into its leafs (which are called leafs)
+So : the semantic is a mixture of words we have : words from tree (the upside) are mixed with root (the downside)
 The effect is the same : We have something (data) spreading from an origin into finer and finer details -- from a stem (root) into branches and finally leaves
+If you want : a plant is always somehow mirrored at the earth,s surface -- and "up" and "down" are just perspectives
 
 #### Simpler ?
 

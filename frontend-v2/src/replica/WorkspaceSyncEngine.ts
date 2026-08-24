@@ -16,15 +16,14 @@ export class WorkspaceSyncEngine {
   private readonly desiredContents = new Map<string, Set<string>>();
   private readonly hydratedContents = new Set<string>();
   private readonly contentHydration = new Map<string, Promise<boolean>>();
+  private readonly scheduledFlushes = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly replica: WorkspaceReplica,
     private readonly api: V2ApiClient,
     private readonly status: WorkspaceSyncStatusStore,
     listensToBrowser = true,
-    private readonly reloadPage: () => void = () => {
-      if (typeof window !== "undefined") window.location.reload();
-    },
+    private readonly writeDelayMs = 1_000,
   ) {
     if (listensToBrowser && typeof window !== "undefined") {
       window.addEventListener("online", () => this.retryRegistered());
@@ -74,7 +73,7 @@ export class WorkspaceSyncEngine {
       this.status.markCommandCached(userCommandId);
     }
     this.status.setPendingCount(key, optimistic.outbox.length);
-    void this.flush(scope).catch((error) => {
+    this.scheduleFlush(scope, (error) => {
       this.status.markError(
         error instanceof Error ? error.message : "Workspace synchronization failed",
         optimistic.outbox.length,
@@ -85,6 +84,11 @@ export class WorkspaceSyncEngine {
 
   flush(scope: WorkspaceReplicaScope) {
     const key = scopeKey(scope);
+    const scheduled = this.scheduledFlushes.get(key);
+    if (scheduled) {
+      clearTimeout(scheduled);
+      this.scheduledFlushes.delete(key);
+    }
     const running = this.active.get(key);
     if (running) return running;
     const operation = this.flushCommands(scope).finally(() => {
@@ -128,7 +132,6 @@ export class WorkspaceSyncEngine {
             await this.replica.resetToServerTree(scope, confirmed);
             this.status.setPendingCount(key, 0);
             this.status.markOnline();
-            this.reloadPage();
             return true;
           } catch {
             return false;
@@ -140,7 +143,6 @@ export class WorkspaceSyncEngine {
             await this.replica.resetToServerTree(scope, confirmed);
             this.status.setPendingCount(key, 0);
             this.status.markOnline();
-            this.reloadPage();
             return true;
           } catch {
             return false;
@@ -174,6 +176,20 @@ export class WorkspaceSyncEngine {
     } catch {
       return false;
     }
+  }
+
+  private scheduleFlush(
+    scope: WorkspaceReplicaScope,
+    onError: (error: unknown) => void,
+  ) {
+    const key = scopeKey(scope);
+    const scheduled = this.scheduledFlushes.get(key);
+    if (scheduled) clearTimeout(scheduled);
+    const timeout = setTimeout(() => {
+      this.scheduledFlushes.delete(key);
+      void this.flush(scope).catch(onError);
+    }, this.writeDelayMs);
+    this.scheduledFlushes.set(key, timeout);
   }
 
   private async hydrateDesiredContents(scope: WorkspaceReplicaScope) {
@@ -216,36 +232,31 @@ export class WorkspaceSyncEngine {
     const workspaceId = scope.workspaceId;
     switch (command.type) {
       case "create-node": {
-        const result = await this.api.createDataNode(workspaceId, command.input);
-        await this.replica.putNode(scope, result.node, result.treeRevision);
+        await this.api.createDataNode(workspaceId, command.input);
         return;
       }
       case "rename-node": {
-        const result = await this.api.renameDataNode(
+        await this.api.renameDataNode(
           workspaceId, command.nodeId, command.input,
         );
-        await this.replica.putNode(scope, result.node, result.treeRevision);
         return;
       }
       case "update-local-id": {
-        const result = await this.api.updateDataNodeLocalId(
+        await this.api.updateDataNodeLocalId(
           workspaceId, command.nodeId, command.input,
         );
-        await this.replica.putNode(scope, result.node, result.treeRevision);
         return;
       }
       case "move-node": {
-        const result = await this.api.moveDataNode(
+        await this.api.moveDataNode(
           workspaceId, command.nodeId, command.input,
         );
-        await this.replica.putNode(scope, result.node, result.treeRevision);
         return;
       }
       case "reparent-node": {
-        const result = await this.api.reparentDataNode(
+        await this.api.reparentDataNode(
           workspaceId, command.nodeId, command.input,
         );
-        await this.replica.putNode(scope, result.node, result.treeRevision);
         return;
       }
       case "delete-node":
@@ -260,10 +271,9 @@ export class WorkspaceSyncEngine {
         await this.api.setDataSelection(workspaceId, command.input);
         return;
       case "update-content": {
-        const content = await this.api.updateDataContent(
+        await this.api.updateDataContent(
           workspaceId, command.nodeId, command.input,
         );
-        await this.replica.putContent(scope, content);
       }
     }
   }

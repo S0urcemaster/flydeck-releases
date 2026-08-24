@@ -1,0 +1,41 @@
+.root {
+  min-width: 0;
+  padding: var(--pointer-button-padding);
+  background: color-mix(
+    in srgb,
+    var(--color-accent-two) 22%,
+    transparent
+  );
+  border-radius: var(--radius-control);
+  font-weight: 700;
+  transform: translateY(var(--pointer-button-delta-y));
+  cursor: pointer;
+}
+
+.primary {
+  font-size: var(--pointer-button-primary-font-size);
+}
+
+.secondary {
+  font-size: var(--pointer-button-secondary-font-size);
+}
+
+.root[data-pointer-mode="browse"] {
+  background: color-mix(
+    in srgb,
+    var(--color-accent-three) 22%,
+    transparent
+  );
+}
+
+.root[data-pointer-mode="end"] {
+  background: color-mix(
+    in srgb,
+    var(--color-accent-one) 22%,
+    transparent
+  );
+}
+
+.root[data-pressed] {
+  filter: brightness(0.9);
+}

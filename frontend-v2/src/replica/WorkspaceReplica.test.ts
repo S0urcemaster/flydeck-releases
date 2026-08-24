@@ -6,6 +6,7 @@ import {
   WorkspaceReplica,
   upgradeWorkspaceReplicaRecord,
   workspaceReplicaSchemaVersion,
+  type WorkspaceOutboxEntry,
   type WorkspaceReplicaRecord,
 } from "./WorkspaceReplica";
 
@@ -36,6 +37,27 @@ describe("MemoryWorkspaceReplicaStorage", () => {
     expect(upgradeWorkspaceReplicaRecord(legacy)).toMatchObject({
       schemaVersion: workspaceReplicaSchemaVersion,
       tree: { document: { nodes: [{ localId: "cached-entry" }] } },
+    });
+  });
+
+  it("upgrades cached V2 selection state and queued writes with page sizes", () => {
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    delete (tree.selection as Partial<typeof tree.selection>).pageSizes;
+    const queued = outboxEntry("legacy");
+    if (queued.command.type === "set-selection") {
+      delete (queued.command.input as Partial<typeof queued.command.input>).pageSizes;
+    }
+
+    expect(upgradeWorkspaceReplicaRecord({
+      schemaVersion: 2,
+      tree,
+      contents: {},
+      outbox: [queued],
+      lastServerSyncAt: null,
+    })).toMatchObject({
+      schemaVersion: workspaceReplicaSchemaVersion,
+      tree: { selection: { pageSizes: {} } },
+      outbox: [{ command: { input: { pageSizes: {} } } }],
     });
   });
 
@@ -87,7 +109,7 @@ describe("MemoryWorkspaceReplicaStorage", () => {
 
     await expect(storage.transact(firstScope, (current) => ({
       ...current,
-      schemaVersion: 3,
+      schemaVersion: 999,
     } as unknown as WorkspaceReplicaRecord))).rejects.toThrow(
       "Invalid workspace replica record",
     );
@@ -189,6 +211,21 @@ describe("MemoryWorkspaceReplicaStorage", () => {
     expect(cached?.outbox).toHaveLength(1);
   });
 
+  it("updates server-backed page sizes optimistically with selection revision", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const replicaScope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    await replica.replaceTree(replicaScope, tree);
+
+    const cached = await replica.enqueue(replicaScope, outboxEntry("sizes").command);
+
+    expect(cached.tree?.selection).toEqual({
+      revision: 1,
+      selectedPath: [],
+      pageSizes: { __tree_root__: 10 },
+    });
+  });
+
   it("updates a sibling-local ID optimistically", async () => {
     const storage = new MemoryWorkspaceReplicaStorage();
     const replica = new WorkspaceReplica(storage);
@@ -221,9 +258,63 @@ describe("MemoryWorkspaceReplicaStorage", () => {
       revision: 1,
     });
   });
+
+  it("rebases rapid tree commands atomically against the optimistic revision", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const replicaScope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    tree.document.nodes.push(
+      {
+        id: "00000000-0000-4000-8000-000000000006",
+        parentId: null,
+        kind: "data-file",
+        label: "One",
+        localId: "one",
+        position: 0,
+        revision: 0,
+        capabilities: { contentEditable: true, listEditable: true, listItemLimit: null },
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000007",
+        parentId: null,
+        kind: "data-file",
+        label: "Two",
+        localId: "two",
+        position: 1,
+        revision: 0,
+        capabilities: { contentEditable: true, listEditable: true, listItemLimit: null },
+      },
+    );
+    await replica.replaceTree(replicaScope, tree);
+
+    await replica.enqueue(replicaScope, {
+      type: "move-node",
+      nodeId: tree.document.nodes[0].id,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000008",
+        afterNodeId: tree.document.nodes[1].id,
+        expectedTreeRevision: 0,
+      },
+    });
+    const cached = await replica.enqueue(replicaScope, {
+      type: "move-node",
+      nodeId: tree.document.nodes[0].id,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000009",
+        afterNodeId: null,
+        expectedTreeRevision: 0,
+      },
+    });
+
+    expect(cached.outbox.map(({ command }) => command.input)).toMatchObject([
+      { expectedTreeRevision: 1 },
+      { expectedTreeRevision: 2 },
+    ]);
+    expect(cached.tree?.document.revision).toBe(3);
+  });
 });
 
-function outboxEntry(id: string) {
+function outboxEntry(id: string): WorkspaceOutboxEntry {
   return {
     id,
     createdAt: "2026-08-11T12:00:00.000Z",
@@ -233,6 +324,7 @@ function outboxEntry(id: string) {
       input: {
         requestId: "00000000-0000-4000-8000-000000000005",
         selectedPath: [],
+        pageSizes: { __tree_root__: 10 },
         expectedRevision: 0,
       },
     },
@@ -249,6 +341,6 @@ function emptyTree(workspaceId: string): TreeLoadDto {
       nodes: [],
     },
     semanticState: { revision: 0, enabledNodeIds: [], nodeRevisions: {} },
-    selection: { revision: 0, selectedPath: [] },
+    selection: { revision: 0, selectedPath: [], pageSizes: {} },
   };
 }

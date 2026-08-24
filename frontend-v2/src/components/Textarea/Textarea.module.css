@@ -16,6 +16,10 @@
   grid-template-rows: var(--keyboard-entry-height, auto) auto;
 }
 
+.control[data-keyboard-visible][data-keyboard-resize="shrink"] {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
 .control[data-keyboard-layout="block"] {
   display: contents;
 }

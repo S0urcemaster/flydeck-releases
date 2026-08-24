@@ -232,11 +232,11 @@ describe("component properties config", () => {
     )).toEqual(rootInputControlBase);
   });
 
-  it("resolves both concrete dialers through Dialer", () => {
+  it("resolves ColorDialer through Dialer and CronDialer from Base", () => {
     const properties = fixtureProperties((fixture) => {
       fixture.Dialer.base = fixtureBase("75px", "47px");
       fixture.ColorDialer.base = inheritedBase();
-      fixture.CronDialer.base = inheritedBase();
+      fixture.CronDialer.base = fixtureBase("91px", "182px");
     });
 
     const dialerBase = resolveBaseProperties(properties.Dialer.base);
@@ -244,10 +244,9 @@ describe("component properties config", () => {
       dialerBase,
       properties.ColorDialer.base,
     )).toEqual(dialerBase);
-    expect(resolveDerivedBaseProperties(
-      dialerBase,
-      properties.CronDialer.base,
-    )).toEqual(dialerBase);
+    expect(resolveBaseProperties(properties.CronDialer.base)).toEqual(
+      fixtureBase("91px", "182px"),
+    );
   });
 
   it("inherits side-module width through Help and Config buttons", () => {

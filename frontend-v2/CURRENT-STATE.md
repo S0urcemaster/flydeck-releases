@@ -51,6 +51,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - `Button.activeColor` owns its selected-state accent. Module buttons use the
   blue `ACCENT_ONE`; green `ACCENT_TWO` is reserved for a subordinate control
   level rather than alternating within the module level.
+- The theme contract also exposes brown `ACCENT_THREE`; Flydeck V2, the V1
+  reference palette, and Greyscale each provide a corresponding value.
 - `SubmodulePanel` owns controlled subordinate navigation and composes
   `SubmoduleButton` for `CHAT` and `MEMO`. `SubmoduleButton` derives the full
   persisted `Button.base` contract, including its configured 40px height, and
@@ -71,37 +73,76 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - Concrete module properties resolve `inherit` against the configured
   `Module.base`, so border, background, spacing, and color form one shared
   module body unless a concrete module overrides them.
-- `Dialer` supports two generic interaction modes. Its default `pointer` mode
-  moves both markers over stationary scales; `wheel` mode keeps both markers
-  at north and rotates the scales underneath while retaining the same logical
-  angles. `CronModule` composes `CronDialer → Dialer` in wheel mode. Its outer
-  ring supplies a time scale around the north-anchored selected timestamp; its
-  inner ring changes the visible range logarithmically over three quarters of
-  a turn, from `1h` at north to `5y` at west, without moving that timestamp.
-  The four corner buttons remain `SCALE`,
-  `SEND`, `RANGE`, and `ZOOM`; the center button shows the selected time.
-  CronDialer persists separate font sizes and weights for the center value,
-  inner range scale, and outer time scale. Each ring exposes one start and one
-  end color; the inner ring reuses its pair for every segment. The two disc
-  base colors are independently configurable. Both scales place their tick
-  marks directly at
-  the outer edge of their respective circular surfaces while their labels sit
-  farther inward in the usable middle of each ring to support larger type.
-  The six inner range anchors are evenly spaced across the 270-degree travel;
-  each of the five real zoom intervals has its own light-to-dark background
-  segment and logarithmic interpolation between its two labeled endpoints.
-  Unlike the generic capped Dialer, CronDialer fills the available container
-  width while retaining its square aspect ratio and proportional ring geometry.
-  Its outer disc reaches the component edge and the inner disc grows
-  proportionally, so the dial overlaps more of the four corner buttons. Its
-  center button preserves the configurable DialerCenterButton width and height
-  instead of replacing them with Cron-specific dimensions.
-  The outer ring shades the hour, calendar day, week, month, or year containing
-  the selected north-point time at its actual position on the rotating scale. This
-  scale-owned arc rotates with the dial and uses a light-to-dark theme-derived
-  gradient. Because the arc uses the same selected-time reference as the scale,
-  it remains visible and stable while zooming. Repeated outer-scale text labels
-  are suppressed while their underlying time ticks remain visible.
+- `Dialer` still supports its generic pointer and wheel interaction modes for
+  other controls. CRON now prototypes a separate `CronDialer → Base` vertical
+  timeline whose height follows the remaining dynamic viewport below its own
+  top edge without creating page scroll. It remeasures browser and visual
+  viewport changes and reserves the AppShell's bottom inset. The center initially
+  represents the current time. Its maximum zoom shows one hour above and below
+  center; its minimum zoom shows one year in either direction. Two equal-width
+  `Zoom out` and `Zoom in` buttons form a menu above the scale and switch one fixed
+  half-range step: `1h`, `24h`, `7d`, `1m`, or `1y`; the time surface has no
+  horizontal zoom gesture. In the `24h` range, scale marks show clock times and
+  switch to the date only at local midnight; the `7d` range has one dated mark
+  per day. The `1y` range marks every calendar month with its three-letter
+  German abbreviation and shows the four-digit year at January boundaries.
+  Date labels render Saturdays blue and Sundays red. A second three-symbol row
+  selects the pointer mode like a radio group: `ArrowRightFromLine` selects the
+  green Start pointer, `SearchCode` selects the brown Browse pointer, and
+  `ArrowRightToLine` selects the blue End pointer. Browse movement changes only
+  its own retained position; Start and End remain unchanged. Every inactive
+  pointer remains visible as a translucent shadow when it lies in the current
+  range. Start and end are held independently, and end is clamped to at least one
+  active vertical grid step after start during initialization. Neither endpoint
+  locks timeline movement: crossing the other endpoint moves that counterpart
+  one active grid step ahead or behind, so past times remain freely reachable
+  while the interval stays valid. The span between Start and End is shown as a
+  subtle band. The inactive endpoint appears at its actual position as a
+  translucent shadow line and dot; when outside the zoom window, the band is
+  clipped to that edge. A vertical drag moves the selected
+  endpoint, with an
+  upward gesture moving into the future. Vertical selection snaps respectively
+  to `1min`, `10min`, `1h`, `12h`, or `1d`; the 12-hour grid is anchored at
+  `06:00` and `18:00`. In the `1h` range, two shorter, thinner five-minute ticks
+  sit between every pair of labeled 15-minute marks; every wider zoom range has
+  one thinner tick midway between adjacent labels. Up/Down keyboard input moves by the same range-dependent
+  step. Pointer line, dot, mode color, position, and shadow presentation are
+  owned by the reusable `Pointer → Base` component. The fixed center timestamp
+  is the reusable `PointerButton`, placed above the active pointer so the line
+  and dot stay unobscured, with the
+  abbreviated weekday before its date. Its translucent background follows the
+  active pointer's green, brown, or blue theme accent; its width is about
+  `2.5rem` narrower than the original label, its left padding is reduced, and
+  it is flush with the timeline's right edge. It sits `0.3125rem` closer to the
+  pointer. `PointerButton → Base` is an independent specialized native button,
+  not a `Button` derivative; its accent surface and padding belong directly to
+  `PointerButton.module.css`. Its persisted Lab contract exposes `padding`,
+  primary and secondary font sizes, Base `width`, and `deltaY`. `Pointer` is
+  independently catalogued with persisted `lineWidth` and `tipRadius` controls.
+  CRON receives both configurations from App instead of owning those dimensions.
+  The button shows both the selected
+  half-range and its active `1m`/`10m`/`1h`/`12h`/`1d` grid in a compact second
+  line. Its responsive fixed width does not change with weekday glyphs. It replaces the complete
+  timeline view with a general-purpose Event form for `Title`, `Subtitle`, and
+  `Text`, suitable for appointments as well as logs, diary entries, and
+  biographical records. Two compact timestamp-only buttons return to the timeline
+  in the corresponding Start or End edit mode. The Text field shrinks within the
+  form while its inline Flydeck Keyboard is visible. An orange `COLOR_SPEECH` X closes the form;
+  its bottom action is `Save`. The complete draft, including both timestamps,
+  is held in the scoped `drafts.cronEvent` ClientStateStore slice and therefore
+  survives local refreshes without direct component access to `localStorage`.
+  Save appends a timestamped entry to the scoped `events.cron` ClientStateStore
+  slice and emits both timestamps and all three fields through `onEventSave`.
+  Saved entries intersecting the visible range appear as blocks from Start to
+  End. They render from oldest to newest so overlapping newer entries remain on
+  top; backend event persistence remains a later CRON-domain slice.
+  The left edge owns a density-controlled time scale; its axis, ticks, and
+  center pointer share one exact horizontal anchor. A fixed horizontal marker
+  shows the exact center timestamp and current half-range. Arrow keys
+  expose the same two axes for keyboard use. The previous circular two-ring
+  experiment and its `SCALE`, `SEND`, `RANGE`, and `ZOOM` corner buttons remain
+  parked, unexported, under `parked/CronWheelDialer` with their tests and
+  styles intact.
   `SettingsModule` remains an empty migration target. `AgentModule`
   owns subordinate `CHAT` and `MEMO` navigation; `MEMO` presents the recursive
   `TreeBrowser` with a locally persisted plant fixture.
@@ -132,45 +173,59 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   row with the existing keyboard-backed name input while retaining its numbered
   action-selection checkbox immediately before that input. Each `ListControl`
   precedes its own list or content in normal document flow. Its left label names
-  that list/content owner (`root` at the first level); move, delete, paging,
-  sizing, and search act on that owner's own child list. Its default level
+  that list/content owner (`root` at the first level); move and paging act on
+  that owner's own child list. Its default level
   contains the owner label button at the left, followed by move-up/down,
   previous/next-page, and finally the list/content switch at the far right.
-  Clicking the label switches to a second level with a keyboard-backed search
-  input and a `CycleButton` list-size control. Delete travels with the active
-  child and sits directly beside that child's name input. The former Back button
-  is replaced by the Keyboard's general close button. The search InputControl
-  reserves the same configured standard height as the ListControl buttons. A
-  checked search toggle directly beside the field enables or pauses a retained
-  non-empty query; it is disabled without search text. Editing text enables
-  the filter again. Only one list owner can have an enabled search at a time.
-  Its label alone shows the active state; other owner labels and their search/depth
-  controls remain locked until the owning search is switched off.
-  The selected-item input has no visible `Name` label. An owner with an empty
-  child list cannot enter search view; otherwise search filters the owner's direct child
-  labels and resets that child list to its first page. A selected data-tree
-  `Checkbox` button is enabled by default and extends matching recursively to all descendants while continuing to
-  show every matching direct-child branch. The same filter is inherited by
-  each visible descendant list without exposing an editable inherited query,
-  and the first matching parent path expands so
-  a deep hit remains visible together with every ancestor. While a non-empty search remains
-  active, the owner label button uses its active color. Search-label
-  and data-tree toggle states follow the owning list's alternating depth color:
-  root children and their ListControl are `ACCENT_ONE`, the next level is
-  `ACCENT_TWO`, and deeper levels continue alternating. The former
-  first-item corner overlays and
-  compensating width calculations have been removed. NEW is enabled only
-  for a non-empty name that does not already exist case-insensitively.
-  `ListControlListSizeButton` displays the active size first and the remaining
-  `S / M / L / X` cycle after it, and requests changes
-  through `4 → 7 → 10 → 15 → 4`. It controls its owner's child list;
-  changing it while content is shown switches that owner back to list view.
-  Each tree level owns the resulting setting independently.
+  Clicking the owner label now opens the keyboard-backed `New` input for that
+  child list, including an empty list. A created item is inserted after the
+  active sibling or at the list end when no sibling is active. Delete travels
+  with the active child and sits directly beside that child's name input. The
+  global Search input and every New-item/name input focus immediately when
+  opened; selecting an existing item still does not focus its rename input.
+  selected-item keyboard exposes only `Save`; it no longer combines rename and
+  creation. `New` is enabled only for a non-empty name that does not already
+  exist case-insensitively. The list-size switch is parked and no longer appears.
+  Page sizes are no longer a local-only authority: DATA loads them from the
+  per-user server tree state and every change travels through the same
+  revisioned optimistic replica/outbox as the selected path. Existing V2
+  IndexedDB replicas migrate to this server-backed shape without losing queued
+  commands.
+  A global TreeBrowser menu precedes every level. Its permanent first row shows
+  the current slash-separated local-ID path without separator whitespace in a
+  flexible-width input followed by fixed-width
+  Search and Views symbol buttons. Search reuses that same input; Search and
+  Views are mutually exclusive menu modes. The complete menu is sticky at the
+  safe top viewport edge, so its expanded input content, keyboard, Search, or
+  Views area remains attached directly below the permanent row while the tree
+  scrolls. The sticky menu and its path/search input use the opaque `COLOR_APP`
+  background, preventing tree rows from showing through. Its one
+  search filters the
+  complete tree or the active saved view, retains matching ancestor paths, and
+  replaces the former per-owner search controls. Views opens a referenced
+  TreeBrowser whose virtual root is labelled `views`. Its source is the
+  canonical DATA branch `_system/views`; the branch is created on the first
+  view write when absent. `New` captures every current action-selection path,
+  stores it line-by-line as the new view node's content through the normal
+  optimistic DATA outbox, and activates it immediately. Rename, move, and
+  delete use the same TreeBrowser CRUD contracts.
+  The referenced Views browser always uses the compact `S`/four-item list.
+  Selecting a stored view only selects it for inspection; a full-width
+  `active` button above the `views` root independently activates or deactivates
+  that view's filtering. The Views menu symbol, this `active` button, and all
+  active controls in the referenced Views tree use the success green. A newly
+  created view remains selected and active.
+  Only selected nodes and the ancestor paths required to reach them remain
+  visible. The Views browser stays open for normal CRUD and content navigation;
+  opening a view's content displays its referenced paths.
   `TreeBrowser` supplies the selected-row color by depth, alternating from
   `ACCENT_ONE` to `ACCENT_TWO`.
   Selecting a row makes it the only active item in its sibling list and checks
   it for actions. Further siblings can be added or removed through their
-  checkboxes without opening them; the active row remains checked. Delete and
+  checkboxes without opening them; the active row remains checked. Navigating
+  to another parent preserves the checked sets owned by all other parent lists,
+  including navigation through the shared path/search input, so a saved view
+  captures the accumulated selection across the complete tree. Delete and
   Set Parent apply to the complete checked sibling set, and Set Parent validates
   target capacity for the whole batch.
   Checkboxes display each item's one-based position in the complete sibling
@@ -225,7 +280,12 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - `WorkspaceSyncEngine` now owns serialized per-workspace replay, dispatches
   every typed DATA command through `V2ApiClient`, retains failed entries,
   records attempts, acknowledges confirmed responses, and refreshes the tree
-  after a drained queue. App startup registers the last confirmed workspace;
+  after a drained queue. Normal writes use a one-second trailing write-behind
+  window: every action is durable and visible locally at once, while server
+  replay starts only after one quiet second. Commands atomically rebase their
+  expected tree/node/content revision when entering the replica, so rapid
+  ordered actions cannot share a stale component revision. App startup
+  registers the last confirmed workspace;
   browser `online` events retry every registered scope. Inventory is the first
   complete optimistic writer: New, Name, Desc, and Parent update DATA plus
   outbox in one IndexedDB transaction, immediately re-project from the replica,
@@ -239,8 +299,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   immediately after that single local transaction. Server dispatch, outbox
   acknowledgement, and the final confirmed-tree refresh continue in the
   background, so DATA selection and editing no longer wait for network replay.
-  DataBrowser consumes that returned record directly instead of re-reading the
-  replica and replacing/remounting its complete tree after every action.
+  DataBrowser keeps one mounted TreeBrowser and reconciles changed replica
+  models in place instead of key-remounting the complete tree after every
+  revision. Conflict recovery replaces the observable replica from the server
+  without reloading the browser page.
 - The title status line visualizes durable writes in the blue primary accent.
   Each user command shows `cached...` for at least 500ms and then `saved`; while
   offline it transitions to `in queue`, and a completely replayed recovery
@@ -407,7 +469,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - The final component audit covers all 72 manifest entries. Every component
   except the foundational `Base` now owns a persisted Base contract.
   `DialSurface → Base`, `Dialer → Base`, and both
-  `ColorDialer/CronDialer → Dialer` are represented in generated properties,
+  `ColorDialer → Dialer` and `CronDialer → Base` are represented in generated
+  properties,
   runtime resolution, and the lab; Dialer receives its DialSurface properties
   through an explicit child contract. No derived component keeps editable
   color, background, border, spacing, dimensions, or typography as a TSX
@@ -564,14 +627,18 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   former `X`/`$` key instead composes `DialButton → PressButton`: its static
   label starts with `€` and a small `$`; the first press inserts `€`, rapid
   subsequent presses replace that same character with `$`, then `€`, while a
-  press after the 800ms dial timeout starts a new character.
+  press after the shared 500ms dial timeout starts a new character. Every
+  DialButton keeps its active color for that complete timeout; another press
+  restarts both the dial window and its visible active state.
 - The comma key is a DialButton with `, " '` and the period key is a DialButton
-  with `. : ;`. In the symbol layout, the bracket keys are DialButtons with
-  `( <` and `) >`. Symbol positions 23–26 are three-value CycleButtons for
-  `! ? %`, `[ ] \\`, `{ } |`, and `^ ~ \``. A press inserts the currently
-  displayed primary character and advances the button to its next value.
+  with `. - :`. In the symbol layout, the bracket keys are DialButtons with
+  `( <` and `) >`. Symbol position 23 is `%`; positions 24–26 are DialButtons
+  for `/ \\ |`, `{ } [ ]`, and `^ ~ \``. Repeated presses within the shared
+  timeout replace the last character instead of inserting consecutive values.
 - Letter keys `a`, `o`, and `u` are DialButtons with `ä`, `ö`, and `ü` as their
-  second values. One-shot uppercase remains active for the complete 800ms dial
+  second values. `l` is a DialButton with `!` and `?` as its alternatives;
+  those two characters no longer occur on the symbol layout. One-shot uppercase
+  remains active for the complete 500ms dial
   window so the second press can produce `Ä`, `Ö`, or `Ü`, then returns to
   lowercase when the timer completes. Key 31 is Enter and inserts a newline.
 - Uppercase remains a one-shot Shift state, while the second Shift state
