@@ -88,6 +88,7 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   rootLabel?: string;
   menuVisible?: boolean;
   itemRenameVisible?: boolean;
+  structureManagedExternally?: boolean;
   selectionActiveColor?: string;
   savedViews?: TreeBrowserSavedViewsControl;
   initialSelectedPath?: string[];
@@ -95,6 +96,7 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   rowGap?: string;
   contentHeightScale?: number;
   contentPageSize?: ListControlListSize;
+  checkedNodeIds?: readonly string[];
   browserItemProps?: Omit<
     BrowserItemProps,
     | "checked"
@@ -117,6 +119,10 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   onTreeChange?: (
     nodes: readonly TreeBrowserModelSnapshotNode<TContent>[]
   ) => void;
+  onNodeCheckedChange?: (
+    node: TreeBrowserNode<TContent>,
+    checked: boolean,
+  ) => void | Promise<void>;
   canCreateNode?: (parentId: string) => boolean;
   canDeleteNode?: (
     node: TreeBrowserModelNode<TContent>,
@@ -220,6 +226,7 @@ export function TreeBrowser<TContent = unknown>({
   rootLabel = "root",
   menuVisible = true,
   itemRenameVisible = true,
+  structureManagedExternally = false,
   selectionActiveColor,
   savedViews,
   initialSelectedPath,
@@ -227,11 +234,13 @@ export function TreeBrowser<TContent = unknown>({
   rowGap,
   contentHeightScale = 1,
   contentPageSize,
+  checkedNodeIds,
   browserItemProps,
   renderContent,
   renderRootContent,
   renderInlineContent,
   onTreeChange,
+  onNodeCheckedChange,
   canCreateNode = () => true,
   canDeleteNode,
   canMoveNode = () => true,
@@ -251,10 +260,11 @@ export function TreeBrowser<TContent = unknown>({
   padding,
   ...baseProps
 }: TreeBrowserProps<TContent>) {
-  const [initialState] = useState(() => model.load());
-  const [tree, setTree] = useState(initialState.document.nodes);
-  const [revision, setRevision] = useState(initialState.document.revision);
-  const [enabledByNodeId, setEnabledByNodeId] = useState(
+  const modelState = useMemo(() => model.load(), [model]);
+  const [initialState] = useState(() => modelState);
+  const [localTree, setLocalTree] = useState(initialState.document.nodes);
+  const [localRevision, setLocalRevision] = useState(initialState.document.revision);
+  const [localEnabledByNodeId, setLocalEnabledByNodeId] = useState(
     initialState.semanticState.enabledByNodeId,
   );
   const [contentVisibleByNodeId, setContentVisibleByNodeId] = useState(
@@ -280,6 +290,15 @@ export function TreeBrowser<TContent = unknown>({
   >("default");
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const tree = structureManagedExternally
+    ? modelState.document.nodes
+    : localTree;
+  const revision = structureManagedExternally
+    ? modelState.document.revision
+    : localRevision;
+  const enabledByNodeId = structureManagedExternally
+    ? modelState.semanticState.enabledByNodeId
+    : localEnabledByNodeId;
   const activeModel = useRef(model);
   const selectedView = savedViews?.views.find(({ id }) => id === selectedViewId);
   const activeView = savedViews?.views.find(({ id }) => id === activeViewId);
@@ -299,6 +318,9 @@ export function TreeBrowser<TContent = unknown>({
     actionSelectionByListId,
     tree,
   ]);
+  const controlledCheckedNodeIds = checkedNodeIds
+    ? new Set(checkedNodeIds)
+    : null;
   const selectedViewPaths = useMemo(() => selectedViewNodeIds.flatMap((id) => {
     const path = findTreeLocalIdPath(tree, id);
     return path ? [path.join("/")] : [];
@@ -353,15 +375,19 @@ export function TreeBrowser<TContent = unknown>({
   useEffect(() => {
     if (activeModel.current === model) return;
     activeModel.current = model;
-    const next = model.load();
-    setTree(next.document.nodes);
-    setRevision(next.document.revision);
-    setEnabledByNodeId(next.semanticState.enabledByNodeId);
-    setContentVisibleByNodeId((current) => ({
-      ...next.viewState.contentVisibleByNodeId,
-      ...current,
-    }));
-  }, [model]);
+    if (!structureManagedExternally) {
+      const next = model.load();
+      // A locally managed browser supports replacing its complete model without a remount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocalTree(next.document.nodes);
+      setLocalRevision(next.document.revision);
+      setLocalEnabledByNodeId(next.semanticState.enabledByNodeId);
+      setContentVisibleByNodeId((current) => ({
+        ...next.viewState.contentVisibleByNodeId,
+        ...current,
+      }));
+    }
+  }, [model, structureManagedExternally]);
 
   useEffect(() => {
     onTreeChange?.(createTreeBrowserSnapshot(tree, semanticState, viewState));
@@ -482,9 +508,11 @@ export function TreeBrowser<TContent = unknown>({
     const affectedParentIds = new Set(confirmedIds
       .map((id) => findTreePath(tree, id)?.at(-2))
       .filter((id): id is string => Boolean(id)));
-    setTree(nextTree);
-    setRevision((current) => current + confirmedIds.length);
-    setEnabledByNodeId((current) => omitRecordKeys(current, removedIds));
+    if (!structureManagedExternally) {
+      setLocalTree(nextTree);
+      setLocalRevision((current) => current + confirmedIds.length);
+      setLocalEnabledByNodeId((current) => omitRecordKeys(current, removedIds));
+    }
     setContentVisibleByNodeId((current) => {
       const next = omitRecordKeys(current, removedIds);
       for (const parentId of affectedParentIds) {
@@ -530,8 +558,10 @@ export function TreeBrowser<TContent = unknown>({
     const nextPath = activeMoved
       ? findTreePath(nextTree, activeNodeId) ?? []
       : selectedPath;
-    setTree(nextTree);
-    setRevision((current) => current + confirmedIds.length);
+    if (!structureManagedExternally) {
+      setLocalTree(nextTree);
+      setLocalRevision((current) => current + confirmedIds.length);
+    }
     setContentVisibleByNodeId((current) => ({
       ...current,
       ...(parentId ? { [parentId]: false } : {}),
@@ -575,7 +605,9 @@ export function TreeBrowser<TContent = unknown>({
       ...configuredListControlProps
     } = listControlProps ?? {};
     const effectiveListItemLimit = Math.min(listItemLimit ?? 99, 99);
-    const normalizedSearch = globalSearch.trim().toLocaleLowerCase();
+    const normalizedSearch = menuView === "search"
+      ? globalSearch.trim().toLocaleLowerCase()
+      : "";
     const filteredNodes = filterTreeLevelNodes(
       nodes,
       activeViewNodeIds,
@@ -622,8 +654,10 @@ export function TreeBrowser<TContent = unknown>({
       }
       if (!canMoveNode(selectedNode, direction, nodes)) return;
       const nextIndex = selectedIndex + direction;
-      setTree((current) => moveInTree(current, selectedNode.id, direction));
-      setRevision((current) => current + 1);
+      if (!structureManagedExternally) {
+        setLocalTree((current) => moveInTree(current, selectedNode.id, direction));
+        setLocalRevision((current) => current + 1);
+      }
       setPages((current) => ({
         ...current,
         [parentId]: Math.floor(nextIndex / pageSize),
@@ -662,18 +696,20 @@ export function TreeBrowser<TContent = unknown>({
         ),
       });
       const nextIndex = selectedIndex < 0 ? nodes.length : selectedIndex + 1;
-      setTree((current) =>
-        parentId === rootId
-          ? insertAt(current, nextIndex, documentNode)
-          : mapTree(current, parentId, (parent) => ({
-              ...parent,
-              children: insertAt(parent.children, nextIndex, documentNode),
-            })));
-      setRevision((current) => current + 1);
-      setEnabledByNodeId((current) => ({
-        ...current,
-        [node.id]: node.enabled,
-      }));
+      if (!structureManagedExternally) {
+        setLocalTree((current) =>
+          parentId === rootId
+            ? insertAt(current, nextIndex, documentNode)
+            : mapTree(current, parentId, (parent) => ({
+                ...parent,
+                children: insertAt(parent.children, nextIndex, documentNode),
+              })));
+        setLocalRevision((current) => current + 1);
+        setLocalEnabledByNodeId((current) => ({
+          ...current,
+          [node.id]: node.enabled,
+        }));
+      }
       setContentVisibleByNodeId((current) => ({
         ...current,
         [node.id]: documentNode.children.length === 0,
@@ -694,14 +730,16 @@ export function TreeBrowser<TContent = unknown>({
       }
       const renamedNodes = nodes.map((node) =>
         node.id === selectedNode.id ? { ...node, label: name } : node);
-      setTree((current) =>
-        parentId === rootId
-          ? renamedNodes
-          : mapTree(current, parentId, (parent) => ({
-              ...parent,
-              children: renamedNodes,
-            })));
-      setRevision((current) => current + 1);
+      if (!structureManagedExternally) {
+        setLocalTree((current) =>
+          parentId === rootId
+            ? renamedNodes
+            : mapTree(current, parentId, (parent) => ({
+                ...parent,
+                children: renamedNodes,
+              })));
+        setLocalRevision((current) => current + 1);
+      }
     }
 
     function changePage(nextPage: number) {
@@ -724,7 +762,8 @@ export function TreeBrowser<TContent = unknown>({
         background={browserItemProps?.background}
         buttonProps={listControlProps?.buttonProps}
         checked={selectedNode
-          ? actionSelectedSet.has(selectedNode.id)
+          ? controlledCheckedNodeIds?.has(selectedNode.id)
+            ?? actionSelectedSet.has(selectedNode.id)
           : undefined}
         checkboxProps={browserItemProps?.checkboxProps}
         deleteButtonProps={listControlProps?.deleteButtonProps}
@@ -739,6 +778,10 @@ export function TreeBrowser<TContent = unknown>({
         newButtonProps={configuredNewButtonProps}
         onNew={listEditable && canCreateNode(parentId) ? addNode : undefined}
         onCheckedChange={selectedNode ? (nextChecked) => {
+          if (onNodeCheckedChange) {
+            void onNodeCheckedChange(selectedBrowserNode!, nextChecked);
+            return;
+          }
           setActionSelectionByListId((current) => updateTreeActionSelection(
             current,
             tree,
@@ -800,12 +843,6 @@ export function TreeBrowser<TContent = unknown>({
     const ownerSiblings = ownerParentId === rootId
       ? tree
       : findTreeNode(tree, ownerParentId)?.children ?? [];
-    const ownerActionSelectedIds = actionSelectionByListId[ownerParentId] ?? [];
-    const ownerActionSelectedSet = new Set(ownerActionSelectedIds);
-    const ownerActionNodes = ownerSiblings.filter(
-      ({ id }) => ownerActionSelectedSet.has(id),
-    );
-
     return (
       <section
         className={styles.level}
@@ -835,12 +872,14 @@ export function TreeBrowser<TContent = unknown>({
                         localId,
                       );
                       if (confirmed === false) return false;
-                      setTree((current) => mapTree(
-                        current,
-                        parentNode.id,
-                        (node) => ({ ...node, localId }),
-                      ));
-                      setRevision((current) => current + 1);
+                      if (!structureManagedExternally) {
+                        setLocalTree((current) => mapTree(
+                          current,
+                          parentNode.id,
+                          (node) => ({ ...node, localId }),
+                        ));
+                        setLocalRevision((current) => current + 1);
+                      }
                       return true;
                     }
                   : undefined,
@@ -863,13 +902,13 @@ export function TreeBrowser<TContent = unknown>({
                         path: findTreeLocalIdPath(tree, ownerParentId)?.join("/") ?? "",
                         eligible: true,
                       },
-                  targets: createBatchRootTargets(
+                  targets: createRootTargets(
                     tree,
-                    ownerActionNodes.map(({ id }) => id),
+                    parentNode.id,
                     rootListItemLimit,
                   ),
                   onChange: (nextParentId) => reparentNodes(
-                    ownerActionNodes.map(({ id }) => id),
+                    [parentNode.id],
                     parentNode.id,
                     nextParentId,
                   ),
@@ -896,7 +935,8 @@ export function TreeBrowser<TContent = unknown>({
                 style={{ rowGap: resolveCssValue(rowGap) }}
               >
                 {visibleNodes.map((node) => {
-                  const checked = actionSelectedSet.has(node.id);
+                  const checked = controlledCheckedNodeIds?.has(node.id)
+                    ?? actionSelectedSet.has(node.id);
                   if (node.id === selectedId && !inlineContentVisible
                     && itemRenameVisible) {
                     return listInput;
@@ -911,6 +951,18 @@ export function TreeBrowser<TContent = unknown>({
                       selected={node.id === selectedId}
                       activeColor={activeColorForDepth(depth)}
                       onCheckedChange={(nextChecked) => {
+                        if (onNodeCheckedChange) {
+                          void onNodeCheckedChange(
+                            toTreeBrowserNode(
+                              node,
+                              enabledByNodeId,
+                              contentVisibleByNodeId,
+                            ),
+                            nextChecked,
+                          );
+                          if (nextChecked) void selectNode(depth, node.id);
+                          return;
+                        }
                         setActionSelectionByListId((current) => (
                           updateTreeActionSelection(
                             current,
@@ -1017,9 +1069,14 @@ export function TreeBrowser<TContent = unknown>({
                 selected={menuView === "search"}
                 symbol={<Search aria-hidden="true" />}
                 onPointerDown={(event) => event.preventDefault()}
-                onClick={() => setMenuView((current) => (
-                  current === "search" ? "default" : "search"
-                ))}
+                onClick={() => {
+                  if (menuView === "search") {
+                    setGlobalSearch("");
+                    setMenuView("default");
+                  } else {
+                    setMenuView("search");
+                  }
+                }}
               />
               <ListControlButton
                 {...listControlProps?.buttonProps}
@@ -1029,11 +1086,10 @@ export function TreeBrowser<TContent = unknown>({
                 selected={isViewsButtonActive(menuView, effectiveActiveViewId)}
                 symbol={<PanelsTopLeft aria-hidden="true" />}
                 onPointerDown={(event) => event.preventDefault()}
-                onClick={() => setMenuView((current) => (
-                  current === "views"
-                    ? "default"
-                    : "views"
-                ))}
+                onClick={() => {
+                  if (menuView === "search") setGlobalSearch("");
+                  setMenuView(menuView === "views" ? "default" : "views");
+                }}
               />
             </>
           )}

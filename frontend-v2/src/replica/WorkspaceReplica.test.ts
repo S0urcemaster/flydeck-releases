@@ -61,6 +61,30 @@ describe("MemoryWorkspaceReplicaStorage", () => {
     });
   });
 
+  it("upgrades V3 records to separate confirmed state from local projections", () => {
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const idle = upgradeWorkspaceReplicaRecord({
+      schemaVersion: 3,
+      tree,
+      contents: {},
+      outbox: [],
+      lastServerSyncAt: null,
+    }) as WorkspaceReplicaRecord;
+    const pending = upgradeWorkspaceReplicaRecord({
+      schemaVersion: 3,
+      tree,
+      contents: {},
+      outbox: [outboxEntry("pending")],
+      lastServerSyncAt: null,
+    }) as WorkspaceReplicaRecord;
+
+    expect(idle.confirmedTree).toEqual(tree);
+    expect(idle.confirmedContents).toEqual({});
+    expect(pending.confirmedTree).toBeNull();
+    expect(pending.tree).toEqual(tree);
+    expect(pending.outbox).toHaveLength(1);
+  });
+
   it("isolates replicas by user and workspace", async () => {
     const storage = new MemoryWorkspaceReplicaStorage();
 
@@ -225,6 +249,51 @@ describe("MemoryWorkspaceReplicaStorage", () => {
       .toBe("Confirmed");
   });
 
+  it("does not replace newer optimistic state with a late server tree", async () => {
+    const storage = new MemoryWorkspaceReplicaStorage();
+    const replica = new WorkspaceReplica(storage);
+    const serverTree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const scope = { ...firstScope, workspaceId: serverTree.document.workspaceId };
+    const nodeId = "00000000-0000-4000-8000-000000000006";
+    serverTree.document.nodes.push({
+      id: nodeId,
+      parentId: null,
+      kind: "data-file",
+      label: "Server",
+      localId: "server",
+      position: 0,
+      revision: 0,
+      capabilities: { contentEditable: true, listEditable: true, listItemLimit: null },
+    });
+    await replica.replaceTree(scope, serverTree);
+    await replica.enqueue(scope, {
+      type: "rename-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000007",
+        label: "Local",
+        expectedRevision: 0,
+      },
+    });
+
+    await replica.rebaseFromServer(scope, serverTree);
+
+    const pending = await replica.load(scope);
+    expect(pending?.tree?.document.nodes[0].label).toBe("Local");
+    expect(pending?.outbox).toHaveLength(1);
+
+    await replica.confirm(scope, pending!.outbox[0].id, {
+      node: {
+        ...serverTree.document.nodes[0],
+        label: "Local",
+        revision: 1,
+      },
+      treeRevision: 2,
+    });
+    expect((await replica.load(scope))?.tree?.document.nodes[0].label).toBe("Local");
+    expect((await replica.load(scope))?.outbox).toEqual([]);
+  });
+
   it("durably deduplicates, counts, and acknowledges queued commands", async () => {
     const storage = new MemoryWorkspaceReplicaStorage();
     const replica = new WorkspaceReplica(storage);
@@ -242,8 +311,40 @@ describe("MemoryWorkspaceReplicaStorage", () => {
       command,
     }]);
 
-    await replica.acknowledge(firstScope, command.input.requestId);
+    await replica.confirm(firstScope, command.input.requestId, {
+      revision: 1,
+      selectedPath: [],
+      pageSizes: { __tree_root__: 10 },
+    });
     expect((await replica.load(firstScope))?.outbox).toEqual([]);
+  });
+
+  it("retains blocked commands for retry and exports the complete repair state", async () => {
+    const replica = new WorkspaceReplica(
+      new MemoryWorkspaceReplicaStorage(),
+      () => new Date("2026-08-11T12:00:00.000Z"),
+    );
+    const command = outboxEntry("blocked").command;
+    await replica.enqueue(firstScope, command);
+    await replica.markBlocked(
+      firstScope,
+      command.input.requestId,
+      "INVALID_REQUEST",
+      "Repair me",
+    );
+
+    const exported = JSON.parse(await replica.exportRecord(firstScope));
+    expect(exported).toMatchObject({
+      exportedAt: "2026-08-11T12:00:00.000Z",
+      scope: firstScope,
+      record: {
+        schemaVersion: workspaceReplicaSchemaVersion,
+        outbox: [{ blocked: { code: "INVALID_REQUEST", message: "Repair me" } }],
+      },
+    });
+
+    await replica.retryBlocked(firstScope, command.input.requestId);
+    expect((await replica.load(firstScope))?.outbox[0].blocked).toBeUndefined();
   });
 
   it("updates the cached projection in the same transaction as the outbox", async () => {

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState, type ComponentProps } from "react";
 
 import { Button, type ButtonProps } from "../../components/Button";
+import { Checkbox } from "../../components/Checkbox";
 import { ColorDialer } from "../../components/ColorDialer";
 import { DeleteButton } from "../../components/DeleteButton";
 import { Input, type InputProps } from "../../components/Input";
@@ -9,7 +10,7 @@ import {
   TreeBrowser,
   TreeBrowserModel,
   type TreeBrowserInitialNode,
-  type TreeBrowserModelSnapshotNode,
+  type TreeBrowserNode,
   type TreeBrowserProps,
 } from "../../components/TreeBrowser";
 import {
@@ -20,11 +21,13 @@ import {
 } from "../../themes/themeConfiguration";
 import styles from "./SettingsModule.module.css";
 
-type ThemeTreeData =
+type SettingsTreeData =
+  | { kind: "folder"; folder: "themes" | "global" | "accessibility" }
   | { kind: "theme"; themeId: string }
-  | { kind: "variable"; themeId: string; name: string };
+  | { kind: "variable"; themeId: string; name: string }
+  | { kind: "boolean"; setting: "capitalLetters" };
 
-type ThemeSelection = ThemeTreeData | null;
+type SettingsSelection = Exclude<SettingsTreeData, { kind: "folder" }> | null;
 
 export type SettingsModuleProps = ModuleProps & {
   configuration: ThemeConfiguration;
@@ -32,10 +35,12 @@ export type SettingsModuleProps = ModuleProps & {
   inputProps?: Omit<InputProps, "aria-label" | "onChange" | "type" | "value">;
   saveButtonProps?: Omit<ButtonProps, "children" | "onClick">;
   treeBrowserProps?: Omit<
-    TreeBrowserProps<ThemeTreeData>,
+    TreeBrowserProps<SettingsTreeData>,
+    | "checkedNodeIds"
     | "model"
     | "defaultPageSize"
     | "rootPageSize"
+    | "onNodeCheckedChange"
     | "onTreeChange"
     | "renderContent"
     | "rootListEditable"
@@ -51,56 +56,78 @@ export function SettingsModule({
   className,
   ...props
 }: SettingsModuleProps) {
+  const activeTheme = configuration.themes.find(({ enabled }) => enabled)
+    ?? configuration.themes[0];
   const [draft, setDraft] = useState(() => structuredClone(configuration));
-  const [selection, setSelection] = useState<ThemeSelection>(null);
-  const [model] = useState(() => new TreeBrowserModel<ThemeTreeData>({
+  const [selection, setSelection] = useState<SettingsSelection>(() => activeTheme
+    ? { kind: "theme", themeId: activeTheme.id }
+    : null);
+  const [model] = useState(() => new TreeBrowserModel<SettingsTreeData>({
     definitionAuthority: true,
-    initialTree: createThemeTree(configuration),
-    storageKey: "flydeck.settings.theme-tree.draft",
+    initialTree: createSettingsTree(configuration),
+    storageKey: "flydeck.settings.tree.draft",
   }));
-  const classes = className ? `${styles.root} ${className}` : styles.root;
+  const checkedNodeIds = useMemo(() => createCheckedNodeIds(draft), [draft]);
   const resetAvailable = canResetSelection(draft, selection);
+
+  const updateCheckedValue = (
+    node: TreeBrowserNode<SettingsTreeData>,
+    checked: boolean,
+  ) => {
+    const data = node.data;
+    if (!data || data.kind === "folder") return;
+    setDraft((current) => updateCheckedSetting(current, data, checked));
+  };
 
   return (
     <Module
       {...props}
-      className={classes}
+      className={className ? `${styles.root} ${className}` : styles.root}
       componentName="SettingsModule"
       aria-label="Settings module"
     >
       <TreeBrowser
         {...treeBrowserProps}
-        browserLabel="Theme configuration"
-        componentName="ThemeBrowser"
-        defaultPageSize={10}
-        rootPageSize={7}
+        browserLabel="Settings configuration"
+        componentName="SettingsBrowser"
+        defaultPageSize={4}
+        rootPageSize={4}
         model={model}
+        rootLabel="Settings"
         rootListEditable={false}
+        initialSelectedPath={activeTheme
+          ? ["settings:themes", `theme:${activeTheme.id}`]
+          : ["settings:themes"]}
+        checkedNodeIds={checkedNodeIds}
+        onNodeCheckedChange={updateCheckedValue}
         onSelectedPathChange={async (selectedPath) => {
           const confirmed = await treeBrowserProps?.onSelectedPathChange?.(
             selectedPath,
           );
           if (confirmed === false) return false;
-          setSelection(findThemeSelection(configuration, selectedPath));
+          setSelection(findSettingsSelection(configuration, selectedPath));
           return confirmed;
         }}
-        onTreeChange={(nodes) => setDraft((current) => (
-          applyEnabledState(current, nodes)
-        ))}
         renderContent={({ node }) => {
-          if (node.data?.kind !== "variable") return null;
-          const variable = findVariable(draft, node.data.themeId, node.data.name);
+          const data = node.data;
+          if (data?.kind === "boolean") {
+            return (
+              <BooleanValueRenderer
+                checked={draft.global.accessibility.capitalLetters}
+                label="Capital letters"
+                onChange={(checked) => updateCheckedValue(node, checked)}
+                checkboxProps={treeBrowserProps?.browserItemProps?.checkboxProps}
+              />
+            );
+          }
+          if (data?.kind !== "variable") return null;
+          const variable = findVariable(draft, data.themeId, data.name);
           if (!variable) return null;
           const isColor = availableThemeVariables.some((definition) => (
             definition.name === variable.name && definition.kind === "color"
           ));
           const setValue = (value: string) => setDraft((current) => (
-            updateVariableValue(
-              current,
-              node.data!.themeId,
-              variable.name,
-              value,
-            )
+            updateVariableValue(current, data.themeId, variable.name, value)
           ));
           return (
             <div className={styles.variableEditor}>
@@ -127,27 +154,18 @@ export function SettingsModule({
           {...saveButtonProps}
           action="reset"
           disabled={!resetAvailable}
-          key={selection
-            ? `${selection.themeId}:${selection.kind === "variable"
-              ? selection.name
-              : "theme"}`
-            : "no-selection"}
-          label={selection?.kind === "variable"
-            ? selection.name
-            : selection?.themeId ?? "selected theme value"}
+          key={selectionKey(selection)}
+          label={selectionLabel(selection)}
           onDelete={() => {
             if (!selection) return;
-            const resetConfiguration = resetThemeSelection(draft, selection);
-            setDraft(resetConfiguration);
-            onSave(structuredClone(resetConfiguration));
+            const reset = resetSettingsSelection(draft, selection);
+            setDraft(reset);
+            onSave(structuredClone(reset));
           }}
         >
           RESET
         </DeleteButton>
-        <Button
-          {...saveButtonProps}
-          onClick={() => onSave(structuredClone(draft))}
-        >
+        <Button {...saveButtonProps} onClick={() => onSave(structuredClone(draft))}>
           SAVE
         </Button>
       </div>
@@ -155,11 +173,42 @@ export function SettingsModule({
   );
 }
 
-export function findThemeSelection(
+function BooleanValueRenderer({
+  checked,
+  label,
+  onChange,
+  checkboxProps,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+  checkboxProps?: Omit<
+    ComponentProps<typeof Checkbox>,
+    "checked" | "children" | "label" | "onChange"
+  >;
+}) {
+  return (
+    <div className={styles.booleanEditor}>
+      <Checkbox
+        {...checkboxProps}
+        checked={checked}
+        label={`${label}: ${checked ? "true" : "false"}`}
+        onChange={onChange}
+      >
+        {checked ? "TRUE" : "FALSE"}
+      </Checkbox>
+    </div>
+  );
+}
+
+export function findSettingsSelection(
   configuration: ThemeConfiguration,
   selectedPath: string[],
-): ThemeSelection {
+): SettingsSelection {
   const selectedId = selectedPath.at(-1);
+  if (selectedId === "settings:global:accessibility:capital-letters") {
+    return { kind: "boolean", setting: "capitalLetters" };
+  }
   if (!selectedId) return null;
   for (const theme of configuration.themes) {
     if (selectedId === `theme:${theme.id}`) {
@@ -176,12 +225,14 @@ export function findThemeSelection(
 
 export function canResetSelection(
   configuration: ThemeConfiguration,
-  selection: ThemeSelection,
+  selection: SettingsSelection,
 ) {
   if (!selection) return false;
-  const currentTheme = configuration.themes.find(({ id }) => (
-    id === selection.themeId
-  ));
+  if (selection.kind === "boolean") {
+    return configuration.global.accessibility.capitalLetters
+      !== defaultThemeConfiguration.global.accessibility.capitalLetters;
+  }
+  const currentTheme = configuration.themes.find(({ id }) => id === selection.themeId);
   const defaultTheme = defaultThemeConfiguration.themes.find(({ id }) => (
     id === selection.themeId
   ));
@@ -197,15 +248,19 @@ export function canResetSelection(
   ));
 }
 
-export function resetThemeSelection(
+export function resetSettingsSelection(
   configuration: ThemeConfiguration,
-  selection: Exclude<ThemeSelection, null>,
+  selection: Exclude<SettingsSelection, null>,
 ): ThemeConfiguration {
+  if (selection.kind === "boolean") {
+    return { ...configuration, global: structuredClone(defaultThemeConfiguration.global) };
+  }
   const defaultTheme = defaultThemeConfiguration.themes.find(({ id }) => (
     id === selection.themeId
   ));
   if (!defaultTheme) return configuration;
   return {
+    ...configuration,
     themes: configuration.themes.map((theme) => {
       if (theme.id !== selection.themeId) return theme;
       return {
@@ -226,55 +281,126 @@ export function resetThemeSelection(
   };
 }
 
-export function createThemeTree(
+export function createSettingsTree(
   configuration: ThemeConfiguration,
-): TreeBrowserInitialNode<ThemeTreeData>[] {
-  return configuration.themes.map((theme) => ({
-    id: `theme:${theme.id}`,
-    kind: "theme",
-    label: theme.label,
-    enabled: theme.enabled,
-    contentEditable: false,
-    contentVisible: false,
-    listEditable: false,
-    data: { kind: "theme", themeId: theme.id },
-    children: theme.variables.map((variable) => ({
-      id: `theme:${theme.id}:variable:${variable.name}`,
-      kind: "theme-variable",
-      label: variable.name,
-      enabled: variable.enabled,
-      contentVisible: true,
+): TreeBrowserInitialNode<SettingsTreeData>[] {
+  return [
+    {
+      id: "settings:themes",
+      kind: "settings-folder",
+      label: "Themes",
+      enabled: false,
+      contentEditable: false,
+      contentVisible: false,
       listEditable: false,
-      data: { kind: "variable", themeId: theme.id, name: variable.name },
-      children: [],
-    })),
-  }));
+      data: { kind: "folder", folder: "themes" },
+      children: configuration.themes.map((theme) => ({
+        id: `theme:${theme.id}`,
+        kind: "theme",
+        label: theme.label,
+        enabled: theme.enabled,
+        contentEditable: false,
+        contentVisible: false,
+        listEditable: false,
+        data: { kind: "theme", themeId: theme.id },
+        children: theme.variables.map((variable) => ({
+          id: `theme:${theme.id}:variable:${variable.name}`,
+          kind: "theme-variable",
+          label: variable.name,
+          enabled: variable.enabled,
+          contentVisible: true,
+          listEditable: false,
+          data: { kind: "variable", themeId: theme.id, name: variable.name },
+          children: [],
+        })),
+      })),
+    },
+    {
+      id: "settings:global",
+      kind: "settings-folder",
+      label: "Global",
+      enabled: false,
+      contentEditable: false,
+      contentVisible: false,
+      listEditable: false,
+      data: { kind: "folder", folder: "global" },
+      children: [{
+        id: "settings:global:accessibility",
+        kind: "settings-folder",
+        label: "Accessibility",
+        enabled: false,
+        contentEditable: false,
+        contentVisible: false,
+        listEditable: false,
+        data: { kind: "folder", folder: "accessibility" },
+        children: [{
+          id: "settings:global:accessibility:capital-letters",
+          kind: "boolean-setting",
+          label: "Capital letters",
+          enabled: configuration.global.accessibility.capitalLetters,
+          contentEditable: true,
+          contentVisible: true,
+          listEditable: false,
+          data: { kind: "boolean", setting: "capitalLetters" },
+          children: [],
+        }],
+      }],
+    },
+  ];
 }
 
-function applyEnabledState(
+function createCheckedNodeIds(configuration: ThemeConfiguration) {
+  const checked = new Set<string>();
+  for (const theme of configuration.themes) {
+    if (theme.enabled) checked.add(`theme:${theme.id}`);
+    for (const variable of theme.variables) {
+      if (variable.enabled) checked.add(`theme:${theme.id}:variable:${variable.name}`);
+    }
+  }
+  if (configuration.global.accessibility.capitalLetters) {
+    checked.add("settings:global:accessibility:capital-letters");
+  }
+  return [...checked];
+}
+
+export function updateCheckedSetting(
   configuration: ThemeConfiguration,
-  nodes: readonly TreeBrowserModelSnapshotNode<ThemeTreeData>[],
-) {
-  let changed = false;
-  const nextThemes = configuration.themes.map((theme) => {
-    const themeNode = nodes.find((node) => (
-      node.data?.kind === "theme" && node.data.themeId === theme.id
-    ));
-    if (!themeNode) return theme;
-    const variables = theme.variables.map((variable) => {
-      const variableNode = themeNode.children.find((node) => (
-        node.data?.kind === "variable" && node.data.name === variable.name
-      ));
-      const enabled = variableNode?.enabled ?? variable.enabled;
-      if (enabled === variable.enabled) return variable;
-      changed = true;
-      return { ...variable, enabled };
-    });
-    if (themeNode.enabled === theme.enabled && variables === theme.variables) return theme;
-    if (themeNode.enabled !== theme.enabled) changed = true;
-    return { ...theme, enabled: themeNode.enabled, variables };
-  });
-  return changed ? { themes: nextThemes } : configuration;
+  data: Exclude<SettingsTreeData, { kind: "folder" }>,
+  checked: boolean,
+): ThemeConfiguration {
+  if (data.kind === "theme") {
+    if (!checked) return configuration;
+    return {
+      ...configuration,
+      themes: configuration.themes.map((theme) => ({
+        ...theme,
+        enabled: theme.id === data.themeId,
+      })),
+    };
+  }
+  if (data.kind === "boolean") {
+    return {
+      ...configuration,
+      global: {
+        ...configuration.global,
+        accessibility: {
+          ...configuration.global.accessibility,
+          capitalLetters: checked,
+        },
+      },
+    };
+  }
+  return {
+    ...configuration,
+    themes: configuration.themes.map((theme) => theme.id !== data.themeId
+      ? theme
+      : {
+          ...theme,
+          variables: theme.variables.map((variable) => variable.name === data.name
+            ? { ...variable, enabled: checked }
+            : variable),
+        }),
+  };
 }
 
 function findVariable(
@@ -293,6 +419,7 @@ function updateVariableValue(
   value: string,
 ): ThemeConfiguration {
   return {
+    ...configuration,
     themes: configuration.themes.map((theme) => theme.id !== themeId
       ? theme
       : {
@@ -302,4 +429,18 @@ function updateVariableValue(
             : variable),
         }),
   };
+}
+
+function selectionKey(selection: SettingsSelection) {
+  if (!selection) return "no-selection";
+  if (selection.kind === "boolean") return selection.setting;
+  return `${selection.themeId}:${selection.kind === "variable"
+    ? selection.name
+    : "theme"}`;
+}
+
+function selectionLabel(selection: SettingsSelection) {
+  if (!selection) return "selected setting";
+  if (selection.kind === "boolean") return "Capital letters";
+  return selection.kind === "variable" ? selection.name : selection.themeId;
 }

@@ -15,6 +15,15 @@
   min-width: 0;
 }
 
+.booleanEditor {
+  display: grid;
+  min-width: 0;
+}
+
+.booleanEditor > button {
+  width: 100%;
+}
+
 .colorDialer {
   justify-self: center;
 }

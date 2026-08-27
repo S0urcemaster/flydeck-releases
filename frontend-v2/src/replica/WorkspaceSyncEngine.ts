@@ -23,7 +23,7 @@ export class WorkspaceSyncEngine {
     private readonly api: V2ApiClient,
     private readonly status: WorkspaceSyncStatusStore,
     listensToBrowser = true,
-    private readonly writeDelayMs = 1_000,
+    private readonly writeDelayMs = 5_000,
   ) {
     if (listensToBrowser && typeof window !== "undefined") {
       window.addEventListener("online", () => this.retryRegistered());
@@ -31,6 +31,7 @@ export class WorkspaceSyncEngine {
   }
 
   register(scope: WorkspaceReplicaScope) {
+    requestPersistentWorkspaceStorage();
     const key = scopeKey(scope);
     const registered = this.scopes.has(key);
     this.scopes.set(key, scope);
@@ -46,6 +47,11 @@ export class WorkspaceSyncEngine {
       void this.flush(scope);
       void this.hydrateDesiredContents(scope);
     }
+  }
+
+  async retryBlocked(scope: WorkspaceReplicaScope, commandId: string) {
+    await this.replica.retryBlocked(scope, commandId);
+    return this.flush(scope);
   }
 
   ensureContents(scope: WorkspaceReplicaScope, nodeIds: readonly string[]) {
@@ -82,7 +88,7 @@ export class WorkspaceSyncEngine {
     return optimistic;
   }
 
-  flush(scope: WorkspaceReplicaScope) {
+  flush(scope: WorkspaceReplicaScope): Promise<boolean> {
     const key = scopeKey(scope);
     const scheduled = this.scheduledFlushes.get(key);
     if (scheduled) {
@@ -90,7 +96,13 @@ export class WorkspaceSyncEngine {
       this.scheduledFlushes.delete(key);
     }
     const running = this.active.get(key);
-    if (running) return running;
+    if (running) {
+      return running.then(async (succeeded) => {
+        if (!succeeded) return false;
+        const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
+        return pending > 0 ? this.flush(scope) : true;
+      });
+    }
     const operation = this.flushCommands(scope).finally(() => {
       this.active.delete(key);
     });
@@ -103,15 +115,25 @@ export class WorkspaceSyncEngine {
     const key = scopeKey(scope);
     this.status.setPendingCount(key, record?.outbox.length ?? 0);
     if (!record?.outbox.length) return this.refreshTree(scope);
+    if (!record.confirmedTree) {
+      if (!await this.recoverServerCheckpoint(scope)) return false;
+      record = await this.replica.load(scope);
+      if (!record) return false;
+    }
     const recoveringQueue = record.outbox.some(({ attempts }) => attempts > 0);
+    const conflictsByCommand = new Map<string, number>();
 
     while (record.outbox.length > 0) {
       this.status.setStatus({ state: "syncing", pending: record.outbox.length });
       const entry = record.outbox[0];
+      if (entry.blocked) {
+        this.status.markError(entry.blocked.message, record.outbox.length);
+        return false;
+      }
       await this.replica.recordAttempt(scope, entry.id);
       try {
-        await this.dispatch(scope, entry.command);
-        await this.replica.acknowledge(scope, entry.id);
+        const result = await this.dispatch(scope, entry.command);
+        await this.replica.confirm(scope, entry.id, result);
         if (entry.command.type !== "set-selection") {
           this.status.markCommandSaved(
             entry.userCommandId ?? entry.id,
@@ -119,34 +141,42 @@ export class WorkspaceSyncEngine {
           );
         }
       } catch (error) {
-        if (isDiscardableSelectionConflict(error, entry.command)) {
-          await this.replica.acknowledge(scope, entry.id);
-          record = await this.replica.load(scope);
-          if (!record) return false;
-          this.status.setPendingCount(key, record.outbox.length);
-          continue;
-        }
         if (isRevisionConflict(error)) {
-          try {
-            const confirmed = await this.api.loadDataTree(scope.workspaceId);
-            await this.replica.resetToServerTree(scope, confirmed);
-            this.status.setPendingCount(key, 0);
-            this.status.markOnline();
-            return true;
-          } catch {
+          const conflicts = (conflictsByCommand.get(entry.id) ?? 0) + 1;
+          conflictsByCommand.set(entry.id, conflicts);
+          if (conflicts <= 2) {
+            if (await this.recoverServerCheckpoint(scope)) {
+              record = await this.replica.load(scope);
+              if (!record) return false;
+              this.status.setPendingCount(key, record.outbox.length);
+              continue;
+            }
+            const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
+            this.status.setPendingCount(key, pending);
+            this.status.markError("Server checkpoint could not be loaded", pending);
             return false;
           }
+          await this.replica.markBlocked(
+            scope,
+            entry.id,
+            "REVISION_CONFLICT",
+            error instanceof V2ApiError ? error.message : "Revision conflict",
+          );
         }
         if (isPermanentlyRejectedCommand(error)) {
-          try {
-            const confirmed = await this.api.loadDataTree(scope.workspaceId);
-            await this.replica.resetToServerTree(scope, confirmed);
-            this.status.setPendingCount(key, 0);
-            this.status.markOnline();
-            return true;
-          } catch {
-            return false;
-          }
+          await this.replica.markBlocked(
+            scope,
+            entry.id,
+            error instanceof V2ApiError ? error.response.error : "REJECTED",
+            error instanceof V2ApiError ? error.message : "Command was rejected",
+          );
+          const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
+          this.status.setPendingCount(key, pending);
+          this.status.markError(
+            error instanceof V2ApiError ? error.message : "Command was rejected",
+            pending,
+          );
+          return false;
         }
         if (error instanceof V2ApiError) {
           const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
@@ -160,7 +190,7 @@ export class WorkspaceSyncEngine {
       this.status.setPendingCount(key, record.outbox.length);
     }
 
-    if (!await this.refreshTree(scope)) return false;
+    this.status.markOnline();
     if (recoveringQueue) this.status.markQueueSaved();
     return true;
   }
@@ -168,10 +198,34 @@ export class WorkspaceSyncEngine {
   private async refreshTree(scope: WorkspaceReplicaScope) {
     try {
       const confirmed = await this.api.loadDataTree(scope.workspaceId);
-      await this.replica.replaceTree(scope, confirmed);
+      await this.replica.rebaseFromServer(scope, confirmed);
       this.invalidateHydratedContents(scope);
       await this.hydrateDesiredContents(scope);
+      const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
+      this.status.setPendingCount(scopeKey(scope), pending);
       this.status.markOnline();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async recoverServerCheckpoint(scope: WorkspaceReplicaScope) {
+    try {
+      const [confirmed, record] = await Promise.all([
+        this.api.loadDataTree(scope.workspaceId),
+        this.replica.load(scope),
+      ]);
+      const confirmedNodeIds = new Set(confirmed.document.nodes.map(({ id }) => id));
+      const contentNodeIds = [...new Set(record?.outbox.flatMap(({ command }) => (
+        command.type === "update-content" && confirmedNodeIds.has(command.nodeId)
+          ? [command.nodeId]
+          : []
+      )) ?? [])];
+      const contents = await Promise.all(contentNodeIds.map(
+        (nodeId) => this.api.readDataContent(scope.workspaceId, nodeId),
+      ));
+      await this.replica.rebaseFromServer(scope, confirmed, contents);
       return true;
     } catch {
       return false;
@@ -232,60 +286,43 @@ export class WorkspaceSyncEngine {
     const workspaceId = scope.workspaceId;
     switch (command.type) {
       case "create-node": {
-        await this.api.createDataNode(workspaceId, command.input);
-        return;
+        return this.api.createDataNode(workspaceId, command.input);
       }
       case "rename-node": {
-        await this.api.renameDataNode(
+        return this.api.renameDataNode(
           workspaceId, command.nodeId, command.input,
         );
-        return;
       }
       case "update-local-id": {
-        await this.api.updateDataNodeLocalId(
+        return this.api.updateDataNodeLocalId(
           workspaceId, command.nodeId, command.input,
         );
-        return;
       }
       case "move-node": {
-        await this.api.moveDataNode(
+        return this.api.moveDataNode(
           workspaceId, command.nodeId, command.input,
         );
-        return;
       }
       case "reparent-node": {
-        await this.api.reparentDataNode(
+        return this.api.reparentDataNode(
           workspaceId, command.nodeId, command.input,
         );
-        return;
       }
       case "delete-node":
-        await this.api.deleteDataNode(workspaceId, command.nodeId, command.input);
-        return;
+        return this.api.deleteDataNode(workspaceId, command.nodeId, command.input);
       case "set-node-enabled":
-        await this.api.setDataNodeEnabled(
+        return this.api.setDataNodeEnabled(
           workspaceId, command.nodeId, command.input,
         );
-        return;
       case "set-selection":
-        await this.api.setDataSelection(workspaceId, command.input);
-        return;
+        return this.api.setDataSelection(workspaceId, command.input);
       case "update-content": {
-        await this.api.updateDataContent(
+        return this.api.updateDataContent(
           workspaceId, command.nodeId, command.input,
         );
       }
     }
   }
-}
-
-function isDiscardableSelectionConflict(
-  error: unknown,
-  command: WorkspaceDataCommand,
-) {
-  return command.type === "set-selection"
-    && error instanceof V2ApiError
-    && error.response.error === "REVISION_CONFLICT";
 }
 
 function isRevisionConflict(error: unknown) {
@@ -308,4 +345,12 @@ export const workspaceSyncEngine = new WorkspaceSyncEngine(
 
 function scopeKey(scope: WorkspaceReplicaScope) {
   return `${scope.userId}:${scope.workspaceId}`;
+}
+
+let persistentStorageRequested = false;
+
+function requestPersistentWorkspaceStorage() {
+  if (persistentStorageRequested || typeof navigator === "undefined") return;
+  persistentStorageRequested = true;
+  void navigator.storage?.persist?.().catch(() => false);
 }

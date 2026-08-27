@@ -4,5 +4,6 @@
   font-weight: 700;
   text-align: left;
   text-overflow: ellipsis;
+  text-transform: var(--global-text-transform, none);
   white-space: nowrap;
 }

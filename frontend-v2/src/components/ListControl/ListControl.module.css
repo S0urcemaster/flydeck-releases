@@ -22,6 +22,7 @@
   padding-left: var(--space-md);
   text-align: left;
   text-overflow: ellipsis;
+  text-transform: var(--global-text-transform, none);
   white-space: nowrap;
 }
 

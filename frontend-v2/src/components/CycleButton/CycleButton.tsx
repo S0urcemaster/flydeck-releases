@@ -11,6 +11,7 @@ export type CycleButtonProps = Omit<
   onPress?: (value: string) => void;
   options: readonly string[];
   selectedLabel?: string;
+  showAlternatives?: boolean;
   value: string;
 };
 
@@ -20,6 +21,7 @@ export function CycleButton({
   onPress,
   options,
   selectedLabel,
+  showAlternatives = true,
   value,
   ...buttonProps
 }: CycleButtonProps) {
@@ -54,7 +56,7 @@ export function CycleButton({
     >
       <span className={styles.content}>
         <span>{displayedSelected}</span>
-        {alternatives && (
+        {showAlternatives && alternatives && (
           <small style={{ fontSize: CYCLE_BUTTON_QUEUE_FONT_SIZE }}>
             {alternatives}
           </small>

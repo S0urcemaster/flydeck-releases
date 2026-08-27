@@ -279,6 +279,9 @@ export function App() {
     treeBrowserBase,
     properties.MemoryBrowser.base,
   );
+  const agentChatContentBase = resolveBaseProperties(
+    properties.AgentChatContent.base,
+  );
   const dataTreeBase = resolveDerivedBaseProperties(
     dataBrowserBase,
     properties.DataTree.base,
@@ -330,6 +333,9 @@ export function App() {
   const checkboxBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.Checkbox.base,
+  );
+  const checkRadioButtonBase = resolveBaseProperties(
+    properties.CheckRadioButton.base,
   );
   const inputBase = resolveBaseProperties(properties.Input.base);
   const configuredInputProps = {
@@ -674,7 +680,26 @@ export function App() {
       {activeMenuItem === "AGNT" && (
         <AgentModule
           {...chatModuleBase}
+          chatContentProps={{
+            ...agentChatContentBase,
+            fontSize: properties.AgentChatContent.fontSize,
+          }}
           inputControlProps={sharedInputControlProps}
+          nodeIdInputProps={{
+            ...nodeIdInputBase,
+            buttonProps: sharedInputControlProps.buttonProps,
+            inputProps: configuredInputProps,
+          }}
+          parentInputProps={{
+            ...parentInputBase,
+            buttonProps: {
+              ...buttonBase,
+              activeColor: properties.Button.activeColor,
+            },
+            inputProps: configuredInputProps,
+          }}
+          workspaceId={workspaceId}
+          onSynchronizationError={reportSynchronizationError}
           treeBrowserProps={{
             ...memoryBrowserBase,
             rowGap: properties.TreeBrowser.rowGap,
@@ -814,6 +839,7 @@ export function App() {
               rowGap: properties.TreeBrowser.rowGap,
               ...sharedTreeChildProps,
             },
+            dataSourceToggleButtonProps: checkRadioButtonBase,
             eventButtonProps: {
               ...buttonBase,
               activeColor: properties.Button.activeColor,

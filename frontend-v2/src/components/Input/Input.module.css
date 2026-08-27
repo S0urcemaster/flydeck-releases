@@ -42,6 +42,7 @@
   opacity: 0.5;
   pointer-events: none;
   text-overflow: ellipsis;
+  text-transform: var(--global-text-transform, none);
   white-space: nowrap;
 }
 
@@ -53,4 +54,9 @@
   border-radius: var(--radius-control);
   font: inherit;
   outline-offset: -2px;
+  text-transform: var(--global-text-transform, none);
+}
+
+.root:focus {
+  text-transform: none;
 }

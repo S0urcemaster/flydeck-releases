@@ -354,6 +354,7 @@ function ServerDataBrowser({
       {...treeBrowserProps}
       componentName={componentName}
       model={model}
+      structureManagedExternally
       savedViews={savedViewsControl}
       initialSelectedPath={treeLoad.selection.selectedPath}
       initialPageSizes={treeLoad.selection.pageSizes}

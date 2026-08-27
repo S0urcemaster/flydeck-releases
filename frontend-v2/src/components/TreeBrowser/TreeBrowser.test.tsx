@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   TreeBrowser,
@@ -19,6 +19,7 @@ import {
   updateActionSelection,
   updateTreeActionSelection,
   type TreeBrowserNode,
+  type TreeBrowserRootControl,
 } from "./TreeBrowser";
 import { TreeBrowserModel } from "./TreeBrowserModel";
 
@@ -573,6 +574,44 @@ describe("TreeBrowser", () => {
       children: [nodes[0]],
     }]);
     expect(reparentInTree(nodes, "source", "child")).toBe(nodes);
+  });
+
+  it("reparents the focused content item without requiring a view checkbox", async () => {
+    const nodes: TreeBrowserNode[] = [{
+      id: "source",
+      label: "Source",
+      enabled: true,
+      contentVisible: true,
+      children: [],
+    }, {
+      id: "target",
+      label: "Target",
+      enabled: true,
+      contentVisible: false,
+      children: [],
+    }];
+    const onReparentNode = vi.fn().mockResolvedValue(true);
+    let rootControl: TreeBrowserRootControl | undefined;
+    renderToStaticMarkup(
+      <TreeBrowser
+        initialSelectedPath={["source"]}
+        model={createModel(nodes)}
+        onReparentNode={onReparentNode}
+        renderContent={({ root }) => {
+          rootControl = root;
+          return <span>Content</span>;
+        }}
+      />,
+    );
+
+    expect(rootControl?.targets.find(({ id }) => id === "target")?.eligible)
+      .toBe(true);
+    await expect(rootControl?.onChange("target")).resolves.toBe(true);
+    expect(onReparentNode).toHaveBeenCalledWith(
+      "source",
+      "target",
+      expect.any(String),
+    );
   });
 
   it("reparents all selected siblings in their list order", () => {

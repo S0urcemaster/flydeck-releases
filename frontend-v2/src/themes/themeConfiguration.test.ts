@@ -32,6 +32,32 @@ describe("theme configuration", () => {
     expect(removed).toContain("--color-page");
     expect(applied["--color-page"]).toMatch(/^#/);
     expect(applied["--button-width"]).toMatch(/px$/);
+    expect(applied["--global-text-transform"]).toBe("none");
+  });
+
+  it("enables uppercase presentation without changing stored values", () => {
+    const configuration = structuredClone(defaultThemeConfiguration);
+    configuration.global.accessibility.capitalLetters = true;
+    const applied: Record<string, string> = {};
+
+    applyThemeConfiguration(configuration, {
+      removeProperty: () => "",
+      setProperty: (name, value) => { applied[name] = value ?? ""; },
+    });
+
+    expect(applied["--global-text-transform"]).toBe("uppercase");
+  });
+
+  it("migrates the former XXL font setting", () => {
+    const legacy = structuredClone(defaultThemeConfiguration) as unknown as {
+      global: { accessibility: { xxlFont: boolean } };
+      themes: typeof defaultThemeConfiguration.themes;
+    };
+    legacy.global.accessibility = { xxlFont: true };
+
+    expect(normalizeThemeConfiguration(
+      legacy as unknown as typeof defaultThemeConfiguration,
+    ).global.accessibility.capitalLetters).toBe(true);
   });
 
   it("validates the complete available configuration", () => {

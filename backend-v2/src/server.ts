@@ -6,10 +6,12 @@ import { runMigrations } from "./db/migrations.js";
 import { CronService } from "./cron/CronService.js";
 import { CronScheduler } from "./cron/CronScheduler.js";
 import { NtfyNotifier } from "./cron/NtfyNotifier.js";
+import { ChatStore } from "./chat/ChatStore.js";
 
 const config = loadConfig();
 const database = createDatabase(config);
 await runMigrations(database);
+await new ChatStore(database).markInterrupted();
 const scheduler = new CronScheduler(
   new CronService(database),
   new NtfyNotifier(config),

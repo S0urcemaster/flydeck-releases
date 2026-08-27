@@ -24,6 +24,11 @@ export type ThemeConfigurationEntry = {
 };
 
 export type ThemeConfiguration = {
+  global: {
+    accessibility: {
+      capitalLetters: boolean;
+    };
+  };
   themes: ThemeConfigurationEntry[];
 };
 
@@ -41,6 +46,11 @@ export const availableThemeVariables = [
 ].sort((left, right) => left.name.localeCompare(right.name));
 
 export const defaultThemeConfiguration: ThemeConfiguration = {
+  global: {
+    accessibility: {
+      capitalLetters: false,
+    },
+  },
   themes: themeColorMaps.map(({ id, label }) => ({
     id,
     label,
@@ -68,6 +78,10 @@ export function applyThemeConfiguration(
   configuration: ThemeConfiguration,
   style: Pick<CSSStyleDeclaration, "removeProperty" | "setProperty">,
 ) {
+  style.setProperty(
+    "--global-text-transform",
+    configuration.global.accessibility.capitalLetters ? "uppercase" : "none",
+  );
   for (const { name } of availableThemeVariables) style.removeProperty(name);
   for (const [name, value] of Object.entries(resolveThemeVariables(configuration))) {
     style.setProperty(name, value);
@@ -75,7 +89,7 @@ export function applyThemeConfiguration(
 }
 
 export function isThemeConfiguration(value: unknown): value is ThemeConfiguration {
-  return isThemeConfigurationForIds(
+  return hasGlobalConfiguration(value) && isThemeConfigurationForIds(
     value,
     themeColorMaps.map(({ id }) => id),
   );
@@ -85,6 +99,10 @@ export function isPersistedThemeConfiguration(
   value: unknown,
 ): value is ThemeConfiguration {
   return isThemeConfiguration(value)
+    || isThemeConfigurationForIds(
+      value,
+      themeColorMaps.map(({ id }) => id),
+    )
     || isLegacyThemeConfigurationForIds(
       value,
       themeColorMaps.map(({ id }) => id),
@@ -96,6 +114,7 @@ export function normalizeThemeConfiguration(
   configuration: ThemeConfiguration,
 ): ThemeConfiguration {
   return {
+    global: normalizeGlobalConfiguration(configuration),
     themes: defaultThemeConfiguration.themes.map((defaultTheme) => {
       const existing = configuration.themes.find(({ id }) => (
         id === defaultTheme.id
@@ -154,6 +173,27 @@ function isThemeConfigurationForIds(
     }
   }
   return true;
+}
+
+function hasGlobalConfiguration(value: unknown): value is Pick<
+  ThemeConfiguration,
+  "global"
+> {
+  if (!isRecord(value) || !isRecord(value.global)) return false;
+  const accessibility = value.global.accessibility;
+  return isRecord(accessibility)
+    && typeof accessibility.capitalLetters === "boolean";
+}
+
+function normalizeGlobalConfiguration(value: unknown): ThemeConfiguration["global"] {
+  if (hasGlobalConfiguration(value)) return structuredClone(value.global);
+  if (isRecord(value) && isRecord(value.global)) {
+    const accessibility = value.global.accessibility;
+    if (isRecord(accessibility) && typeof accessibility.xxlFont === "boolean") {
+      return { accessibility: { capitalLetters: accessibility.xxlFont } };
+    }
+  }
+  return structuredClone(defaultThemeConfiguration.global);
 }
 
 function isLegacyThemeConfigurationForIds(

@@ -1,4 +1,9 @@
 import { InputControl, type InputControlProps } from "../../components/InputControl";
+import { AgentChatBrowser } from "../../components/AgentChatBrowser";
+import type {
+  AgentChatContentProps,
+  AgentChatContentStyleProps,
+} from "../../components/AgentChatContent";
 import { MemoryBrowser } from "../../components/MemoryBrowser";
 import { Module, type ModuleProps } from "../../components/Module";
 import {
@@ -24,7 +29,19 @@ import styles from "./AgentModule.module.css";
 
 export type AgentModuleProps = ModuleProps & {
   inputControlProps?: InputControlProps;
-  treeBrowserProps?: Omit<TreeBrowserProps<AgentMemoryData>, "model" | "renderContent">;
+  chatContentProps?: AgentChatContentStyleProps;
+  nodeIdInputProps?: AgentChatContentProps["nodeIdInputProps"];
+  parentInputProps?: AgentChatContentProps["parentInputProps"];
+  workspaceId?: string;
+  onSynchronizationError?: (reason: string) => void;
+  treeBrowserProps?: Omit<
+    TreeBrowserProps<unknown>,
+    | "createNode"
+    | "model"
+    | "onTreeChange"
+    | "renderContent"
+    | "renderInlineContent"
+  >;
   submodulePanelProps?: Omit<
     SubmodulePanelProps,
     "activeItem" | "onChange"
@@ -32,7 +49,12 @@ export type AgentModuleProps = ModuleProps & {
 };
 
 export function AgentModule({
+  chatContentProps,
   inputControlProps,
+  nodeIdInputProps,
+  parentInputProps,
+  workspaceId,
+  onSynchronizationError,
   treeBrowserProps,
   submodulePanelProps,
   ...props
@@ -55,9 +77,15 @@ export function AgentModule({
         onChange={setActiveSection}
       />
       {activeSection === "CHAT" && (
-        <section className={styles.placeholder} aria-label="Agent chat">
-          CHAT
-        </section>
+        <AgentChatBrowser
+          chatContentProps={chatContentProps}
+          {...treeBrowserProps}
+          inputControlProps={inputControlProps}
+          nodeIdInputProps={nodeIdInputProps}
+          parentInputProps={parentInputProps}
+          workspaceId={workspaceId}
+          onSynchronizationError={onSynchronizationError}
+        />
       )}
       {activeSection === "MEMO" && (
         <MemoryBrowser
@@ -67,7 +95,7 @@ export function AgentModule({
             <InputControl
               {...inputControlProps}
               height={height}
-              value={drafts[node.id] ?? node.data?.initialContent ?? ""}
+              value={drafts[node.id] ?? initialMemoryContent(node.data)}
               onChange={(value) => setDrafts((current) => ({
                 ...current,
                 [node.id]: value,
@@ -100,3 +128,10 @@ const agentTreeBrowserModel = new TreeBrowserModel<AgentMemoryData>({
   initialTree: agentMemoryInitialTree,
   storageKey: `flydeck.tree.memo.default.${defaultAgentMemory.version}`,
 });
+
+function initialMemoryContent(value: unknown) {
+  return value && typeof value === "object"
+    && typeof (value as Partial<AgentMemoryData>).initialContent === "string"
+    ? (value as AgentMemoryData).initialContent
+    : "";
+}

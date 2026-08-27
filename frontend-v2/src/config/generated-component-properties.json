@@ -344,6 +344,29 @@
       "height": "inherit"
     }
   },
+  "CheckRadioButton": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "100%",
+      "height": "unset"
+    }
+  },
+  "AgentChatContent": {
+    "fontSize": "1.5rem",
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "100%",
+      "height": "unset"
+    }
+  },
   "DeviceInfo": {
     "base": {
       "color": "inherit",
@@ -465,6 +488,17 @@
       "margin": "inherit",
       "width": "inherit",
       "height": "inherit"
+    }
+  },
+  "AgentChatBrowser": {
+    "base": {
+      "color": "inherit",
+      "background": "transparent",
+      "border": "0",
+      "padding": "0",
+      "margin": "0",
+      "width": "100%",
+      "height": "unset"
     }
   },
   "TreeBrowser": {
@@ -666,6 +700,17 @@
       "margin": "0",
       "width": "unset",
       "height": "unset"
+    }
+  },
+  "PromptInput": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
     }
   },
   "NodeIdInput": {

@@ -19,12 +19,16 @@ import { requestContext } from "./http/requestContext.js";
 import { TreeService } from "./tree/TreeService.js";
 import { NodeImageService } from "./tree/NodeImageService.js";
 import { createTreeRouter } from "./tree/treeRouter.js";
+import { ChatService } from "./chat/ChatService.js";
+import { ChatStore } from "./chat/ChatStore.js";
+import { createChatRouter } from "./chat/chatRouter.js";
 
 export function createApp(config: AppConfig, database: Database) {
   const app = express();
   const backups = new BackupService(config);
   const sessions = new SessionService(database, config);
   const cron = new CronService(database);
+  const chat = new ChatService(new ChatStore(database));
   const trees = new TreeService(database);
   const images = new NodeImageService(
     database,
@@ -98,6 +102,10 @@ export function createApp(config: AppConfig, database: Database) {
   app.use(
     `${apiPath}/workspaces/:workspaceId/cron`,
     createCronRouter(sessions, cron),
+  );
+  app.use(
+    `${apiPath}/workspaces/:workspaceId/chat`,
+    createChatRouter(sessions, chat),
   );
   app.use(
     `${apiPath}/workspaces/:workspaceId/backup`,

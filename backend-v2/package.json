@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@flydeck/shared": "*",
+    "@openai/codex-sdk": "^0.144.6",
     "express": "^5.1.0",
     "pg": "^8.16.3",
     "zod": "^4.0.0"

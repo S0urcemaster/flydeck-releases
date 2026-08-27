@@ -49,6 +49,77 @@ describe("WorkspaceSyncEngine", () => {
     expect(status.getSnapshot()).toEqual({ state: "idle" });
   });
 
+  it("runs a requested follow-up sync after an active mutation", async () => {
+    vi.useFakeTimers();
+    try {
+      const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+      const before = tree("Before", 0, 1);
+      const afterFirst = tree("First", 1, 2);
+      const afterSecond = tree("Second", 2, 3);
+      await replica.replaceTree(scope, before);
+      let resolveFirst!: (value: {
+        node: TreeLoadDto["document"]["nodes"][number];
+        treeRevision: number;
+      }) => void;
+      const firstResponse = new Promise<{
+        node: TreeLoadDto["document"]["nodes"][number];
+        treeRevision: number;
+      }>((resolve) => {
+        resolveFirst = resolve;
+      });
+      let announceMutation!: () => void;
+      const mutationStarted = new Promise<void>((resolve) => {
+        announceMutation = resolve;
+      });
+      const api = {
+        renameDataNode: vi.fn()
+          .mockImplementationOnce(() => {
+            announceMutation();
+            return firstResponse;
+          })
+          .mockResolvedValueOnce({
+            node: afterSecond.document.nodes[0],
+            treeRevision: 3,
+          }),
+      } as unknown as V2ApiClient;
+      const status = new WorkspaceSyncStatusStore(false);
+      const engine = new WorkspaceSyncEngine(replica, api, status, false);
+
+      await engine.submit(scope, {
+        type: "rename-node",
+        nodeId,
+        input: {
+          requestId: "00000000-0000-4000-8000-000000000004",
+          label: "First",
+          expectedRevision: 0,
+        },
+      });
+      const flushing = engine.flush(scope);
+      await mutationStarted;
+      await engine.submit(scope, {
+        type: "rename-node",
+        nodeId,
+        input: {
+          requestId: "00000000-0000-4000-8000-000000000005",
+          label: "Second",
+          expectedRevision: 1,
+        },
+      });
+      const followUp = engine.flush(scope);
+      resolveFirst({ node: afterFirst.document.nodes[0], treeRevision: 2 });
+
+      await expect(flushing).resolves.toBe(true);
+      await expect(followUp).resolves.toBe(true);
+      const cached = await replica.load(scope);
+      expect(cached?.tree?.document.nodes[0].label).toBe("Second");
+      expect(cached?.outbox).toEqual([]);
+      expect(api.renameDataNode).toHaveBeenCalledTimes(2);
+      expect(status.getPendingCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps an optimistic command queued when transport is offline", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     await replica.replaceTree(scope, tree("Before", 0, 1));
@@ -80,6 +151,47 @@ describe("WorkspaceSyncEngine", () => {
       state: "offline",
       reason: "Failed to fetch",
     });
+  });
+
+  it("recovers after the server committed but the local acknowledgement was lost", async () => {
+    const storage = new MemoryWorkspaceReplicaStorage();
+    const firstReplica = new WorkspaceReplica(storage);
+    const before = tree("Before", 0, 1);
+    const after = tree("After", 1, 2);
+    await firstReplica.replaceTree(scope, before);
+    await firstReplica.enqueue(scope, {
+      type: "rename-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000018",
+        label: "After",
+        expectedRevision: 0,
+      },
+    });
+    await firstReplica.recordAttempt(
+      scope,
+      "00000000-0000-4000-8000-000000000018",
+    );
+
+    const reloadedReplica = new WorkspaceReplica(storage);
+    const renameDataNode = vi.fn().mockResolvedValue({
+      node: after.document.nodes[0],
+      treeRevision: 2,
+    });
+    const engine = new WorkspaceSyncEngine(
+      reloadedReplica,
+      { renameDataNode } as unknown as V2ApiClient,
+      new WorkspaceSyncStatusStore(false),
+      false,
+    );
+
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(renameDataNode.mock.calls[0]?.[2].requestId)
+      .toBe("00000000-0000-4000-8000-000000000018");
+    const recovered = await reloadedReplica.load(scope);
+    expect(recovered?.tree?.document.nodes[0].label).toBe("After");
+    expect(recovered?.outbox).toEqual([]);
   });
 
   it("returns the durable optimistic record without waiting for transport", async () => {
@@ -125,7 +237,7 @@ describe("WorkspaceSyncEngine", () => {
     await expect(draining).resolves.toBe(true);
   });
 
-  it("waits for one quiet second before dispatching cached writes", async () => {
+  it("waits for five quiet seconds after the latest cached write", async () => {
     vi.useFakeTimers();
     try {
       const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
@@ -145,7 +257,6 @@ describe("WorkspaceSyncEngine", () => {
         api,
         new WorkspaceSyncStatusStore(false),
         false,
-        1_000,
       );
 
       await engine.submit(scope, {
@@ -157,11 +268,21 @@ describe("WorkspaceSyncEngine", () => {
           expectedRevision: 0,
         },
       });
-      await vi.advanceTimersByTimeAsync(999);
+      await vi.advanceTimersByTimeAsync(4_000);
+      await engine.submit(scope, {
+        type: "rename-node",
+        nodeId,
+        input: {
+          requestId: "00000000-0000-4000-8000-000000000016",
+          label: "After again",
+          expectedRevision: 0,
+        },
+      });
+      await vi.advanceTimersByTimeAsync(4_999);
       expect(renameDataNode).not.toHaveBeenCalled();
 
       await vi.advanceTimersByTimeAsync(1);
-      expect(renameDataNode).toHaveBeenCalledOnce();
+      expect(renameDataNode).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
@@ -172,10 +293,15 @@ describe("WorkspaceSyncEngine", () => {
     const before = tree("Before", 0, 1);
     const after = tree("Before", 2, 3);
     await replica.replaceTree(scope, before);
-    const moveDataNode = vi.fn().mockResolvedValue({
-      node: after.document.nodes[0],
-      treeRevision: 3,
-    });
+    const moveDataNode = vi.fn()
+      .mockResolvedValueOnce({
+        node: { ...after.document.nodes[0], revision: 1 },
+        treeRevision: 2,
+      })
+      .mockResolvedValueOnce({
+        node: after.document.nodes[0],
+        treeRevision: 3,
+      });
     const api = {
       moveDataNode,
       loadDataTree: vi.fn().mockResolvedValue(after),
@@ -298,12 +424,18 @@ describe("WorkspaceSyncEngine", () => {
     expect((await replica.load(scope))?.contents[nodeId]).toEqual(content);
   });
 
-  it("discards a stale selection conflict and continues later writes", async () => {
+  it("rebases a stale selection without discarding the local intent", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const before = tree("Before", 0, 1);
+    const checkpoint = tree("Before", 0, 1);
+    checkpoint.selection = {
+      revision: 4,
+      selectedPath: [],
+      pageSizes: {},
+    };
     const after = tree("After", 1, 2);
     after.selection = {
-      revision: 4,
+      revision: 5,
       selectedPath: [nodeId],
       pageSizes: { __tree_root__: 10 },
     };
@@ -335,14 +467,16 @@ describe("WorkspaceSyncEngine", () => {
       treeRevision: 2,
     });
     const api = {
-      setDataSelection: vi.fn().mockRejectedValue(new V2ApiError({
-        error: "REVISION_CONFLICT",
-        message: "Selection was changed by another request",
-        requestId: "request-1",
-        currentRevision: 4,
-      })),
+      setDataSelection: vi.fn()
+        .mockRejectedValueOnce(new V2ApiError({
+          error: "REVISION_CONFLICT",
+          message: "Selection was changed by another request",
+          requestId: "request-1",
+          currentRevision: 4,
+        }))
+        .mockResolvedValueOnce(after.selection),
       renameDataNode,
-      loadDataTree: vi.fn().mockResolvedValue(after),
+      loadDataTree: vi.fn().mockResolvedValue(checkpoint),
     } as unknown as V2ApiClient;
     const status = new WorkspaceSyncStatusStore(false);
     const engine = new WorkspaceSyncEngine(replica, api, status, false);
@@ -356,7 +490,7 @@ describe("WorkspaceSyncEngine", () => {
     expect(status.getActivitySnapshot()).toEqual({ message: "queue saved" });
   });
 
-  it("discards the client replica after a permanently rejected command", async () => {
+  it("keeps local work when the server permanently rejects a command", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const stale = tree("Stale", 0, 1);
     const confirmed = tree("Server", 2, 3);
@@ -385,17 +519,91 @@ describe("WorkspaceSyncEngine", () => {
       false,
     );
 
-    await expect(engine.flush(scope)).resolves.toBe(true);
+    await expect(engine.flush(scope)).resolves.toBe(false);
 
     expect(await replica.load(scope)).toMatchObject({
-      tree: confirmed,
-      contents: {},
-      outbox: [],
+      tree: stale,
+      outbox: [{
+        blocked: {
+          code: "FORBIDDEN",
+          message: "System directories cannot be changed",
+        },
+      }],
     });
-    expect(status.getSnapshot()).toEqual({ state: "idle" });
+    expect(status.getSnapshot()).toEqual({
+      state: "error",
+      reason: "System directories cannot be changed",
+      pending: 1,
+    });
   });
 
-  it("reconciles the replica without reloading after a tree revision conflict", async () => {
+  it("rebases pending content on the current server revision", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const before = tree("Before", 0, 1);
+    await replica.replaceTree(scope, before);
+    await replica.putContent(scope, {
+      nodeId,
+      format: "markdown",
+      content: "Before",
+      revision: 0,
+    });
+    await replica.enqueue(scope, {
+      type: "update-content",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000017",
+        content: "Local",
+        expectedRevision: 0,
+      },
+    });
+    const updateDataContent = vi.fn()
+      .mockRejectedValueOnce(new V2ApiError({
+        error: "REVISION_CONFLICT",
+        message: "Content was changed by another request",
+        requestId: "request-content",
+        currentRevision: 2,
+      }))
+      .mockResolvedValueOnce({
+        nodeId,
+        format: "markdown",
+        content: "Local",
+        revision: 3,
+      });
+    const api = {
+      updateDataContent,
+      loadDataTree: vi.fn().mockResolvedValue(before),
+      readDataContent: vi.fn().mockResolvedValue({
+        nodeId,
+        format: "markdown",
+        content: "Server",
+        revision: 2,
+      }),
+    } as unknown as V2ApiClient;
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      new WorkspaceSyncStatusStore(false),
+      false,
+    );
+
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(updateDataContent.mock.calls.map(([, , input]) => (
+      input.expectedRevision
+    ))).toEqual([0, 2]);
+    const cached = await replica.load(scope);
+    expect(cached?.contents[nodeId]).toMatchObject({
+      content: "Local",
+      revision: 3,
+    });
+    expect(cached?.confirmedContents[nodeId]).toMatchObject({
+      content: "Local",
+      revision: 3,
+    });
+    expect(cached?.outbox).toEqual([]);
+  });
+
+  it("rebases queued local work after a tree revision conflict", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const stale = tree("Stale", 0, 1);
     const confirmed = tree("Server", 2, 3);
@@ -424,14 +632,24 @@ describe("WorkspaceSyncEngine", () => {
         expectedRevision: 1,
       },
     });
-    const renameDataNode = vi.fn();
+    const moved = {
+      node: { ...confirmed.document.nodes[0], revision: 3 },
+      treeRevision: 4,
+    };
+    const renamed = {
+      node: { ...moved.node, label: "Never dispatched", revision: 4 },
+      treeRevision: 5,
+    };
+    const renameDataNode = vi.fn().mockResolvedValue(renamed);
     const api = {
-      moveDataNode: vi.fn().mockRejectedValue(new V2ApiError({
-        error: "REVISION_CONFLICT",
-        message: "The tree was changed in another browser : please reload",
-        requestId: "request-2",
-        currentRevision: 3,
-      })),
+      moveDataNode: vi.fn()
+        .mockRejectedValueOnce(new V2ApiError({
+          error: "REVISION_CONFLICT",
+          message: "The tree was changed in another browser : please reload",
+          requestId: "request-2",
+          currentRevision: 3,
+        }))
+        .mockResolvedValueOnce(moved),
       renameDataNode,
       loadDataTree: vi.fn().mockResolvedValue(confirmed),
     } as unknown as V2ApiClient;
@@ -445,13 +663,51 @@ describe("WorkspaceSyncEngine", () => {
 
     await expect(engine.flush(scope)).resolves.toBe(true);
 
-    expect(renameDataNode).not.toHaveBeenCalled();
-    expect(await replica.load(scope)).toMatchObject({
-      tree: confirmed,
-      contents: {},
-      outbox: [],
+    expect(renameDataNode).toHaveBeenCalledOnce();
+    const cached = await replica.load(scope);
+    expect(cached?.tree?.document.nodes[0]).toMatchObject({
+      label: "Never dispatched",
+      revision: 4,
     });
+    expect(cached?.contents[nodeId]?.content).toBe("Local only");
+    expect(cached?.outbox).toEqual([]);
     expect(status.getSnapshot()).toEqual({ state: "idle" });
+  });
+
+  it("keeps a revision conflict pending when checkpoint recovery is offline", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    await replica.replaceTree(scope, tree("Before", 0, 1));
+    await replica.enqueue(scope, {
+      type: "rename-node",
+      nodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000019",
+        label: "Local",
+        expectedRevision: 0,
+      },
+    });
+    const api = {
+      renameDataNode: vi.fn().mockRejectedValue(new V2ApiError({
+        error: "REVISION_CONFLICT",
+        message: "Node revision changed",
+        requestId: "request-revision",
+        currentRevision: 2,
+      })),
+      loadDataTree: vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+    } as unknown as V2ApiClient;
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      new WorkspaceSyncStatusStore(false),
+      false,
+    );
+
+    await expect(engine.flush(scope)).resolves.toBe(false);
+
+    const cached = await replica.load(scope);
+    expect(cached?.tree?.document.nodes[0].label).toBe("Local");
+    expect(cached?.outbox).toHaveLength(1);
+    expect(cached?.outbox[0].blocked).toBeUndefined();
   });
 });
 

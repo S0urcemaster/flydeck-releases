@@ -53,14 +53,15 @@
 }
 
 .subtitle {
-  flex: 1 1 12rem;
-  min-width: min(100%, 12rem);
+  flex: 0 0 auto;
+  min-width: 0;
   position: relative;
   top: var(--app-title-subtitle-top, 0px);
   left: var(--app-title-subtitle-left, 0px);
   color: var(--color-text-muted);
   font-size: var(--app-title-subtitle-font-size, 0.78rem);
   line-height: 1;
+  white-space: nowrap;
 }
 
 .status {

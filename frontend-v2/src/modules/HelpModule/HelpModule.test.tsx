@@ -14,7 +14,7 @@ describe("HelpModule", () => {
 
     expect(markup).toContain('aria-label="Help module"');
     expect(markup).toContain("Flydeck Manual");
-    expect(markup).toContain("Maintenance");
+    expect(markup).toContain("Tree Browser Hierarchy Control");
   });
 
   it("renders headings, gaps, and text without parsing HTML", () => {

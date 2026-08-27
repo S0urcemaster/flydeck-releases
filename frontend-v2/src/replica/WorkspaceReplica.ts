@@ -12,20 +12,23 @@ import {
   updateTreeNodeContentRequestSchema,
   updateTreeNodeLocalIdRequestSchema,
   type CreateTreeNodeRequest,
+  type CreateTreeNodeResponse,
   type DeleteTreeNodeRequest,
+  type MutationRevisionDto,
   type MoveTreeNodeRequest,
   type RenameTreeNodeRequest,
   type ReparentTreeNodeRequest,
   type SetTreeNodeEnabledRequest,
+  type SetTreeNodeEnabledResponse,
   type SetTreeSelectionRequest,
   type TreeLoadDto,
   type TreeNodeContentDto,
-  type TreeNodeDto,
+  type TreeSelectionDto,
   type UpdateTreeNodeContentRequest,
   type UpdateTreeNodeLocalIdRequest,
 } from "@flydeck/shared/v2";
 
-export const workspaceReplicaSchemaVersion = 3;
+export const workspaceReplicaSchemaVersion = 4;
 
 export type WorkspaceReplicaScope = {
   userId: string;
@@ -49,11 +52,25 @@ export type WorkspaceOutboxEntry = {
   attempts: number;
   userCommandId?: string;
   command: WorkspaceDataCommand;
+  blocked?: {
+    code: string;
+    message: string;
+    at: string;
+  };
 };
+
+export type WorkspaceDataCommandResult =
+  | CreateTreeNodeResponse
+  | MutationRevisionDto
+  | SetTreeNodeEnabledResponse
+  | TreeSelectionDto
+  | TreeNodeContentDto;
 
 export type WorkspaceReplicaRecord = {
   schemaVersion: typeof workspaceReplicaSchemaVersion;
+  confirmedTree: TreeLoadDto | null;
   tree: TreeLoadDto | null;
+  confirmedContents: Readonly<Record<string, TreeNodeContentDto>>;
   contents: Readonly<Record<string, TreeNodeContentDto>>;
   outbox: readonly WorkspaceOutboxEntry[];
   lastServerSyncAt: string | null;
@@ -76,7 +93,9 @@ export interface WorkspaceReplicaStorage {
 export function emptyWorkspaceReplicaRecord(): WorkspaceReplicaRecord {
   return {
     schemaVersion: workspaceReplicaSchemaVersion,
+    confirmedTree: null,
     tree: null,
+    confirmedContents: {},
     contents: {},
     outbox: [],
     lastServerSyncAt: null,
@@ -260,24 +279,40 @@ export class WorkspaceReplica {
     if (tree.document.workspaceId !== scope.workspaceId) {
       throw new Error("Workspace replica received a tree from another workspace");
     }
-    return this.transact(scope, (current) => ({
+    return this.transact(scope, (current) => reprojectRecord({
       ...current,
+      confirmedTree: tree,
       tree,
+      contents: current.confirmedContents,
       lastServerSyncAt: this.now().toISOString(),
-    }), { preserveContents: true, preserveEquivalentTree: true });
+    }), { preserveEquivalentTree: true });
   }
 
-  resetToServerTree(scope: WorkspaceReplicaScope, tree: TreeLoadDto) {
+  rebaseFromServer(
+    scope: WorkspaceReplicaScope,
+    tree: TreeLoadDto,
+    contents: readonly TreeNodeContentDto[] = [],
+  ) {
     if (tree.document.workspaceId !== scope.workspaceId) {
       throw new Error("Workspace replica received a tree from another workspace");
     }
-    return this.transact(scope, (current) => ({
-      ...current,
-      tree,
-      contents: {},
-      outbox: [],
-      lastServerSyncAt: this.now().toISOString(),
-    }));
+    return this.transact(scope, (current) => {
+      const confirmedContents = contents.reduce<Record<string, TreeNodeContentDto>>(
+        (next, content) => {
+          next[content.nodeId] = content;
+          return next;
+        },
+        { ...current.confirmedContents },
+      );
+      return reprojectRecord({
+        ...current,
+        confirmedTree: tree,
+        tree,
+        confirmedContents,
+        contents: confirmedContents,
+        lastServerSyncAt: this.now().toISOString(),
+      });
+    }, { preserveEquivalentTree: true });
   }
 
   putContent(scope: WorkspaceReplicaScope, content: TreeNodeContentDto) {
@@ -288,43 +323,21 @@ export class WorkspaceReplica {
     scope: WorkspaceReplicaScope,
     contents: readonly TreeNodeContentDto[],
   ) {
-    return this.transact(scope, (current) => ({
-      ...current,
-      contents: contents.reduce<Record<string, TreeNodeContentDto>>(
+    return this.transact(scope, (current) => {
+      const confirmedContents = contents.reduce<Record<string, TreeNodeContentDto>>(
         (next, content) => {
           next[content.nodeId] = content;
           return next;
         },
-        { ...current.contents },
-      ),
-      lastServerSyncAt: this.now().toISOString(),
-    }), { preserveTree: true });
-  }
-
-  putNode(
-    scope: WorkspaceReplicaScope,
-    node: TreeNodeDto,
-    treeRevision: number,
-  ) {
-    return this.transact(scope, (current) => {
-      if (!current.tree) return current;
-      const existing = current.tree.document.nodes.some(({ id }) => id === node.id);
-      return {
+        { ...current.confirmedContents },
+      );
+      return reprojectRecord({
         ...current,
-        tree: {
-          ...current.tree,
-          document: {
-            ...current.tree.document,
-            revision: treeRevision,
-            nodes: existing
-              ? current.tree.document.nodes.map((candidate) => (
-                candidate.id === node.id ? node : candidate
-              ))
-              : [...current.tree.document.nodes, node],
-          },
-        },
-      };
-    }, { preserveContents: true });
+        confirmedContents,
+        contents: confirmedContents,
+        lastServerSyncAt: this.now().toISOString(),
+      });
+    }, { preserveTree: true });
   }
 
   enqueue(
@@ -360,11 +373,67 @@ export class WorkspaceReplica {
     }), { preserveTree: true, preserveContents: true });
   }
 
-  acknowledge(scope: WorkspaceReplicaScope, id: string) {
+  markBlocked(scope: WorkspaceReplicaScope, id: string, code: string, message: string) {
     return this.transact(scope, (current) => ({
       ...current,
-      outbox: current.outbox.filter((entry) => entry.id !== id),
+      outbox: current.outbox.map((entry) => entry.id === id
+        ? {
+            ...entry,
+            blocked: { code, message, at: this.now().toISOString() },
+          }
+        : entry),
     }), { preserveTree: true, preserveContents: true });
+  }
+
+  retryBlocked(scope: WorkspaceReplicaScope, id: string) {
+    return this.transact(scope, (current) => ({
+      ...current,
+      outbox: current.outbox.map((entry) => entry.id === id
+        ? { ...entry, blocked: undefined }
+        : entry),
+    }), { preserveTree: true, preserveContents: true });
+  }
+
+  async exportRecord(scope: WorkspaceReplicaScope) {
+    const record = await this.load(scope);
+    return JSON.stringify({
+      exportedAt: this.now().toISOString(),
+      scope,
+      record,
+    }, null, 2);
+  }
+
+  confirm(
+    scope: WorkspaceReplicaScope,
+    id: string,
+    result: WorkspaceDataCommandResult,
+  ) {
+    return this.transact(scope, (current) => {
+      const entry = current.outbox.find((candidate) => candidate.id === id);
+      if (!entry) return current;
+      const confirmedBase: WorkspaceReplicaRecord = {
+        ...current,
+        tree: current.confirmedTree,
+        contents: current.confirmedContents,
+        outbox: [],
+      };
+      const command = rebaseCommand(confirmedBase, entry.command);
+      const optimisticConfirmation = applyOptimisticCommand(confirmedBase, command);
+      const confirmed = mergeServerResult(
+        optimisticConfirmation,
+        command,
+        result,
+      );
+      return reprojectRecord({
+        ...current,
+        confirmedTree: confirmed.tree,
+        tree: confirmed.tree,
+        confirmedContents: confirmed.contents,
+        contents: confirmed.contents,
+        outbox: current.outbox.filter((candidate) => candidate.id !== id),
+        lastServerSyncAt: this.now().toISOString(),
+      });
+    }, { preserveEquivalentTree: true });
   }
 
   private async transact(
@@ -407,6 +476,91 @@ export class WorkspaceReplica {
     } : record;
     this.snapshots.set(key, snapshot);
     for (const listener of this.listeners.get(key) ?? []) listener();
+  }
+}
+
+function reprojectRecord(current: WorkspaceReplicaRecord): WorkspaceReplicaRecord {
+  let projection: WorkspaceReplicaRecord = {
+    ...current,
+    tree: current.confirmedTree,
+    contents: current.confirmedContents,
+    outbox: [],
+  };
+  const outbox: WorkspaceOutboxEntry[] = [];
+  for (const entry of current.outbox) {
+    const command = rebaseCommand(projection, entry.command);
+    projection = applyOptimisticCommand(projection, command);
+    outbox.push({ ...entry, command });
+  }
+  return {
+    ...projection,
+    confirmedTree: current.confirmedTree,
+    confirmedContents: current.confirmedContents,
+    outbox,
+    lastServerSyncAt: current.lastServerSyncAt,
+  };
+}
+
+function mergeServerResult(
+  current: WorkspaceReplicaRecord,
+  command: WorkspaceDataCommand,
+  result: WorkspaceDataCommandResult,
+): WorkspaceReplicaRecord {
+  switch (command.type) {
+    case "create-node":
+    case "rename-node":
+    case "update-local-id":
+    case "move-node":
+    case "reparent-node": {
+      const confirmed = result as CreateTreeNodeResponse;
+      return updateDocument(current, (tree) => ({
+        ...tree,
+        document: {
+          ...tree.document,
+          revision: confirmed.treeRevision,
+          nodes: tree.document.nodes.map((node) => (
+            node.id === confirmed.node.id ? confirmed.node : node
+          )),
+        },
+      }));
+    }
+    case "delete-node": {
+      const confirmed = result as MutationRevisionDto;
+      return updateDocument(current, (tree) => ({
+        ...tree,
+        document: { ...tree.document, revision: confirmed.revision },
+      }));
+    }
+    case "set-node-enabled": {
+      const confirmed = result as SetTreeNodeEnabledResponse;
+      return updateDocument(current, (tree) => {
+        const enabled = new Set(tree.semanticState.enabledNodeIds);
+        if (confirmed.enabled) enabled.add(confirmed.nodeId);
+        else enabled.delete(confirmed.nodeId);
+        return {
+          ...tree,
+          semanticState: {
+            revision: Math.max(tree.semanticState.revision, confirmed.revision),
+            enabledNodeIds: [...enabled],
+            nodeRevisions: {
+              ...tree.semanticState.nodeRevisions,
+              [confirmed.nodeId]: confirmed.revision,
+            },
+          },
+        };
+      });
+    }
+    case "set-selection": return updateDocument(current, (tree) => ({
+      ...tree,
+      selection: result as TreeSelectionDto,
+    }));
+    case "update-content": {
+      const confirmed = result as TreeNodeContentDto;
+      return {
+        ...current,
+        contents: { ...current.contents, [confirmed.nodeId]: confirmed },
+      };
+    }
   }
 }
 
@@ -483,7 +637,18 @@ function assertReplicaRecord(record: unknown): asserts record is WorkspaceReplic
   if (!record || typeof record !== "object") invalidReplica();
   const candidate = record as Partial<WorkspaceReplicaRecord>;
   if (candidate.schemaVersion !== workspaceReplicaSchemaVersion) invalidReplica();
+  if (candidate.confirmedTree !== null
+    && !treeLoadDtoSchema.safeParse(candidate.confirmedTree).success) {
+    invalidReplica();
+  }
   if (candidate.tree !== null && !treeLoadDtoSchema.safeParse(candidate.tree).success) {
+    invalidReplica();
+  }
+  if (!candidate.confirmedContents || typeof candidate.confirmedContents !== "object"
+    || Array.isArray(candidate.confirmedContents)
+    || !Object.values(candidate.confirmedContents).every(
+      (content) => treeNodeContentDtoSchema.safeParse(content).success,
+    )) {
     invalidReplica();
   }
   if (!candidate.contents || typeof candidate.contents !== "object"
@@ -507,7 +672,9 @@ export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
   if (!record || typeof record !== "object") return record;
   const candidate = clone(record) as Record<string, unknown>;
   const sourceVersion = candidate.schemaVersion;
-  if (sourceVersion !== 1 && sourceVersion !== 2) return candidate;
+  if (sourceVersion !== 1 && sourceVersion !== 2 && sourceVersion !== 3) {
+    return candidate;
+  }
   let localIdByNodeId = new Map<string, string>();
   const tree = candidate.tree;
   if (tree && typeof tree === "object") {
@@ -549,6 +716,10 @@ export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
       }
     }
   }
+  const hasPendingCommands = Array.isArray(candidate.outbox)
+    && candidate.outbox.length > 0;
+  candidate.confirmedTree = hasPendingCommands ? null : clone(candidate.tree ?? null);
+  candidate.confirmedContents = hasPendingCommands ? {} : clone(candidate.contents ?? {});
   candidate.schemaVersion = workspaceReplicaSchemaVersion;
   return candidate;
 }
@@ -609,6 +780,13 @@ function isOutboxEntry(value: unknown): value is WorkspaceOutboxEntry {
     && (entry.attempts ?? -1) >= 0
     && (entry.userCommandId === undefined
       || typeof entry.userCommandId === "string")
+    && (entry.blocked === undefined || (
+      typeof entry.blocked === "object"
+      && entry.blocked !== null
+      && typeof entry.blocked.code === "string"
+      && typeof entry.blocked.message === "string"
+      && typeof entry.blocked.at === "string"
+    ))
     && isWorkspaceDataCommand(entry.command);
 }
 

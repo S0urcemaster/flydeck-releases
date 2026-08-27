@@ -26,6 +26,10 @@ import {
 
 import { Base, type BaseProps } from "../Base";
 import { Button, type ButtonProps } from "../Button";
+import {
+  CheckRadioButton,
+  type CheckRadioButtonProps,
+} from "../CheckRadioButton";
 import { DeleteButton, type DeleteButtonProps } from "../DeleteButton";
 import type {
   DialerButtonProps,
@@ -146,6 +150,16 @@ export type CronDialerProps = Omit<
     | "onRenameNode"
     | "rootLabel"
   >;
+  dataSourceToggleButtonProps?: Omit<
+    CheckRadioButtonProps,
+    | "checked"
+    | "children"
+    | "checkLabel"
+    | "onCheckedChange"
+    | "onSelect"
+    | "selectLabel"
+    | "selected"
+  >;
   pointerProps?: Omit<PointerProps, "mode" | "position" | "shadow">;
   pointerButtonProps?: Omit<
     PointerButtonProps,
@@ -205,6 +219,21 @@ export const cronEventsSlice: ClientStateSlice<CronStoredEvent[]> = {
   validate: isCronStoredEventList,
 };
 
+export type CronDataSourceState = {
+  hiddenPaths: string[];
+  selectedPath: string;
+};
+
+export const cronDataSourceStateSlice: ClientStateSlice<CronDataSourceState> = {
+  name: "cron.datasources",
+  version: 1,
+  defaultValue: {
+    hiddenPaths: [],
+    selectedPath: "_system/Cron",
+  },
+  validate: isCronDataSourceState,
+};
+
 type CronEndpoint = "start" | "end";
 type CronEndpointMode = CronEndpoint | "off";
 
@@ -254,6 +283,9 @@ export function CronDialer(props: CronDialerProps) {
   );
   const [eventDraft, setEventDraft] = useClientStateSlice(cronEventDraftSlice);
   const [events, setEvents] = useClientStateSlice(cronEventsSlice);
+  const [dataSourceState, setDataSourceState] = useClientStateSlice(
+    cronDataSourceStateSlice,
+  );
   const { userId } = useClientStateScope();
   const replicaScope = useMemo<WorkspaceReplicaScope | null>(() => (
     props.workspaceId ? { userId, workspaceId: props.workspaceId } : null
@@ -277,6 +309,15 @@ export function CronDialer(props: CronDialerProps) {
     id: node.id,
     path: node.label,
   })), [dataSourceNodes]);
+  const visibleDataSources = useMemo(() => dataSources.filter(
+    ({ path }) => !dataSourceState.hiddenPaths.some((hidden) => sameCronPath(hidden, path)),
+  ), [dataSourceState.hiddenPaths, dataSources]);
+  const selectedDataSource = dataSources.find(
+    ({ path }) => sameCronPath(path, dataSourceState.selectedPath),
+  ) ?? dataSources.find(({ path }) => isPrimaryCronPath(path)) ?? dataSources[0];
+  const selectedDataSourceTarget = selectedDataSource
+    ? findCronNodeByPath(treeNodes ?? [], selectedDataSource.path)
+    : undefined;
   const initialStartTime = validCronDate(eventDraft.startTime) ?? fallbackTime;
   const initialEndTime = ensureCronEndAfterStart(
     initialStartTime,
@@ -302,13 +343,13 @@ export function CronDialer(props: CronDialerProps) {
   const minorMarks = cronTimelineMinorMarks(centerTime, halfRangeMs, marks);
   const resolvedDataSourceNodes = useMemo(() => resolveCronDataSourceNodes(
     replicaRecord?.tree ?? null,
-    dataSources,
-  ), [dataSources, replicaRecord?.tree]);
+    visibleDataSources,
+  ), [visibleDataSources, replicaRecord?.tree]);
   const dataSourceEvents = useMemo(() => cronEventsFromDataSources(
     replicaRecord?.tree ?? null,
     replicaRecord?.contents ?? {},
-    dataSources,
-  ), [dataSources, replicaRecord?.contents, replicaRecord?.tree]);
+    visibleDataSources,
+  ), [visibleDataSources, replicaRecord?.contents, replicaRecord?.tree]);
   const eventBlocks = cronTimelineEventBlocks(
     [...events, ...dataSourceEvents],
     centerTime,
@@ -386,10 +427,10 @@ export function CronDialer(props: CronDialerProps) {
     if (!replicaScope || !tree || bootstrappingData.current) return;
     const systemRoot = findCronNodeByPath(tree.document.nodes, "_system");
     if (!systemRoot) return;
-    const defaultExists = dataSourceNodes.some(
-      ({ label }) => isDefaultCronPath(label),
-    );
-    if (cronRoot && dataSourceRoot && defaultExists) return;
+    const defaultsExist = requiredCronDataSourcePaths.every((path) => (
+      dataSourceNodes.some(({ label }) => sameCronPath(label, path))
+    ));
+    if (cronRoot && dataSourceRoot && defaultsExist) return;
     bootstrappingData.current = true;
     void ensureCronDataStructure(
       replicaScope,
@@ -622,9 +663,9 @@ export function CronDialer(props: CronDialerProps) {
         setView("timeline");
         return;
       }
-      if (!replicaScope || !tree || !cronRoot) return;
+      if (!replicaScope || !tree || !selectedDataSourceTarget) return;
       const siblings = tree.document.nodes
-        .filter(({ parentId }) => parentId === cronRoot.id)
+        .filter(({ parentId }) => parentId === selectedDataSourceTarget.id)
         .sort(compareCronNodes);
       const nodeId = createCronEventId();
       const label = eventDraft.title.trim() || "Event";
@@ -633,7 +674,7 @@ export function CronDialer(props: CronDialerProps) {
         input: {
           requestId: crypto.randomUUID(),
           nodeId,
-          parentId: cronRoot.id,
+          parentId: selectedDataSourceTarget.id,
           afterNodeId: siblings.at(-1)?.id ?? null,
           kind: "data-file",
           label,
@@ -761,7 +802,7 @@ export function CronDialer(props: CronDialerProps) {
   const renameDataSource = useCallback(async (id: string, name: string) => {
     const path = normalizeDataPath(name);
     const node = dataSourceNodes.find((candidate) => candidate.id === id);
-    if (!path || !node || !replicaScope) return false;
+    if (!path || !node || !replicaScope || isDefaultCronPath(node.label)) return false;
     try {
       return Boolean(await workspaceSyncEngine.submit(replicaScope, {
         type: "rename-node",
@@ -779,6 +820,8 @@ export function CronDialer(props: CronDialerProps) {
 
   const deleteDataSource = useCallback(async (id: string) => {
     if (!replicaScope || !tree) return false;
+    const node = dataSourceNodes.find((candidate) => candidate.id === id);
+    if (!node || isDefaultCronPath(node.label)) return false;
     try {
       return Boolean(await workspaceSyncEngine.submit(replicaScope, {
         type: "delete-node",
@@ -791,7 +834,7 @@ export function CronDialer(props: CronDialerProps) {
     } catch {
       return false;
     }
-  }, [replicaScope, tree]);
+  }, [dataSourceNodes, replicaScope, tree]);
 
   const moveDataSource = useCallback(async (id: string, afterId: string | null) => {
     if (!replicaScope || !tree) return false;
@@ -826,6 +869,48 @@ export function CronDialer(props: CronDialerProps) {
         ? "100%"
         : props.width}
     >
+      <nav className={styles.dataSourceTabs} aria-label="Cron datasources">
+        {distributeCronDataSourceTabs(dataSources).map((row, rowIndex) => (
+          <div
+            className={styles.dataSourceTabRow}
+            data-columns={row.length}
+            key={`${rowIndex}-${row.map(({ id }) => id).join("-")}`}
+          >
+            {row.map((source) => {
+              const checked = !dataSourceState.hiddenPaths.some(
+                (hidden) => sameCronPath(hidden, source.path),
+              );
+              const label = cronDataSourceTabLabel(source.path);
+              return (
+                <CheckRadioButton
+                  {...props.dataSourceToggleButtonProps}
+                  checked={checked}
+                  checkLabel={`${checked ? "Hide" : "Show"} ${source.path}`}
+                  key={source.id}
+                  selectLabel={`Store new events in ${source.path}`}
+                  selected={selectedDataSource?.id === source.id}
+                  onCheckedChange={(nextChecked) => {
+                    setDataSourceState((current) => ({
+                      ...current,
+                      hiddenPaths: nextChecked
+                        ? current.hiddenPaths.filter(
+                            (path) => !sameCronPath(path, source.path),
+                          )
+                        : [...current.hiddenPaths, source.path],
+                    }));
+                  }}
+                  onSelect={() => setDataSourceState((current) => ({
+                    ...current,
+                    selectedPath: source.path,
+                  }))}
+                >
+                  {label}
+                </CheckRadioButton>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
       {view === "event" ? (
         <Form
           aria-label="Event form"
@@ -922,7 +1007,7 @@ export function CronDialer(props: CronDialerProps) {
             className={styles.saveButton}
             disabled={savingEvent || (editingEvent
               ? Boolean(editingEvent.sourceNodeId && (!tree || !replicaScope))
-              : !cronRoot || !replicaScope)}
+              : !selectedDataSourceTarget || !replicaScope)}
             type="submit"
             width="100%"
           >
@@ -1586,6 +1671,14 @@ function isCronStoredEventList(value: unknown): value is CronStoredEvent[] {
   });
 }
 
+function isCronDataSourceState(value: unknown): value is CronDataSourceState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const state = value as Partial<CronDataSourceState>;
+  return typeof state.selectedPath === "string"
+    && Array.isArray(state.hiddenPaths)
+    && state.hiddenPaths.every((path) => typeof path === "string");
+}
+
 function createCronEventId() {
   if (typeof globalThis.crypto !== "undefined"
     && "randomUUID" in globalThis.crypto) {
@@ -1638,14 +1731,21 @@ async function ensureCronDataStructure(
 
   const cron = await ensureNode(systemRoot.id, "Cron", "cron");
   if (!cron) return false;
+  const agnt = await ensureNode(systemRoot.id, "Agnt", "agnt");
+  if (!agnt) return false;
   const dataSources = await ensureNode(cron.id, "datasources", "datasources");
   if (!dataSources) return false;
-  const defaultSource = nodes.find((node) => (
-    node.parentId === dataSources.id
-    && isDefaultCronPath(node.label)
+  const cronSource = nodes.find((node) => (
+    node.parentId === dataSources.id && isPrimaryCronPath(node.label)
   ));
-  if (!defaultSource) {
+  if (!cronSource) {
     await ensureNode(dataSources.id, "_system/Cron", "default");
+  }
+  const agntSource = nodes.find((node) => (
+    node.parentId === dataSources.id && sameCronPath(node.label, "_system/Agnt")
+  ));
+  if (!agntSource) {
+    await ensureNode(dataSources.id, "_system/Agnt", "agnt");
   }
   return true;
 }
@@ -1680,8 +1780,35 @@ function compareCronNodes(left: TreeNodeDto, right: TreeNodeDto) {
   return left.position - right.position || left.id.localeCompare(right.id);
 }
 
+const requiredCronDataSourcePaths = ["_system/Cron", "_system/Agnt"] as const;
+
+function sameCronPath(left: string, right: string) {
+  return normalizeDataPath(left).toLocaleLowerCase()
+    === normalizeDataPath(right).toLocaleLowerCase();
+}
+
+function isPrimaryCronPath(path: string) {
+  return sameCronPath(path, requiredCronDataSourcePaths[0]);
+}
+
 function isDefaultCronPath(path: string) {
-  return normalizeDataPath(path).toLocaleLowerCase() === "_system/cron";
+  return requiredCronDataSourcePaths.some((required) => sameCronPath(path, required));
+}
+
+function cronDataSourceTabLabel(path: string) {
+  return normalizeDataPath(path).split("/").filter(Boolean).at(-1) ?? path;
+}
+
+export function distributeCronDataSourceTabs<T>(items: readonly T[]): T[][] {
+  const rows: T[][] = [];
+  let index = 0;
+  while (index < items.length) {
+    const remaining = items.length - index;
+    const rowSize = remaining === 5 ? 3 : Math.min(4, remaining);
+    rows.push(items.slice(index, index + rowSize));
+    index += rowSize;
+  }
+  return rows;
 }
 
 function serializeCronEvent(
@@ -1709,6 +1836,7 @@ function cronBaseProps(props: CronDialerProps): BaseProps<"div"> {
     "eventButtonProps",
     "eventDeleteButtonProps",
     "dataSourceBrowserProps",
+    "dataSourceToggleButtonProps",
     "eventInputProps",
     "eventTextareaProps",
     "initialEditorOpen",

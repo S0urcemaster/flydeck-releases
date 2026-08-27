@@ -19,6 +19,7 @@ export function Checkbox({
   label,
   onChange,
   activeColor,
+  className,
   componentName = "Checkbox",
   ...buttonProps
 }: CheckboxProps) {
@@ -26,7 +27,7 @@ export function Checkbox({
     <Button
       {...buttonProps}
       componentName={componentName}
-      className={styles.root}
+      className={className ? `${styles.root} ${className}` : styles.root}
       activeColor={activeColor}
       selected={checked}
       aria-label={label}

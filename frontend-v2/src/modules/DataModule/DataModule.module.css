@@ -1,0 +1,6 @@
+.bottomSpacer {
+  height: 2.5rem;
+  margin-top: calc(-1 * var(--app-section-gap));
+  background: transparent;
+  pointer-events: none;
+}

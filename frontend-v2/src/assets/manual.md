@@ -23,28 +23,16 @@ The UI is designed to be self-explaining + This cannot always be fully achieved 
 Work in progress ! Things might not function as intended
 --------------------------------------------------------
 
-### Caution !
-
-Information is a weapon and can be used against you !
-During the development and to be able to fully test all functions : I made a fun game : writing down details about strangers that came up to me randomly + Looks, current action, direction and time -- and soon it became clear that in a couple of month : I,d had some library of what,s going on in my town
-Now AI comes to play : "Show me patterns" could be a prompt
-People consist of habits and exceptions -- now : is Flydeck dangerous ?
-Yes ! Absolutely ! It,s a very powerful tool -- that,s why you should use it - ahead of others
-Police is checking you - takes your knife and gives your phone back ?
-Know your life better than anyone else could possibly do
-Countries and companies are collecting data about you -- that isn,t the worst news - as long as you are conscious about it
-
-> Chart your life : know yourself - and you know your limits and options
-
 ### Start with collecting data - Today !
 
 It,s only 1 thing today that comes into your mind -- tomorrow it will be 2
 
 ### What can you do with Flydeck ?
 
-Flydeck is a Database application for personal data that works off the usual internet grids / but runs on your own (little) homeserver hardware directly at your router
+Flydeck is a patabase application for structural data that works off the usual internet grids / but runs on your own (little) homeserver hardware directly at your router
 
 You can store data from your smartphone - do you have some ?
+
 If you don,t have data around : Flydeck will be pretty useless to you
 
 Think about any data that could be useful to you or you don,t need to read on
@@ -218,18 +206,3 @@ Browser API Speech recognition without the need to be online
 - Copy/Paste/Select All as long press functions
 - Emotes button switches whole keyboard > shift button has 3 layers again
 
-
-### Basic Navigation
-
-The first row below a text input is CURSOR < left > right and W_ord select (press multiple to expand selection)
-When long pressed : you have from left to right : copy / paste text and select all
-To completely clear a text input use : select all +backspace
-
-### Character Dialer
-
-The buttons on the left column are programmable : select a text and long press the button to create a cycle through the saved letters when single clicking
-The dialer corner and riht column buttons are programmable : use the settings in the config to set the layout to your liking (e.g. if you,re a lefty)
-
-## Maintenance
-
-Use the factory reset setting in the config section to reset the client to default configuration

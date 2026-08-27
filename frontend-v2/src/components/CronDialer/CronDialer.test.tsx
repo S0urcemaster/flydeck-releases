@@ -7,6 +7,7 @@ import {
   CRON_HALF_RANGES_MS,
   CRON_VERTICAL_STEPS_MS,
   CronDialer,
+  cronDataSourceStateSlice,
   cronEventDraftSlice,
   cronEventsSlice,
   cronEndpointOverlay,
@@ -16,6 +17,7 @@ import {
   cronTimelineMarks,
   cronTimelineMinorMarks,
   cronTimelineEventBlocks,
+  distributeCronDataSourceTabs,
   cronVerticalStep,
   ensureCronEndAfterStart,
   keepCronEndAfterStart,
@@ -28,6 +30,19 @@ import {
 } from "./CronDialer";
 
 describe("CronDialer", () => {
+  it("distributes datasource tabs into rows of two to four", () => {
+    expect(distributeCronDataSourceTabs([1, 2, 3, 4])).toEqual([[1, 2, 3, 4]]);
+    expect(distributeCronDataSourceTabs([1, 2, 3, 4, 5])).toEqual([
+      [1, 2, 3],
+      [4, 5],
+    ]);
+    expect(distributeCronDataSourceTabs([1, 2, 3, 4, 5, 6, 7, 8, 9])).toEqual([
+      [1, 2, 3, 4],
+      [5, 6, 7],
+      [8, 9],
+    ]);
+  });
+
   it("renders a viewport-filling vertical timeline centered on the selected time", () => {
     const markup = renderToStaticMarkup(
       <CronDialer
@@ -183,6 +198,21 @@ describe("CronDialer", () => {
       title: "Morning",
     })).toBe(true);
     expect(cronEventDraftSlice.validate({ title: "Incomplete" })).toBe(false);
+  });
+
+  it("persists independent datasource visibility and storage selection", () => {
+    expect(cronDataSourceStateSlice.defaultValue).toEqual({
+      hiddenPaths: [],
+      selectedPath: "_system/Cron",
+    });
+    expect(cronDataSourceStateSlice.validate({
+      hiddenPaths: ["_system/Agnt"],
+      selectedPath: "_system/Cron",
+    })).toBe(true);
+    expect(cronDataSourceStateSlice.validate({
+      hiddenPaths: [4],
+      selectedPath: "_system/Cron",
+    })).toBe(false);
   });
 
   it("persists valid saved events and rejects invalid intervals", () => {

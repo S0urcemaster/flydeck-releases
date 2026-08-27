@@ -31,6 +31,8 @@ import { ButtonLink } from "../components/ButtonLink";
 import { BrowserItemLabelButton } from "../components/BrowserItemLabelButton";
 import { BrowserItemModeButton } from "../components/BrowserItemModeButton";
 import { Checkbox } from "../components/Checkbox";
+import { CheckRadioButton } from "../components/CheckRadioButton";
+import { PromptInput } from "../components/PromptInput";
 import { CompactButton } from "../components/CompactButton";
 import { ColorDialer } from "../components/ColorDialer";
 import { CompassApp } from "../components/CompassApp";
@@ -523,9 +525,13 @@ export function LabApp() {
     BrowserItemModeButton:
       storedComponentProperties.BrowserItemModeButton.base,
     Checkbox: storedComponentProperties.Checkbox.base,
+    CheckRadioButton: storedComponentProperties.CheckRadioButton.base,
+    AgentChatContent: storedComponentProperties.AgentChatContent.base,
+    AgentChatBrowser: storedComponentProperties.AgentChatBrowser.base,
     DataBrowser: storedComponentProperties.DataBrowser.base,
     AppBrowser: storedComponentProperties.AppBrowser.base,
     InputControl: storedComponentProperties.InputControl.base,
+    PromptInput: storedComponentProperties.PromptInput.base,
     MemoryBrowser: storedComponentProperties.MemoryBrowser.base,
     Input: storedComponentProperties.Input.base,
     ListControl: storedComponentProperties.ListControl.base,
@@ -580,6 +586,9 @@ export function LabApp() {
   );
   const [checkboxFontSize, setCheckboxFontSize] = useState(
     storedComponentProperties.Checkbox.fontSize,
+  );
+  const [agentChatContentFontSize, setAgentChatContentFontSize] = useState(
+    storedComponentProperties.AgentChatContent.fontSize,
   );
   const [buttonLinkLabel, setButtonLinkLabel] =
     useState(storedComponentProperties.ButtonLink.label);
@@ -873,10 +882,21 @@ export function LabApp() {
         fontSize: checkboxFontSize,
         base: browserComponentBaseValues.Checkbox,
       },
+      CheckRadioButton: {
+        base: browserComponentBaseValues.CheckRadioButton,
+      },
+      AgentChatContent: {
+        fontSize: agentChatContentFontSize,
+        base: browserComponentBaseValues.AgentChatContent,
+      },
+      AgentChatBrowser: {
+        base: browserComponentBaseValues.AgentChatBrowser,
+      },
       DeviceInfo: { base: deviceInfoBaseValues },
       DataBrowser: { base: browserComponentBaseValues.DataBrowser },
       AppBrowser: { base: browserComponentBaseValues.AppBrowser },
       InputControl: { base: browserComponentBaseValues.InputControl },
+      PromptInput: { base: browserComponentBaseValues.PromptInput },
       MemoryBrowser: { base: browserComponentBaseValues.MemoryBrowser },
       Input: {
         fontSize: inputFontSize,
@@ -1368,6 +1388,36 @@ export function LabApp() {
             onChange={() => undefined}
           />
         );
+      case "CheckRadioButton":
+        return (
+          <CheckRadioButton
+            {...baseProps}
+            checked
+            checkLabel="Hide datasource"
+            selected
+            selectLabel="Select datasource"
+            onCheckedChange={() => undefined}
+            onSelect={() => undefined}
+          >
+            Cron
+          </CheckRadioButton>
+        );
+      case "AgentChatContent":
+        return (
+          <Base
+            {...baseProps}
+            componentName="AgentChatContent"
+            style={{ fontSize: resolveCssValue(agentChatContentFontSize) }}
+          >
+            Agent chat content
+          </Base>
+        );
+      case "AgentChatBrowser":
+        return (
+          <Base {...baseProps} componentName="AgentChatBrowser">
+            Agent chat browser
+          </Base>
+        );
       case "Input":
         return (
           <Input
@@ -1375,6 +1425,14 @@ export function LabApp() {
             aria-label="Input preview"
             fontSize={inputFontSize}
             keyboard={inputKeyboard}
+          />
+        );
+      case "PromptInput":
+        return (
+          <PromptInput
+            {...baseProps}
+            value="Prompt preview"
+            onChange={() => undefined}
           />
         );
       case "ListControl":
@@ -3749,6 +3807,8 @@ export function LabApp() {
                   fontSize:
                     "Checkbox mark CSS font-size; inherit uses Button.fontSize",
                 }
+              : componentName === "AgentChatContent"
+              ? { fontSize: "CSS font-size for chat messages" }
               : undefined}
             ownProperties={componentName === "DeleteButton"
               ? { armedColor: deleteButtonArmedColor }
@@ -3778,6 +3838,8 @@ export function LabApp() {
                   activeColor: checkboxActiveColor,
                   fontSize: checkboxFontSize,
                 }
+              : componentName === "AgentChatContent"
+              ? { fontSize: agentChatContentFontSize }
               : undefined}
             inheritedPropertySections={
               componentName === "Checkbox"
@@ -3946,6 +4008,13 @@ export function LabApp() {
               ) {
                 setCheckboxFontSize(value);
               }
+              if (
+                componentName === "AgentChatContent"
+                && name === "fontSize"
+                && typeof value === "string"
+              ) {
+                setAgentChatContentFontSize(value);
+              }
             }}
             onInheritedPropertyChange={(parentName, name, value) => {
               if (
@@ -4022,6 +4091,11 @@ export function LabApp() {
                   );
                   setCheckboxFontSize(
                     storedComponentProperties.Checkbox.fontSize,
+                  );
+                }
+                if (componentName === "AgentChatContent") {
+                  setAgentChatContentFontSize(
+                    storedComponentProperties.AgentChatContent.fontSize,
                   );
                 }
                 if (componentName === "Input") {

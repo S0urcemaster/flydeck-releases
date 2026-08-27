@@ -31,4 +31,19 @@ describe("CycleButton", () => {
       />,
     )).toContain(">? %</small>");
   });
+
+  it("can hide the remaining cycle options", () => {
+    const markup = renderToStaticMarkup(
+      <CycleButton
+        options={["ECON", "MEDI", "HIGH"]}
+        showAlternatives={false}
+        value="ECON"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain(">ECON</span>");
+    expect(markup).not.toContain("<small");
+    expect(markup).not.toContain(">MEDI HIGH</small>");
+  });
 });
