@@ -8,6 +8,13 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 27.08.026 11:15 Pre-Release V2 (b9cbe85519b1)
+- Agent Chat Alpha
+- DATA/TreeBrowser fixes
+- Fixed Theme selection
+- Accessibility setting : Capitalized font
+(Close to Beta : only Apps missing - and there will be a game/ must be)
+
 ### 24.08.026 12:15 Pre-Release V2 (88c783fb4a80)
 - Probably final Cron Alpha
 - TreeBrowser : Images, list sizes, views
