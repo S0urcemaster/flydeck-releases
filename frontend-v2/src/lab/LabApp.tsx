@@ -10,6 +10,7 @@ import { CircleHelp } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { AppStatusLine } from "../components/AppStatusLine";
 import { BackupApp } from "../components/BackupApp";
+import { MaintenanceApp } from "../components/MaintenanceApp";
 import { AppTitle } from "../components/AppTitle";
 import { BackspaceButton } from "../components/BackspaceButton";
 import {
@@ -212,6 +213,7 @@ const browserLabComponentNames = componentNamesInLabGroup("browser");
 const manifestPreviewComponentNames = [
   "AppView",
   "BackupApp",
+  "MaintenanceApp",
   "Block",
   "Breadcrumb",
   "CompassApp",
@@ -245,7 +247,11 @@ const appViewFamilyComponentNames = [
 ] as const;
 type AppViewFamilyComponentName =
   typeof appViewFamilyComponentNames[number];
-const inlineAppFamilyComponentNames = ["InlineAppView", "BackupApp"] as const;
+const inlineAppFamilyComponentNames = [
+  "InlineAppView",
+  "MaintenanceApp",
+  "BackupApp",
+] as const;
 type InlineAppFamilyComponentName =
   typeof inlineAppFamilyComponentNames[number];
 const treeInputFamilyComponentNames = [
@@ -388,6 +394,7 @@ export function LabApp() {
   >({
     InlineAppView: storedComponentProperties.InlineAppView.base,
     BackupApp: storedComponentProperties.BackupApp.base,
+    MaintenanceApp: storedComponentProperties.MaintenanceApp.base,
   });
   const [treeInputFamilyBaseValues, setTreeInputFamilyBaseValues] = useState<
     Record<TreeInputFamilyComponentName, BaseLabValues>
@@ -807,6 +814,7 @@ export function LabApp() {
       AppView: { base: appViewFamilyBaseValues.AppView },
       InlineAppView: { base: inlineAppFamilyBaseValues.InlineAppView },
       BackupApp: { base: inlineAppFamilyBaseValues.BackupApp },
+      MaintenanceApp: { base: inlineAppFamilyBaseValues.MaintenanceApp },
       CompassApp: { base: appViewFamilyBaseValues.CompassApp },
       ConfigEditor: { base: appViewFamilyBaseValues.ConfigEditor },
       DeviceInfoView: { base: appViewFamilyBaseValues.DeviceInfoView },
@@ -1701,7 +1709,7 @@ export function LabApp() {
       ? inlineAppFamilyBaseValues.InlineAppView
       : resolveDerivedBaseProperties(
           inlineAppFamilyBaseValues.InlineAppView,
-          inlineAppFamilyBaseValues.BackupApp,
+          inlineAppFamilyBaseValues[componentName],
         );
   }
 
@@ -2146,7 +2154,7 @@ export function LabApp() {
             return (
               <BasePropertyControls
                 componentName={componentName}
-                inheritedPropertySections={componentName === "BackupApp"
+                inheritedPropertySections={componentName !== "InlineAppView"
                   ? [{
                       componentName: "InlineAppView",
                       properties: inlineAppFamilyBaseValues.InlineAppView,
@@ -4995,6 +5003,8 @@ function renderManifestComponentPreview(
       return <AppView {...baseProps} title="APP VIEW">Application content</AppView>;
     case "BackupApp":
       return <BackupApp {...baseProps} />;
+    case "MaintenanceApp":
+      return <MaintenanceApp {...baseProps} />;
     case "Block":
       return <Block {...baseProps}>Full-width block</Block>;
     case "Breadcrumb":

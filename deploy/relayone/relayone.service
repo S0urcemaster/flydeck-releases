@@ -1,0 +1,22 @@
+[Unit]
+Description=Flydeck Relay One public presentation
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/flydon/.local/share/relayone/releases/current
+EnvironmentFile=/home/flydon/.config/relayone.env
+ExecStart=/home/flydon/.nvm/versions/node/v24.18.0/bin/node dist-server/server/server.js
+Restart=on-failure
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadOnlyPaths=/home/flydon/.local/share/relayone
+ReadOnlyPaths=/home/flydon/flydon-server/images
+
+[Install]
+WantedBy=default.target

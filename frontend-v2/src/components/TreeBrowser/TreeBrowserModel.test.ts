@@ -16,6 +16,38 @@ function createStore(values = new Map<string, string>()) {
 }
 
 describe("TreeBrowserModel", () => {
+  it("inserts a new defined node at its declared position in a stored list", () => {
+    const { store } = createStore();
+    const original = new TreeBrowserModel({
+      initialTree: [{ id: "first", label: "First", enabled: false, children: [] }, {
+        id: "last",
+        label: "Last",
+        enabled: false,
+        children: [],
+      }],
+      storageKey: "defined-order",
+      store,
+    });
+    original.save(original.load());
+    const upgraded = new TreeBrowserModel({
+      initialTree: [{ id: "first", label: "First", enabled: false, children: [] }, {
+        id: "middle",
+        label: "Middle",
+        enabled: false,
+        children: [],
+      }, {
+        id: "last",
+        label: "Last",
+        enabled: false,
+        children: [],
+      }],
+      storageKey: "defined-order",
+      store,
+    });
+
+    expect(upgraded.load().document.nodes.map(({ id }) => id))
+      .toEqual(["first", "middle", "last"]);
+  });
   it("defaults empty item lists to content and populated lists to list mode", () => {
     const { store } = createStore();
     const model = new TreeBrowserModel({

@@ -46,6 +46,7 @@ export const componentManifest = defineComponentManifest({
   AppStatusLine: { parent: "Base", source: "components/AppStatusLine/AppStatusLine.tsx", labGroup: "individual" },
   InlineAppView: { parent: "Base", source: "components/InlineAppView/InlineAppView.tsx", labGroup: "individual" },
   BackupApp: { parent: "InlineAppView", source: "components/BackupApp/BackupApp.tsx", labGroup: "individual" },
+  MaintenanceApp: { parent: "InlineAppView", source: "components/MaintenanceApp/MaintenanceApp.tsx", labGroup: "individual" },
   SymbolButton: { parent: "Button", source: "components/SymbolButton/SymbolButton.tsx", labGroup: "individual" },
   SideModuleButton: { parent: "SymbolButton", source: "components/SideModuleButton/SideModuleButton.tsx", labGroup: "individual" },
   ConfigModuleButton: { parent: "SideModuleButton", source: "components/ConfigModuleButton/ConfigModuleButton.tsx", labGroup: "concrete-module-button" },

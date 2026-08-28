@@ -430,6 +430,56 @@ describe("MemoryWorkspaceReplicaStorage", () => {
     });
   });
 
+  it("unshares ancestors and descendants when sharing a child", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const tree = sharingTree();
+    const replicaScope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    await replica.replaceTree(replicaScope, tree);
+
+    const cached = await replica.enqueue(replicaScope, {
+      type: "set-node-sharing",
+      nodeId: tree.document.nodes[1].id,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000009",
+        shared: true,
+        shareName: "Child public",
+        expectedRevision: 3,
+      },
+    });
+
+    expect(cached.tree?.document.nodes).toMatchObject([
+      { shared: false, shareName: "Parent public", revision: 3 },
+      { shared: true, shareName: "Child public", revision: 4 },
+      { shared: false, shareName: "Grandchild public", revision: 5 },
+    ]);
+  });
+
+  it("unshares every shared descendant when sharing a parent", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const tree = sharingTree();
+    const replicaScope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    tree.document.nodes[0].shared = false;
+    tree.document.nodes[1].shared = true;
+    await replica.replaceTree(replicaScope, tree);
+
+    const cached = await replica.enqueue(replicaScope, {
+      type: "set-node-sharing",
+      nodeId: tree.document.nodes[0].id,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000010",
+        shared: true,
+        shareName: "New parent public",
+        expectedRevision: 2,
+      },
+    });
+
+    expect(cached.tree?.document.nodes).toMatchObject([
+      { shared: true, shareName: "New parent public", revision: 3 },
+      { shared: false, shareName: "Child public", revision: 4 },
+      { shared: false, shareName: "Grandchild public", revision: 5 },
+    ]);
+  });
+
   it("rebases rapid tree commands atomically against the optimistic revision", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const tree = emptyTree("00000000-0000-4000-8000-000000000002");
@@ -514,4 +564,52 @@ function emptyTree(workspaceId: string): TreeLoadDto {
     semanticState: { revision: 0, enabledNodeIds: [], nodeRevisions: {} },
     selection: { revision: 0, selectedPath: [], pageSizes: {} },
   };
+}
+
+function sharingTree(): TreeLoadDto {
+  const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+  const capabilities = {
+    contentEditable: true,
+    listEditable: true,
+    listItemLimit: null,
+  };
+  tree.document.nodes.push(
+    {
+      id: "00000000-0000-4000-8000-000000000006",
+      parentId: null,
+      kind: "data-file",
+      label: "Parent",
+      localId: "parent",
+      position: 0,
+      revision: 2,
+      shared: true,
+      shareName: "Parent public",
+      capabilities,
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000007",
+      parentId: "00000000-0000-4000-8000-000000000006",
+      kind: "data-file",
+      label: "Child",
+      localId: "child",
+      position: 0,
+      revision: 3,
+      shared: false,
+      shareName: "Child public",
+      capabilities,
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000008",
+      parentId: "00000000-0000-4000-8000-000000000007",
+      kind: "data-file",
+      label: "Grandchild",
+      localId: "grandchild",
+      position: 0,
+      revision: 4,
+      shared: true,
+      shareName: "Grandchild public",
+      capabilities,
+    },
+  );
+  return tree;
 }

@@ -23,6 +23,7 @@ import {
   type LoginRequest,
   type RenameTreeNodeRequest,
   type SetTreeNodeEnabledRequest,
+  type SetTreeNodeSharingRequest,
   type SetTreeSelectionRequest,
   type UpdateCronTimerRequest,
   type UpdateTreeNodeContentRequest,
@@ -194,6 +195,18 @@ export class V2ApiClient {
     return this.request(`${this.dataNodePath(workspaceId, nodeId)}/enabled`, setTreeNodeEnabledResponseSchema, {
       method: "PUT", body: input,
     });
+  }
+
+  setDataNodeSharing(
+    workspaceId: string,
+    nodeId: string,
+    input: SetTreeNodeSharingRequest,
+  ) {
+    return this.request(
+      `${this.dataNodePath(workspaceId, nodeId)}/sharing`,
+      createTreeNodeResponseSchema,
+      { method: "PUT", body: input },
+    );
   }
 
   setDataSelection(workspaceId: string, input: SetTreeSelectionRequest) {

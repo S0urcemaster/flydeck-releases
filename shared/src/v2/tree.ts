@@ -4,6 +4,7 @@ import { requestIdSchema, revisionSchema } from "./common.js";
 export const treeKindSchema = z.enum(["data", "config"]);
 export const treeNodeKindSchema = z.string().trim().min(1).max(64);
 export const treeNodeLabelSchema = z.string().trim().min(1).max(200);
+export const treeNodeShareNameSchema = z.string().trim().min(1).max(200);
 export const treeNodeLocalIdSchema = z.string()
   .trim()
   .min(1)
@@ -48,6 +49,8 @@ export const treeNodeDtoSchema = z.object({
   revision: revisionSchema,
   createdAt: z.iso.datetime().optional(),
   updatedAt: z.iso.datetime().optional(),
+  shared: z.boolean().optional(),
+  shareName: treeNodeShareNameSchema.nullable().optional(),
   capabilities: treeNodeCapabilitiesDtoSchema,
 });
 
@@ -166,6 +169,21 @@ export const setTreeNodeEnabledResponseSchema = z.object({
   revision: revisionSchema,
 });
 
+export const setTreeNodeSharingRequestSchema = z.object({
+  requestId: requestIdSchema,
+  shared: z.boolean(),
+  shareName: treeNodeShareNameSchema.nullable(),
+  expectedRevision: revisionSchema,
+}).strict().superRefine((value, context) => {
+  if (value.shared && !value.shareName) {
+    context.addIssue({
+      code: "custom",
+      message: "A share name is required before an item can be shared",
+      path: ["shareName"],
+    });
+  }
+});
+
 export const setTreeSelectionRequestSchema = z.object({
   requestId: requestIdSchema,
   selectedPath: z.array(z.uuid()),
@@ -220,6 +238,7 @@ export type EditTreeNodeRequest = z.infer<typeof editTreeNodeRequestSchema>;
 export type DeleteTreeNodeRequest = z.infer<typeof deleteTreeNodeRequestSchema>;
 export type SetTreeNodeEnabledRequest = z.infer<typeof setTreeNodeEnabledRequestSchema>;
 export type SetTreeNodeEnabledResponse = z.infer<typeof setTreeNodeEnabledResponseSchema>;
+export type SetTreeNodeSharingRequest = z.infer<typeof setTreeNodeSharingRequestSchema>;
 export type SetTreeSelectionRequest = z.infer<typeof setTreeSelectionRequestSchema>;
 export type TreeNodeContentDto = z.infer<typeof treeNodeContentDtoSchema>;
 export type UpdateTreeNodeContentRequest = z.infer<typeof updateTreeNodeContentRequestSchema>;

@@ -3,6 +3,7 @@ import { Camera, FolderOpen, X } from "lucide-react";
 import {
   createTreeNodeLocalId,
   treeNodeLabelSchema,
+  treeNodeShareNameSchema,
   type TreeLoadDto,
   type TreeNodeContentDto,
   type TreeNodeDto,
@@ -10,8 +11,14 @@ import {
 
 import { V2ApiError, v2Api } from "../../api/V2ApiClient";
 import {
+  createDataImagePreview,
+  deleteDataImageDraft,
+  readDataImageDraft,
   workspaceSyncEngine,
+  useWorkspaceSyncStatus,
   useWorkspaceReplica,
+  writeDataImageDraft,
+  type DataImageDraft,
   type WorkspaceReplicaScope,
 } from "../../replica";
 import { ClientStateStore, useClientStateScope } from "../../state";
@@ -24,11 +31,14 @@ import {
   type TreeBrowserProps,
   type TreeBrowserRootControl,
   type TreeBrowserSavedView,
+  type TreeBrowserSavedViewItem,
   type TreeBrowserSavedViewsControl,
 } from "../TreeBrowser";
 import { InputControl, type InputControlProps } from "../InputControl";
 import { Button, type ButtonProps } from "../Button";
 import { BlockingDialog } from "../BlockingDialog";
+import { Checkbox } from "../Checkbox";
+import { ListControlButton } from "../ListControlButton";
 import {
   ListControlListSizeButton,
   type ListControlListSize,
@@ -40,13 +50,6 @@ import {
   type ParentInputProps,
 } from "../ParentInput";
 import styles from "./DataBrowser.module.css";
-import {
-  createDataImagePreview,
-  deleteDataImageDraft,
-  readDataImageDraft,
-  writeDataImageDraft,
-  type DataImageDraft,
-} from "./DataImageDraftStore";
 
 export type DataBrowserProps = Omit<
   TreeBrowserProps,
@@ -73,6 +76,7 @@ export type DataBrowserProps = Omit<
 const memoryStore = new ClientStateStore({ storage: () => null });
 const emptyDataTree: TreeBrowserInitialNode[] = [];
 const savedViewsDataSource = "_system/views";
+const sharedViewId = "__shared_view__";
 const emptyDataModel = new TreeBrowserModel({
   initialTree: emptyDataTree,
   storageKey: "flydeck.tree.data.empty",
@@ -144,16 +148,57 @@ function ServerDataBrowser({
   const viewRoot = useMemo(() => treeLoad
     ? resolveFlatTreePath(treeLoad.document.nodes, savedViewsDataSource)
     : undefined, [treeLoad]);
-  const viewNodes = useMemo(() => viewRoot && treeLoad
+  const allViewNodes = useMemo(() => viewRoot && treeLoad
     ? treeLoad.document.nodes
         .filter(({ parentId }) => parentId === viewRoot.id)
         .sort(compareDataNodes)
     : [], [treeLoad, viewRoot]);
-  const savedViewDefinitions = useMemo(() => viewNodes.map((node) => ({
-    id: node.id,
-    name: node.label,
-    paths: parseSavedViewPaths(replicaRecord?.contents[node.id]?.content ?? ""),
-  } satisfies TreeBrowserSavedView)), [replicaRecord?.contents, viewNodes]);
+  const sharedOrderNode = useMemo(() => allViewNodes.find(
+    ({ localId }) => localId === "_shared",
+  ), [allViewNodes]);
+  const viewNodes = useMemo(() => allViewNodes.filter(
+    ({ id }) => id !== sharedOrderNode?.id,
+  ), [allViewNodes, sharedOrderNode?.id]);
+  const savedViewDefinitions = useMemo(() => {
+    const nodes = treeLoad?.document.nodes ?? [];
+    const storedSharedOrder = parseSavedViewPaths(
+      sharedOrderNode
+        ? replicaRecord?.contents[sharedOrderNode.id]?.content ?? ""
+        : "",
+    );
+    const sharedNodes = orderSharedNodes(nodes.filter((node) => (
+      node.shared && !hasSharedAncestor(nodes, node)
+    )), storedSharedOrder);
+    const sharedItems = sharedNodes.flatMap((node) => {
+      const path = createFlatTreeLocalIdPath(nodes, node.id);
+      return path ? [{
+        id: node.id,
+        label: node.shareName ?? node.label,
+        path,
+      }] : [];
+    });
+    return [
+      ...viewNodes.map((node) => {
+        const paths = parseSavedViewPaths(
+          replicaRecord?.contents[node.id]?.content ?? "",
+        );
+        return {
+          id: node.id,
+          name: node.label,
+          paths,
+          items: paths.map((path) => ({ id: path, label: path, path })),
+        };
+      }),
+      {
+        id: sharedViewId,
+        name: "_shared",
+        paths: sharedItems.map(({ path }) => path),
+        items: sharedItems,
+        immutable: true,
+        includeDescendants: true,
+      },
+    ] satisfies TreeBrowserSavedView[];
+  }, [replicaRecord?.contents, sharedOrderNode, treeLoad?.document.nodes, viewNodes]);
 
   const fail = useCallback((error: unknown) => {
     onSynchronizationError?.(
@@ -201,13 +246,13 @@ function ServerDataBrowser({
   }, [treeLoad]);
 
   useEffect(() => {
-    if (viewNodes.length > 0) {
+    if (allViewNodes.length > 0) {
       void workspaceSyncEngine.ensureContents(
         replicaScope,
-        viewNodes.map(({ id }) => id),
+        allViewNodes.map(({ id }) => id),
       );
     }
-  }, [replicaScope, viewNodes]);
+  }, [allViewNodes, replicaScope]);
 
   const createCanonicalNode = useCallback(async (
     label: string,
@@ -242,31 +287,50 @@ function ServerDataBrowser({
     return record?.tree?.document.nodes.find(({ id }) => id === nodeId) ?? null;
   }, [replicaRecord?.tree?.document.nodes, submitCommand, treeLoad?.document.nodes]);
 
+  const ensureSavedViewsRoot = useCallback(async (userCommandId: string) => {
+    const root = replicaRecord?.tree
+      ? resolveFlatTreePath(replicaRecord.tree.document.nodes, savedViewsDataSource)
+      : undefined;
+    if (root) return root;
+    const system = replicaRecord?.tree
+      ? resolveFlatTreePath(replicaRecord.tree.document.nodes, "_system")
+      : treeLoad
+        ? resolveFlatTreePath(treeLoad.document.nodes, "_system")
+        : undefined;
+    if (!system) return null;
+    return createCanonicalNode(
+      "Views",
+      system.id,
+      null,
+      "views",
+      userCommandId,
+    );
+  }, [createCanonicalNode, replicaRecord, treeLoad]);
+
+  const setNodeSharing = useCallback(async (
+    nodeId: string,
+    shared: boolean,
+    shareName: string | null,
+    userCommandId?: string,
+  ) => Boolean(await submitCommand({
+    type: "set-node-sharing",
+    nodeId,
+    input: {
+      requestId: crypto.randomUUID(),
+      shared,
+      shareName,
+      expectedRevision: nodeRevisions.current.get(nodeId) ?? 0,
+    },
+  }, userCommandId)), [submitCommand]);
+
   const savedViewsControl = useMemo<TreeBrowserSavedViewsControl>(() => ({
     dataSource: savedViewsDataSource,
     views: savedViewDefinitions,
     onCreate: async (name, paths) => {
       if (!name.trim() || name.trim().length > 16 || paths.length === 0) return false;
       const userCommandId = crypto.randomUUID();
-      let root = replicaRecord?.tree
-        ? resolveFlatTreePath(replicaRecord.tree.document.nodes, savedViewsDataSource)
-        : undefined;
-      if (!root) {
-        const system = replicaRecord?.tree
-          ? resolveFlatTreePath(replicaRecord.tree.document.nodes, "_system")
-          : treeLoad
-            ? resolveFlatTreePath(treeLoad.document.nodes, "_system")
-            : undefined;
-        if (!system) return false;
-        root = await createCanonicalNode(
-          "Views",
-          system.id,
-          null,
-          "views",
-          userCommandId,
-        ) ?? undefined;
-        if (!root) return false;
-      }
+      const root = await ensureSavedViewsRoot(userCommandId);
+      if (!root) return false;
       const currentNodes = replicaRecord?.tree?.document.nodes
         ?? treeLoad?.document.nodes
         ?? [];
@@ -300,6 +364,44 @@ function ServerDataBrowser({
         expectedTreeRevision: treeRevision.current,
       },
     })),
+    onDeleteItem: async (viewId, itemId) => {
+      const view = savedViewDefinitions.find(({ id }) => id === viewId);
+      if (!view) return false;
+      if (viewId === sharedViewId) {
+        const node = treeLoad?.document.nodes.find(({ id }) => id === itemId);
+        if (!node) return false;
+        const userCommandId = crypto.randomUUID();
+        const unshared = await setNodeSharing(
+          node.id,
+          false,
+          node.shareName ?? null,
+          userCommandId,
+        );
+        if (!unshared || !sharedOrderNode) return unshared;
+        const remainingItems = removeSavedViewItem(view.items ?? [], itemId);
+        return Boolean(await submitCommand({
+          type: "update-content",
+          nodeId: sharedOrderNode.id,
+          input: {
+            requestId: crypto.randomUUID(),
+            content: remainingItems.map(({ id }) => id).join("\n"),
+            expectedRevision: replicaRecord?.contents[sharedOrderNode.id]
+              ?.revision ?? 0,
+          },
+        }, userCommandId));
+      }
+      const remainingItems = removeSavedViewItem(view.items ?? [], itemId);
+      if (remainingItems.length === (view.items ?? []).length) return false;
+      return Boolean(await submitCommand({
+        type: "update-content",
+        nodeId: viewId,
+        input: {
+          requestId: crypto.randomUUID(),
+          content: remainingItems.map(({ path }) => path).join("\n"),
+          expectedRevision: replicaRecord?.contents[viewId]?.revision ?? 0,
+        },
+      }));
+    },
     onMove: async (viewId, afterViewId) => Boolean(await submitCommand({
       type: "move-node",
       nodeId: viewId,
@@ -309,6 +411,49 @@ function ServerDataBrowser({
         expectedTreeRevision: treeRevision.current,
       },
     })),
+    onMoveItem: async (viewId, itemId, afterItemId) => {
+      const view = savedViewDefinitions.find(({ id }) => id === viewId);
+      if (!view) return false;
+      const orderedItems = moveSavedViewItem(
+        view.items ?? [],
+        itemId,
+        afterItemId,
+      );
+      const userCommandId = crypto.randomUUID();
+      if (viewId === sharedViewId) {
+        const root = await ensureSavedViewsRoot(userCommandId);
+        if (!root) return false;
+        let orderNode = sharedOrderNode;
+        if (!orderNode) {
+          orderNode = await createCanonicalNode(
+            "_shared",
+            root.id,
+            allViewNodes.at(-1)?.id ?? null,
+            "_shared",
+            userCommandId,
+          ) ?? undefined;
+        }
+        if (!orderNode) return false;
+        return Boolean(await submitCommand({
+          type: "update-content",
+          nodeId: orderNode.id,
+          input: {
+            requestId: crypto.randomUUID(),
+            content: orderedItems.map(({ id }) => id).join("\n"),
+            expectedRevision: replicaRecord?.contents[orderNode.id]?.revision ?? 0,
+          },
+        }, userCommandId));
+      }
+      return Boolean(await submitCommand({
+        type: "update-content",
+        nodeId: viewId,
+        input: {
+          requestId: crypto.randomUUID(),
+          content: orderedItems.map(({ path }) => path).join("\n"),
+          expectedRevision: replicaRecord?.contents[viewId]?.revision ?? 0,
+        },
+      }, userCommandId));
+    },
     onRename: async (viewId, name) => Boolean(await submitCommand({
       type: "rename-node",
       nodeId: viewId,
@@ -320,8 +465,12 @@ function ServerDataBrowser({
     })),
   }), [
     createCanonicalNode,
+    ensureSavedViewsRoot,
+    allViewNodes,
     replicaRecord,
     savedViewDefinitions,
+    setNodeSharing,
+    sharedOrderNode,
     submitCommand,
     treeLoad,
   ]);
@@ -338,14 +487,12 @@ function ServerDataBrowser({
     }));
   }, [submitCommand]);
 
-  const model = useMemo(() => treeLoad
-    ? new TreeBrowserModel({
-        definitionAuthority: true,
-        initialTree: toInitialTree(treeLoad),
-        storageKey: `flydeck.tree.data.server.${workspaceId}`,
-        store: memoryStore,
-      })
-    : null, [treeLoad, workspaceId]);
+  const model = treeLoad ? new TreeBrowserModel({
+    definitionAuthority: true,
+    initialTree: toInitialTree(treeLoad),
+    storageKey: `flydeck.tree.data.server.${workspaceId}`,
+    store: memoryStore,
+  }) : null;
 
   if (!treeLoad || !model) return null;
 
@@ -444,8 +591,9 @@ function ServerDataBrowser({
         onPageSizeChange,
         pageSize,
         root,
-      }) => (
-        <ServerDataContent
+      }) => {
+        const serverNode = treeLoad.document.nodes.find(({ id }) => id === node.id);
+        return <ServerDataContent
           {...inputControlProps}
           contentEditorProps={contentEditorProps}
           nodeIdInputProps={nodeIdInputProps}
@@ -456,6 +604,13 @@ function ServerDataBrowser({
           localIdAvailable={localIdAvailable}
           onLocalIdChange={onLocalIdChange}
           onNameChange={(name) => renameNode(node.id, name)}
+          shared={serverNode?.shared ?? false}
+          shareName={serverNode?.shareName ?? null}
+          onSharingChange={(shared, shareName) => setNodeSharing(
+            node.id,
+            shared,
+            shareName,
+          )}
           onPageSizeChange={onPageSizeChange}
           pageSize={pageSize}
           listSizeButtonProps={treeBrowserProps.listControlProps
@@ -465,8 +620,8 @@ function ServerDataBrowser({
           parentInputProps={parentInputProps}
           replicaScope={replicaScope}
           onSynchronizationError={fail}
-        />
-      )}
+        />;
+      }}
     />
   );
 }
@@ -478,6 +633,9 @@ function ServerDataContent({
   localIdAvailable,
   onLocalIdChange,
   onNameChange,
+  shared,
+  shareName,
+  onSharingChange,
   onPageSizeChange,
   pageSize,
   listSizeButtonProps,
@@ -499,6 +657,12 @@ function ServerDataContent({
   localIdAvailable: (localId: string) => boolean;
   onLocalIdChange?: (localId: string) => Promise<boolean>;
   onNameChange: (name: string) => Promise<boolean>;
+  shared: boolean;
+  shareName: string | null;
+  onSharingChange: (
+    shared: boolean,
+    shareName: string | null,
+  ) => Promise<boolean>;
   onPageSizeChange: (pageSize: ListControlListSize) => void;
   pageSize: ListControlListSize;
   listSizeButtonProps?: Omit<
@@ -512,6 +676,7 @@ function ServerDataContent({
   onSynchronizationError: (error: unknown) => void;
 }) {
   const replicaRecord = useWorkspaceReplica(replicaScope);
+  const syncStatus = useWorkspaceSyncStatus();
   const document: TreeNodeContentDto | null = replicaRecord?.contents[nodeId] ?? null;
   const [contentDraft, setContentDraft] = useState({
     nodeId,
@@ -541,6 +706,35 @@ function ServerDataContent({
     ? nameDraft.value
     : name;
   const normalizedName = effectiveNameDraft.trim();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [sharingDraft, setSharingDraft] = useState({
+    nodeId,
+    savedShared: shared,
+    savedName: shareName,
+    shared,
+    name: shareName ?? "",
+  });
+  const effectiveSharingDraft = sharingDraft.nodeId === nodeId
+    && sharingDraft.savedShared === shared
+    && sharingDraft.savedName === shareName
+    ? sharingDraft
+    : {
+        nodeId,
+        savedShared: shared,
+        savedName: shareName,
+        shared,
+        name: shareName ?? "",
+      };
+  const normalizedShareName = effectiveSharingDraft.name.trim();
+  const validShareName = treeNodeShareNameSchema.safeParse(
+    normalizedShareName,
+  ).success;
+  const sharingChanged = effectiveSharingDraft.shared !== shared
+    || (normalizedShareName || null) !== shareName;
+  const [sharingSavePendingNodeId, setSharingSavePendingNodeId] = useState<
+    string | null
+  >(null);
+  const sharingSavePending = sharingSavePendingNodeId === nodeId;
   const [rootDraft, setRootDraft] = useState({
     nodeId,
     currentId: root?.current.id,
@@ -583,7 +777,18 @@ function ServerDataContent({
   const serverImageRevision = serverImageState.nodeId === nodeId
     ? serverImageState.revision
     : 0;
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [imageSavePending, setImageSavePending] = useState(false);
+  const queuedImageCommand = replicaRecord?.outbox.find((entry) => (
+    entry.command.type === "upload-image" && entry.command.nodeId === nodeId
+  ));
+  const imageQueued = Boolean(queuedImageCommand);
+  const imageQueueError = imageQueued && syncStatus.state === "error"
+    ? syncStatus.reason
+    : null;
+  const imageQueueErrorKey = queuedImageCommand && imageQueueError
+    ? `${queuedImageCommand.id}:${imageQueueError}`
+    : null;
+  const [dismissedImageError, setDismissedImageError] = useState<string | null>(null);
   useEffect(() => {
     void workspaceSyncEngine.ensureContents(replicaScope, [nodeId]);
   }, [nodeId, replicaScope]);
@@ -605,7 +810,7 @@ function ServerDataContent({
     return () => {
       active = false;
     };
-  }, [nodeId, onSynchronizationError, replicaScope.workspaceId]);
+  }, [imageQueued, nodeId, onSynchronizationError, replicaScope.workspaceId]);
   useEffect(() => {
     return () => {
       if (draftImageUrl) URL.revokeObjectURL(draftImageUrl);
@@ -645,8 +850,76 @@ function ServerDataContent({
     });
   }
 
+  async function saveImage() {
+    if (!imageDraft || imageSavePending || imageQueued) return;
+    const pendingDraft = imageDraft;
+    setImageSavePending(true);
+    try {
+      await workspaceSyncEngine.submit(replicaScope, {
+        type: "upload-image",
+        nodeId,
+        input: {
+          requestId: crypto.randomUUID(),
+          fileName: pendingDraft.fileName,
+          mimeType: pendingDraft.blob.type,
+        },
+      });
+      setSavedPreviewState({
+        nodeId,
+        value: pendingDraft.previewBlob ?? null,
+      });
+    } catch (error) {
+      onSynchronizationError(error);
+    } finally {
+      setImageSavePending(false);
+    }
+  }
+
+  async function saveSharing(
+    nextShared: boolean,
+    nextName: string | null,
+  ) {
+    if (sharingSavePending
+      || (nextShared && !treeNodeShareNameSchema.safeParse(nextName).success)) {
+      return;
+    }
+    setSharingSavePendingNodeId(nodeId);
+    try {
+      if (await onSharingChange(nextShared, nextName)) {
+        setSharingDraft({
+          nodeId,
+          savedShared: nextShared,
+          savedName: nextName,
+          shared: nextShared,
+          name: nextName ?? "",
+        });
+      } else {
+        setSharingDraft({
+          nodeId,
+          savedShared: shared,
+          savedName: shareName,
+          shared,
+          name: shareName ?? "",
+        });
+      }
+    } finally {
+      setSharingSavePendingNodeId((pendingNodeId) => (
+        pendingNodeId === nodeId ? null : pendingNodeId
+      ));
+    }
+  }
+
   return (
     <div className={styles.content} style={{ height }}>
+      <ListControlButton
+        {...inputControlProps.buttonProps}
+        aria-expanded={detailsOpen}
+        width="100%"
+        onClick={() => setDetailsOpen((open) => !open)}
+      >
+        {detailsOpen ? "Hide details" : "Details"}
+      </ListControlButton>
+      {detailsOpen && <div className={styles.details}>
       <NodeIdInput
         {...inputControlProps}
         {...nodeIdInputProps}
@@ -737,6 +1010,62 @@ function ServerDataContent({
           }}
         />
       )}
+      <InputControl
+        {...inputControlProps}
+        control="input"
+        controlLeading={(
+          <Checkbox
+            {...inputControlProps.buttonProps}
+            activeColor="COLOR_SUCCESS"
+            checked={effectiveSharingDraft.shared}
+            disabled={inputControlProps.buttonProps?.disabled || sharingSavePending}
+            label={effectiveSharingDraft.shared ? "Shared" : "Share"}
+            onChange={(nextShared) => {
+              const nextName = normalizedShareName || null;
+              setSharingDraft({
+                ...effectiveSharingDraft,
+                shared: nextShared,
+                name: nextName ?? "",
+              });
+              if (!nextShared || validShareName) {
+                void saveSharing(nextShared, nextName);
+              }
+            }}
+          >
+            {effectiveSharingDraft.shared ? "Shared" : "Share"}
+          </Checkbox>
+        )}
+        buttonProps={{
+          ...inputControlProps.buttonProps,
+          disabled: inputControlProps.buttonProps?.disabled
+            || sharingSavePending
+            || !sharingChanged
+            || (effectiveSharingDraft.shared && !validShareName),
+        }}
+        inputProps={{
+          ...inputControlProps.inputProps,
+          "aria-label": "Share name",
+          color: effectiveSharingDraft.shared && !validShareName
+            ? "COLOR_ERROR"
+            : validShareName ? "COLOR_SUCCESS" : inputControlProps.inputProps?.color,
+          label: "Share name",
+          maxLength: 200,
+          placeholder: "Share name",
+        }}
+        keyboardLayout="block"
+        value={effectiveSharingDraft.name}
+        onChange={(value) => setSharingDraft({
+          ...effectiveSharingDraft,
+          name: value,
+        })}
+        onSend={async () => {
+          if (!sharingChanged
+            || (effectiveSharingDraft.shared && !validShareName)) return;
+          const nextName = normalizedShareName || null;
+          await saveSharing(effectiveSharingDraft.shared, nextName);
+        }}
+      />
+      </div>}
       <div className={styles.contentEditorArea}>
         {(draftImageUrl || serverImageVisible) && (
           <div className={styles.imagePreviewFrame}>
@@ -761,12 +1090,27 @@ function ServerDataContent({
               aria-label="Remove image"
               background="COLOR_SPEECH"
               className={styles.imageRemoveButton}
+              disabled={inputControlProps.buttonProps?.disabled || imageQueued}
               height="2.5rem"
               width="2.5rem"
               onClick={() => void removeImage().catch(onSynchronizationError)}
             >
               <X aria-hidden="true" size="1em" />
             </Button>
+            {imageDraft && (
+              <Button
+                {...inputControlProps.buttonProps}
+                aria-label="Save image"
+                className={styles.imageSaveButton}
+                disabled={inputControlProps.buttonProps?.disabled
+                  || imageSavePending
+                  || imageQueued}
+                width="100%"
+                onClick={() => void saveImage()}
+              >
+                Save
+              </Button>
+            )}
           </div>
         )}
         <ContentEditor
@@ -777,7 +1121,8 @@ function ServerDataContent({
           ...contentEditorProps?.buttonProps,
           disabled: inputControlProps.buttonProps?.disabled
             || contentEditorProps?.buttonProps?.disabled
-            || !document,
+            || !document
+            || !contentHasChanges(document.content, draft),
         }}
         height={root ? "100%" : height}
         textareaProps={{
@@ -796,7 +1141,7 @@ function ServerDataContent({
           value,
         })}
         onSend={async (content) => {
-          if (!document) return;
+          if (!document || !contentHasChanges(document.content, content)) return;
           try {
             const record = await workspaceSyncEngine.submit(replicaScope, {
               type: "update-content",
@@ -815,30 +1160,6 @@ function ServerDataContent({
                 value: current.content,
               });
             }
-            if (imageDraft) {
-              setUploadDialogOpen(true);
-              try {
-                await v2Api.uploadDataImage(
-                  replicaScope.workspaceId,
-                  nodeId,
-                  imageDraft.blob,
-                  imageDraft.fileName,
-                );
-              } finally {
-                setUploadDialogOpen(false);
-              }
-              await deleteDataImageDraft(replicaScope.workspaceId, nodeId);
-              setSavedPreviewState({
-                nodeId,
-                value: imageDraft.previewBlob ?? null,
-              });
-              setImageDraftState({ nodeId, value: null });
-              setServerImageState({
-                nodeId,
-                revision: Date.now(),
-                visible: true,
-              });
-            }
           } catch (error) {
             onSynchronizationError(error);
           }
@@ -853,28 +1174,49 @@ function ServerDataContent({
         onImageSelect={(file) => void selectImage(file).catch(
           onSynchronizationError,
         )}
+        imageSelectDisabled={imageQueued}
       />
       <BlockingDialog
         background="COLOR_APP"
         border="BORDER_STANDARD"
-        open={uploadDialogOpen}
+        open={Boolean(
+          imageQueueErrorKey && dismissedImageError !== imageQueueErrorKey,
+        )}
         padding="SPACE_MD"
-        title="Bild wird gespeichert"
+        title="Bild konnte nicht gespeichert werden"
         width="min(100%, 22rem)"
         actions={(
-          <Button
-            {...inputControlProps.buttonProps}
-            width="100%"
-            onClick={() => setUploadDialogOpen(false)}
-          >
-            Fortfahren
-          </Button>
+          <div className={styles.imageErrorActions}>
+            <Button
+              {...inputControlProps.buttonProps}
+              width="100%"
+              onClick={() => setDismissedImageError(imageQueueErrorKey)}
+            >
+              Close
+            </Button>
+            <Button
+              {...inputControlProps.buttonProps}
+              width="100%"
+              onClick={() => {
+                setDismissedImageError(imageQueueErrorKey);
+                void workspaceSyncEngine.flush(replicaScope).then((saved) => {
+                  if (!saved) setDismissedImageError(null);
+                });
+              }}
+            >
+              Retry
+            </Button>
+          </div>
         )}
       >
-        Der Upload ist noch nicht abgeschlossen.
+        Das Bild bleibt im Cache. {imageQueueError}
       </BlockingDialog>
     </div>
   );
+}
+
+export function contentHasChanges(savedContent: string, draftContent: string) {
+  return savedContent !== draftContent;
 }
 
 function DataListSizeControl({
@@ -883,6 +1225,7 @@ function DataListSizeControl({
   pageSize,
   onPageSizeChange,
   onImageSelect,
+  imageSelectDisabled = false,
 }: {
   buttonProps?: Omit<ButtonProps, "children" | "onClick">;
   listSizeButtonProps?: Omit<
@@ -892,6 +1235,7 @@ function DataListSizeControl({
   pageSize: ListControlListSize;
   onPageSizeChange: (pageSize: ListControlListSize) => void;
   onImageSelect?: (file: File) => void;
+  imageSelectDisabled?: boolean;
 }) {
   const cameraInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -912,6 +1256,7 @@ function DataListSizeControl({
             aria-label="Take photo"
             activeColor="COLOR_SPEECH"
             background="COLOR_SPEECH"
+            disabled={buttonProps?.disabled || imageSelectDisabled}
             width="100%"
             onClick={() => cameraInput.current?.click()}
           >
@@ -920,6 +1265,7 @@ function DataListSizeControl({
           <Button
             {...buttonProps}
             aria-label="Choose image file"
+            disabled={buttonProps?.disabled || imageSelectDisabled}
             width="100%"
             onClick={() => fileInput.current?.click()}
           >
@@ -931,6 +1277,7 @@ function DataListSizeControl({
             type="file"
             accept="image/*"
             capture="environment"
+            disabled={imageSelectDisabled}
             onChange={(event) => {
               receiveImage(event.currentTarget.files?.[0]);
               event.currentTarget.value = "";
@@ -941,6 +1288,7 @@ function DataListSizeControl({
             className={styles.hiddenFileInput}
             type="file"
             accept="image/*"
+            disabled={imageSelectDisabled}
             onChange={(event) => {
               receiveImage(event.currentTarget.files?.[0]);
               event.currentTarget.value = "";
@@ -1012,11 +1360,81 @@ export function resolveFlatTreePath(
   return current;
 }
 
+export function createFlatTreeLocalIdPath(
+  nodes: readonly TreeNodeDto[],
+  nodeId: string,
+) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const segments: string[] = [];
+  const visited = new Set<string>();
+  let current = byId.get(nodeId);
+  while (current) {
+    if (visited.has(current.id)) return null;
+    visited.add(current.id);
+    segments.unshift(current.localId);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return segments.length > 0 ? segments.join("/") : null;
+}
+
 export function parseSavedViewPaths(content: string) {
   return [...new Set(content
     .split(/\r?\n/)
     .map((path) => path.trim())
     .filter(Boolean))];
+}
+
+export function moveSavedViewItem(
+  items: readonly TreeBrowserSavedViewItem[],
+  itemId: string,
+  afterItemId: string | null,
+) {
+  const moving = items.find(({ id }) => id === itemId);
+  if (!moving) return [...items];
+  const remaining = items.filter(({ id }) => id !== itemId);
+  const insertionIndex = afterItemId === null
+    ? 0
+    : remaining.findIndex(({ id }) => id === afterItemId) + 1;
+  if (insertionIndex <= 0 && afterItemId !== null) return [...items];
+  return [
+    ...remaining.slice(0, insertionIndex),
+    moving,
+    ...remaining.slice(insertionIndex),
+  ];
+}
+
+export function removeSavedViewItem(
+  items: readonly TreeBrowserSavedViewItem[],
+  itemId: string,
+) {
+  return items.filter(({ id }) => id !== itemId);
+}
+
+export function orderSharedNodes(
+  nodes: readonly TreeNodeDto[],
+  orderedIds: readonly string[],
+) {
+  const order = new Map(orderedIds.map((id, index) => [id, index]));
+  return [...nodes].sort((left, right) => {
+    const leftOrder = order.get(left.id);
+    const rightOrder = order.get(right.id);
+    if (leftOrder !== undefined || rightOrder !== undefined) {
+      if (leftOrder === undefined) return 1;
+      if (rightOrder === undefined) return -1;
+      return leftOrder - rightOrder;
+    }
+    return compareDataNodes(left, right);
+  });
+}
+
+function hasSharedAncestor(nodes: readonly TreeNodeDto[], node: TreeNodeDto) {
+  const byId = new Map(nodes.map((candidate) => [candidate.id, candidate]));
+  let parent = node.parentId ? byId.get(node.parentId) : undefined;
+  while (parent) {
+    if (parent.shared) return true;
+    parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+  }
+  return false;
 }
 
 function toCreatedTreeNode(node: TreeNodeDto) {

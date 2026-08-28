@@ -6,6 +6,7 @@ import {
   renameTreeNodeRequestSchema,
   reparentTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
+  setTreeNodeSharingRequestSchema,
   setTreeSelectionRequestSchema,
   treeLoadDtoSchema,
   treeNodeContentDtoSchema,
@@ -20,15 +21,17 @@ import {
   type ReparentTreeNodeRequest,
   type SetTreeNodeEnabledRequest,
   type SetTreeNodeEnabledResponse,
+  type SetTreeNodeSharingRequest,
   type SetTreeSelectionRequest,
   type TreeLoadDto,
   type TreeNodeContentDto,
+  type TreeNodeImageDto,
   type TreeSelectionDto,
   type UpdateTreeNodeContentRequest,
   type UpdateTreeNodeLocalIdRequest,
 } from "@flydeck/shared/v2";
 
-export const workspaceReplicaSchemaVersion = 4;
+export const workspaceReplicaSchemaVersion = 5;
 
 export type WorkspaceReplicaScope = {
   userId: string;
@@ -43,7 +46,13 @@ export type WorkspaceDataCommand =
   | { type: "reparent-node"; nodeId: string; input: ReparentTreeNodeRequest }
   | { type: "delete-node"; nodeId: string; input: DeleteTreeNodeRequest }
   | { type: "set-node-enabled"; nodeId: string; input: SetTreeNodeEnabledRequest }
+  | { type: "set-node-sharing"; nodeId: string; input: SetTreeNodeSharingRequest }
   | { type: "set-selection"; input: SetTreeSelectionRequest }
+  | {
+      type: "upload-image";
+      nodeId: string;
+      input: { requestId: string; fileName: string; mimeType: string };
+    }
   | { type: "update-content"; nodeId: string; input: UpdateTreeNodeContentRequest };
 
 export type WorkspaceOutboxEntry = {
@@ -64,7 +73,8 @@ export type WorkspaceDataCommandResult =
   | MutationRevisionDto
   | SetTreeNodeEnabledResponse
   | TreeSelectionDto
-  | TreeNodeContentDto;
+  | TreeNodeContentDto
+  | TreeNodeImageDto;
 
 export type WorkspaceReplicaRecord = {
   schemaVersion: typeof workspaceReplicaSchemaVersion;
@@ -286,6 +296,18 @@ export class WorkspaceReplica {
       contents: current.confirmedContents,
       lastServerSyncAt: this.now().toISOString(),
     }), { preserveEquivalentTree: true });
+  }
+
+  resetToServer(scope: WorkspaceReplicaScope, tree: TreeLoadDto) {
+    if (tree.document.workspaceId !== scope.workspaceId) {
+      throw new Error("Workspace replica received a tree from another workspace");
+    }
+    return this.transact(scope, () => ({
+      ...emptyWorkspaceReplicaRecord(),
+      confirmedTree: tree,
+      tree,
+      lastServerSyncAt: this.now().toISOString(),
+    }));
   }
 
   rebaseFromServer(
@@ -524,6 +546,19 @@ function mergeServerResult(
         },
       }));
     }
+    case "set-node-sharing": {
+      const confirmed = result as CreateTreeNodeResponse;
+      return updateDocument(current, (tree) => ({
+        ...tree,
+        document: {
+          ...tree.document,
+          revision: confirmed.treeRevision,
+          nodes: tree.document.nodes.map((node) => (
+            node.id === confirmed.node.id ? confirmed.node : node
+          )),
+        },
+      }));
+    }
     case "delete-node": {
       const confirmed = result as MutationRevisionDto;
       return updateDocument(current, (tree) => ({
@@ -561,6 +596,7 @@ function mergeServerResult(
         contents: { ...current.contents, [confirmed.nodeId]: confirmed },
       };
     }
+    case "upload-image": return current;
   }
 }
 
@@ -585,6 +621,8 @@ function equivalentTreeState(left: TreeLoadDto, right: TreeLoadDto) {
       && node.localId === confirmed.localId
       && node.position === confirmed.position
       && node.revision === confirmed.revision
+      && node.shared === confirmed.shared
+      && node.shareName === confirmed.shareName
       && node.capabilities.contentEditable === confirmed.capabilities.contentEditable
       && node.capabilities.listEditable === confirmed.capabilities.listEditable
       && node.capabilities.listItemLimit === confirmed.capabilities.listItemLimit;
@@ -672,10 +710,13 @@ export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
   if (!record || typeof record !== "object") return record;
   const candidate = clone(record) as Record<string, unknown>;
   const sourceVersion = candidate.schemaVersion;
-  if (sourceVersion !== 1 && sourceVersion !== 2 && sourceVersion !== 3) {
+  if (sourceVersion !== 1 && sourceVersion !== 2 && sourceVersion !== 3
+    && sourceVersion !== 4) {
     return candidate;
   }
   let localIdByNodeId = new Map<string, string>();
+  addMissingSharingFields(candidate.tree);
+  addMissingSharingFields(candidate.confirmedTree);
   const tree = candidate.tree;
   if (tree && typeof tree === "object") {
     const document = (tree as Record<string, unknown>).document;
@@ -748,6 +789,20 @@ function assignMissingLocalIds(nodes: unknown[]) {
   return localIdByNodeId;
 }
 
+function addMissingSharingFields(tree: unknown) {
+  if (!tree || typeof tree !== "object") return;
+  const document = (tree as Record<string, unknown>).document;
+  if (!document || typeof document !== "object") return;
+  const nodes = (document as Record<string, unknown>).nodes;
+  if (!Array.isArray(nodes)) return;
+  for (const node of nodes) {
+    if (!node || typeof node !== "object") continue;
+    const record = node as Record<string, unknown>;
+    if (typeof record.shared !== "boolean") record.shared = false;
+    if (typeof record.shareName !== "string") record.shareName = null;
+  }
+}
+
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -811,7 +866,10 @@ function isWorkspaceDataCommand(value: unknown): value is WorkspaceDataCommand {
       && deleteTreeNodeRequestSchema.safeParse(command.input).success;
     case "set-node-enabled": return hasNodeId
       && setTreeNodeEnabledRequestSchema.safeParse(command.input).success;
+    case "set-node-sharing": return hasNodeId
+      && setTreeNodeSharingRequestSchema.safeParse(command.input).success;
     case "set-selection": return setTreeSelectionRequestSchema.safeParse(command.input).success;
+    case "upload-image": return hasNodeId && isUploadImageInput(command.input);
     case "update-content": return hasNodeId
       && updateTreeNodeContentRequestSchema.safeParse(command.input).success;
     default: return false;
@@ -820,6 +878,18 @@ function isWorkspaceDataCommand(value: unknown): value is WorkspaceDataCommand {
 
 function invalidReplica(): never {
   throw new Error("Invalid workspace replica record");
+}
+
+function isUploadImageInput(value: unknown): value is {
+  requestId: string;
+  fileName: string;
+  mimeType: string;
+} {
+  if (!value || typeof value !== "object") return false;
+  const input = value as Record<string, unknown>;
+  return typeof input.requestId === "string" && input.requestId.length > 0
+    && typeof input.fileName === "string" && input.fileName.length > 0
+    && typeof input.mimeType === "string" && input.mimeType.startsWith("image/");
 }
 
 function rebaseCommand(
@@ -840,7 +910,8 @@ function rebaseCommand(
         },
       } as WorkspaceDataCommand : command;
     case "rename-node":
-    case "update-local-id": {
+    case "update-local-id":
+    case "set-node-sharing": {
       const revision = tree?.document.nodes.find(
         ({ id }) => id === command.nodeId,
       )?.revision;
@@ -871,6 +942,7 @@ function rebaseCommand(
         input: { ...command.input, expectedRevision: revision },
       };
     }
+    case "upload-image": return command;
   }
 }
 
@@ -880,6 +952,7 @@ function applyOptimisticCommand(
 ): WorkspaceReplicaRecord {
   switch (command.type) {
     case "create-node": return optimisticCreate(current, command.input);
+    case "upload-image": return current;
     case "rename-node": return updateDocument(current, (tree) => ({
       ...tree,
       document: {
@@ -908,6 +981,31 @@ function applyOptimisticCommand(
           : node),
       },
     }));
+    case "set-node-sharing": return updateDocument(current, (tree) => {
+      const relatedNodeIds = command.input.shared
+        ? sharingRelatives(tree.document.nodes, command.nodeId)
+        : new Set<string>();
+      return {
+        ...tree,
+        document: {
+          ...tree.document,
+          revision: tree.document.revision + 1,
+          nodes: tree.document.nodes.map((node) => {
+            if (node.id === command.nodeId) {
+              return {
+                ...node,
+                shared: command.input.shared,
+                shareName: command.input.shareName,
+                revision: command.input.expectedRevision + 1,
+              };
+            }
+            return relatedNodeIds.has(node.id) && node.shared
+              ? { ...node, shared: false, revision: node.revision + 1 }
+              : node;
+          }),
+        },
+      };
+    });
     case "reparent-node": return updateDocument(current, (tree) => {
       const position = tree.document.nodes.filter(
         ({ parentId }) => parentId === command.input.parentId,
@@ -1023,6 +1121,8 @@ function optimisticCreate(
       localId: input.localId,
       position,
       revision: 0,
+      shared: false,
+      shareName: null,
       capabilities: {
         contentEditable: true,
         listEditable: true,
@@ -1069,6 +1169,35 @@ function updateDocument(
   update: (tree: TreeLoadDto) => TreeLoadDto,
 ) {
   return current.tree ? { ...current, tree: update(current.tree) } : current;
+}
+
+function sharingRelatives(
+  nodes: TreeLoadDto["document"]["nodes"],
+  nodeId: string,
+) {
+  const related = new Set<string>();
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  let parentId = nodesById.get(nodeId)?.parentId ?? null;
+  while (parentId) {
+    if (related.has(parentId)) break;
+    related.add(parentId);
+    parentId = nodesById.get(parentId)?.parentId ?? null;
+  }
+
+  const descendants = new Set<string>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of nodes) {
+      if (node.id === nodeId || descendants.has(node.id)) continue;
+      if (node.parentId === nodeId || (node.parentId && descendants.has(node.parentId))) {
+        descendants.add(node.id);
+        changed = true;
+      }
+    }
+  }
+  for (const descendantId of descendants) related.add(descendantId);
+  return related;
 }
 
 function optimisticDelete(

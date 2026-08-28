@@ -194,6 +194,10 @@ export function App() {
     inlineAppViewBase,
     properties.BackupApp.base,
   );
+  const maintenanceAppBase = resolveDerivedBaseProperties(
+    inlineAppViewBase,
+    properties.MaintenanceApp.base,
+  );
   const moduleButtonBase = resolveDerivedBaseProperties(
     pressButtonBase,
     properties.ModuleButton.base,
@@ -810,6 +814,23 @@ export function App() {
                 ...buttonBase,
                 activeColor: properties.Button.activeColor,
               },
+              statusLineProps: {
+                ...appStatusLineBase,
+                fontSize: properties.AppStatusLine.fontSize,
+                fontWeight: properties.AppStatusLine.fontWeight,
+              },
+            },
+            maintenanceAppProps: {
+              ...maintenanceAppBase,
+              buttonProps: {
+                ...buttonBase,
+                activeColor: properties.Button.activeColor,
+              },
+              onResetClientToServer: userId && workspaceId
+                ? async () => {
+                    await workspaceSyncEngine.resetToServer({ userId, workspaceId });
+                  }
+                : undefined,
               statusLineProps: {
                 ...appStatusLineBase,
                 fontSize: properties.AppStatusLine.fontSize,

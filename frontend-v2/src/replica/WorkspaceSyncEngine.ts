@@ -9,6 +9,10 @@ import {
   WorkspaceSyncStatusStore,
   workspaceSyncStatusStore,
 } from "./WorkspaceSyncStatusStore";
+import {
+  dataImageDraftRepository,
+  type DataImageDraftRepository,
+} from "./DataImageDraftStore";
 
 export class WorkspaceSyncEngine {
   private readonly active = new Map<string, Promise<boolean>>();
@@ -24,6 +28,7 @@ export class WorkspaceSyncEngine {
     private readonly status: WorkspaceSyncStatusStore,
     listensToBrowser = true,
     private readonly writeDelayMs = 5_000,
+    private readonly imageDrafts: DataImageDraftRepository = dataImageDraftRepository,
   ) {
     if (listensToBrowser && typeof window !== "undefined") {
       window.addEventListener("online", () => this.retryRegistered());
@@ -52,6 +57,25 @@ export class WorkspaceSyncEngine {
   async retryBlocked(scope: WorkspaceReplicaScope, commandId: string) {
     await this.replica.retryBlocked(scope, commandId);
     return this.flush(scope);
+  }
+
+  async resetToServer(scope: WorkspaceReplicaScope) {
+    const key = scopeKey(scope);
+    const scheduled = this.scheduledFlushes.get(key);
+    if (scheduled) {
+      clearTimeout(scheduled);
+      this.scheduledFlushes.delete(key);
+    }
+    const running = this.active.get(key);
+    if (running) await running.catch(() => false);
+
+    const confirmed = await this.api.loadDataTree(scope.workspaceId);
+    await this.replica.resetToServer(scope, confirmed);
+    await this.imageDrafts.deleteWorkspace?.(scope.workspaceId);
+    this.invalidateHydratedContents(scope);
+    this.status.setPendingCount(key, 0);
+    this.status.markOnline();
+    return true;
   }
 
   ensureContents(scope: WorkspaceReplicaScope, nodeIds: readonly string[]) {
@@ -133,6 +157,9 @@ export class WorkspaceSyncEngine {
       await this.replica.recordAttempt(scope, entry.id);
       try {
         const result = await this.dispatch(scope, entry.command);
+        if (entry.command.type === "upload-image") {
+          await this.imageDrafts.delete(scope.workspaceId, entry.command.nodeId);
+        }
         await this.replica.confirm(scope, entry.id, result);
         if (entry.command.type !== "set-selection") {
           this.status.markCommandSaved(
@@ -314,8 +341,30 @@ export class WorkspaceSyncEngine {
         return this.api.setDataNodeEnabled(
           workspaceId, command.nodeId, command.input,
         );
+      case "set-node-sharing":
+        return this.api.setDataNodeSharing(
+          workspaceId, command.nodeId, command.input,
+        );
       case "set-selection":
         return this.api.setDataSelection(workspaceId, command.input);
+      case "upload-image": {
+        const draft = await this.imageDrafts.read(workspaceId, command.nodeId);
+        if (!draft) {
+          return {
+            nodeId: command.nodeId,
+            mimeType: command.input.mimeType,
+            originalName: command.input.fileName,
+            byteSize: 0,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return this.api.uploadDataImage(
+          workspaceId,
+          command.nodeId,
+          draft.blob,
+          command.input.fileName,
+        );
+      }
       case "update-content": {
         return this.api.updateDataContent(
           workspaceId, command.nodeId, command.input,

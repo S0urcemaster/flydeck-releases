@@ -8,6 +8,7 @@ import {
   type CreateTreeNodeRequest,
   type CreateTreeNodeWithContentRequest,
   type EditTreeNodeRequest,
+  type SetTreeNodeSharingRequest,
   type SetTreeSelectionRequest,
   type TreePageSize,
   type TreeLoadDto,
@@ -30,6 +31,8 @@ type NodeRow = {
   content_editable: boolean;
   list_editable: boolean;
   list_item_limit: number | null;
+  shared: boolean;
+  share_name: string | null;
   enabled: boolean;
   enabled_revision: string | number;
 };
@@ -105,7 +108,7 @@ export class TreeService {
           tree_nodes.label, tree_nodes.local_id, tree_nodes.position,
           tree_nodes.revision, tree_nodes.created_at, tree_nodes.updated_at,
           tree_nodes.content_editable, tree_nodes.list_editable,
-          tree_nodes.list_item_limit,
+          tree_nodes.list_item_limit, tree_nodes.shared, tree_nodes.share_name,
           COALESCE(node_user_states.enabled, false) AS enabled,
           COALESCE(node_user_states.revision, 0) AS enabled_revision
         FROM tree_nodes
@@ -138,6 +141,8 @@ export class TreeService {
           revision: Number(node.revision),
           createdAt: node.created_at.toISOString(),
           updatedAt: node.updated_at.toISOString(),
+          shared: node.shared,
+          shareName: node.share_name,
           capabilities: {
             contentEditable: node.content_editable,
             listEditable: node.list_editable,
@@ -685,6 +690,74 @@ export class TreeService {
     throwRevisionConflict("Enabled state", current.rows[0].revision ?? 0);
   }
 
+  async setSharing(
+    workspaceId: string,
+    nodeId: string,
+    input: SetTreeNodeSharingRequest,
+  ) {
+    return this.database.transaction(async (client) => {
+      const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
+      await assertMutableDataNode(client, tree.id, nodeId);
+      const shareName = input.shareName?.trim() || null;
+      if (input.shared && !shareName) {
+        throw new HttpError(
+          400,
+          "INVALID_REQUEST",
+          "A share name is required before an item can be shared",
+          { field: "shareName" },
+        );
+      }
+      if (input.shared) await assertPublishableDataNode(client, tree.id, nodeId);
+      const result = await client.query<MutableNodeRow>(`
+        UPDATE tree_nodes
+        SET shared = $1, share_name = $2,
+            revision = revision + 1, updated_at = now()
+        WHERE id = $3 AND tree_id = $4 AND revision = $5
+        RETURNING *, false AS enabled, 0 AS enabled_revision
+      `, [input.shared, shareName, nodeId, tree.id, input.expectedRevision]);
+      if (!result.rows[0]) {
+        const current = await nodeRevision(client, tree.id, nodeId);
+        throwRevisionConflict("Node", current);
+      }
+      if (input.shared) {
+        await client.query(`
+          WITH RECURSIVE ancestors AS (
+            SELECT parent.id, parent.parent_id
+            FROM tree_nodes source
+            JOIN tree_nodes parent ON parent.id = source.parent_id
+            WHERE source.tree_id = $1 AND source.id = $2
+            UNION ALL
+            SELECT parent.id, parent.parent_id
+            FROM tree_nodes parent
+            JOIN ancestors child ON child.parent_id = parent.id
+            WHERE parent.tree_id = $1
+          ), descendants AS (
+            SELECT child.id
+            FROM tree_nodes child
+            WHERE child.tree_id = $1 AND child.parent_id = $2
+            UNION ALL
+            SELECT child.id
+            FROM tree_nodes child
+            JOIN descendants parent ON child.parent_id = parent.id
+            WHERE child.tree_id = $1
+          ), related AS (
+            SELECT id FROM ancestors
+            UNION
+            SELECT id FROM descendants
+          )
+          UPDATE tree_nodes
+          SET shared = false, revision = revision + 1, updated_at = now()
+          WHERE tree_id = $1 AND shared = true
+            AND id IN (SELECT id FROM related)
+        `, [tree.id, nodeId]);
+      }
+      return createTreeNodeResponseSchema.parse({
+        node: toNodeDto(result.rows[0]),
+        treeRevision: await bumpTree(client, tree.id),
+      });
+    });
+  }
+
   async setSelection(
     workspaceId: string,
     userId: string,
@@ -975,6 +1048,35 @@ async function assertMutableDataNode(client: Queryable, treeId: string, nodeId: 
   }
 }
 
+async function assertPublishableDataNode(
+  client: Queryable,
+  treeId: string,
+  nodeId: string,
+) {
+  const result = await client.query<{ protected: boolean }>(`
+    WITH RECURSIVE ancestry AS (
+      SELECT id, parent_id, kind
+      FROM tree_nodes WHERE tree_id = $1 AND id = $2
+      UNION ALL
+      SELECT parent.id, parent.parent_id, parent.kind
+      FROM tree_nodes parent
+      JOIN ancestry child ON child.parent_id = parent.id
+      WHERE parent.tree_id = $1
+    )
+    SELECT EXISTS (
+      SELECT 1 FROM ancestry
+      WHERE kind IN ('system-directory', 'trash-directory')
+    ) AS protected
+  `, [treeId, nodeId]);
+  if (result.rows[0]?.protected) {
+    throw new HttpError(
+      403,
+      "FORBIDDEN",
+      "System and trash data cannot be shared",
+    );
+  }
+}
+
 async function insertionPosition(
   client: Queryable,
   treeId: string,
@@ -1079,6 +1181,8 @@ function toNodeDto(node: MutableNodeRow) {
     revision: Number(node.revision),
     createdAt: node.created_at.toISOString(),
     updatedAt: node.updated_at.toISOString(),
+    shared: node.shared,
+    shareName: node.share_name,
     capabilities: {
       contentEditable: node.content_editable,
       listEditable: node.list_editable,

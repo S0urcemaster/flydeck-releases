@@ -15,6 +15,7 @@ import {
   reparentInTree,
   reparentNodesInTree,
   resolveTreeLabelPath,
+  savedViewToTreeNode,
   toggleActiveViewId,
   updateActionSelection,
   updateTreeActionSelection,
@@ -106,6 +107,25 @@ describe("TreeBrowser", () => {
       'aria-label="Select Pflanzen for actions" type="button" aria-pressed="false"',
     );
     expect(markup).not.toContain("var(--color-success)");
+  });
+
+  it("keeps saved-view item lists reorderable without making items editable", () => {
+    const viewNode = savedViewToTreeNode({
+      id: "__shared_view__",
+      name: "_shared",
+      paths: ["posts", "lager"],
+      items: [
+        { id: "posts-id", label: "Posts", path: "posts" },
+        { id: "lager-id", label: "Lager", path: "lager" },
+      ],
+      immutable: true,
+    });
+
+    expect(viewNode.listEditable).toBe(true);
+    expect(viewNode.children).toMatchObject([
+      { kind: "saved-view-item", label: "Posts", contentEditable: false },
+      { kind: "saved-view-item", label: "Lager", contentEditable: false },
+    ]);
   });
 
   it("allows deleting the focused item without checking it for a view", () => {

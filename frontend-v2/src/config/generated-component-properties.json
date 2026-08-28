@@ -796,6 +796,17 @@
       "height": "inherit"
     }
   },
+  "MaintenanceApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "AppTitle": {
     "title": "Flydeck",
     "symbol": "𐦍",

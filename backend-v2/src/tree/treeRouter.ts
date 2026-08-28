@@ -12,6 +12,7 @@ import {
   renameTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
   setTreeNodeEnabledResponseSchema,
+  setTreeNodeSharingRequestSchema,
   setTreeSelectionRequestSchema,
   treeSelectionDtoSchema,
   treeLoadDtoSchema,
@@ -235,6 +236,23 @@ export function createTreeRouter(
         setTreeNodeEnabledResponseSchema,
         (transactionTrees) => transactionTrees.setEnabled(
           workspaceId, userId, nodeId, input.enabled, input.expectedRevision,
+        ),
+      ),
+    ));
+  });
+
+  router.put("/nodes/:nodeId/sharing", async (request, response) => {
+    const { workspaceId, userId } = await requireWorkspaceAccess(
+      sessions, request, workspaceIdParameter(request), true,
+    );
+    const nodeId = uuidSchema.parse(request.params.nodeId);
+    const input = setTreeNodeSharingRequestSchema.parse(request.body);
+    response.json(createTreeNodeResponseSchema.parse(
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.sharing",
+        createTreeNodeResponseSchema,
+        (transactionTrees) => transactionTrees.setSharing(
+          workspaceId, nodeId, input,
         ),
       ),
     ));

@@ -133,6 +133,7 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     direction: -1 | 1,
     siblings: readonly TreeBrowserModelNode<TContent>[],
   ) => boolean;
+  canRenameNode?: (node: TreeBrowserModelNode<TContent>) => boolean;
   createNode?: (
     name: string,
     parentId: string,
@@ -195,6 +196,15 @@ export type TreeBrowserSavedView = {
   id: string;
   name: string;
   paths: string[];
+  items?: TreeBrowserSavedViewItem[];
+  immutable?: boolean;
+  includeDescendants?: boolean;
+};
+
+export type TreeBrowserSavedViewItem = {
+  id: string;
+  label: string;
+  path: string;
 };
 
 export type TreeBrowserSavedViewsControl = {
@@ -205,7 +215,13 @@ export type TreeBrowserSavedViewsControl = {
     paths: readonly string[],
   ) => Promise<TreeBrowserSavedView | false>;
   onDelete: (viewId: string) => Promise<boolean>;
+  onDeleteItem?: (viewId: string, itemId: string) => Promise<boolean>;
   onMove: (viewId: string, afterViewId: string | null) => Promise<boolean>;
+  onMoveItem?: (
+    viewId: string,
+    itemId: string,
+    afterItemId: string | null,
+  ) => Promise<boolean>;
   onRename: (viewId: string, name: string) => Promise<boolean>;
 };
 
@@ -244,6 +260,7 @@ export function TreeBrowser<TContent = unknown>({
   canCreateNode = () => true,
   canDeleteNode,
   canMoveNode = () => true,
+  canRenameNode = () => true,
   createNode = createDefaultNode,
   onCreateNode,
   onRenameNode,
@@ -306,9 +323,13 @@ export function TreeBrowser<TContent = unknown>({
   const effectiveActiveViewId = activeView?.id ?? null;
   const activeViewNodeIds = useMemo(
     () => activeView
-      ? new Set(activeView.paths.flatMap((path) => (
-          resolveTreeLocalIdPath(tree, path) ?? []
-        )))
+      ? new Set(activeView.paths.flatMap((path) => {
+          const resolved = resolveTreeLocalIdPath(tree, path) ?? [];
+          if (!activeView.includeDescendants) return resolved;
+          const root = resolved.at(-1);
+          const node = root ? findTreeNode(tree, root) : undefined;
+          return node ? [...resolved, ...findSubtreeIds([node], node.id)] : resolved;
+        }))
       : null,
     [activeView, tree],
   );
@@ -328,16 +349,8 @@ export function TreeBrowser<TContent = unknown>({
   const savedViewsModel = useMemo(() => new TreeBrowserModel<TreeBrowserSavedView>({
     definitionAuthority: true,
     initialTree: (savedViews?.views ?? []).map((view) => ({
-      id: view.id,
-      kind: "saved-view",
-      label: view.name,
-      localId: view.id,
+      ...savedViewToTreeNode(view),
       enabled: view.id === effectiveActiveViewId,
-      contentEditable: true,
-      contentVisible: true,
-      listEditable: false,
-      data: view,
-      children: [],
     })),
     storageKey: `flydeck.tree.views.reference.${savedViews?.dataSource ?? "none"}`,
     store: transientViewsStore,
@@ -938,7 +951,7 @@ export function TreeBrowser<TContent = unknown>({
                   const checked = controlledCheckedNodeIds?.has(node.id)
                     ?? actionSelectedSet.has(node.id);
                   if (node.id === selectedId && !inlineContentVisible
-                    && itemRenameVisible) {
+                    && itemRenameVisible && canRenameNode(node)) {
                     return listInput;
                   }
                   const browserItem = (
@@ -1169,8 +1182,16 @@ export function TreeBrowser<TContent = unknown>({
             <TreeBrowser<TreeBrowserSavedView>
               browserItemProps={browserItemProps}
               browserLabel="Saved views browser"
-              canCreateNode={() => selectedViewPaths.length > 0}
-              canDeleteNode={() => true}
+              canCreateNode={(parentId) => (
+                parentId === rootId && selectedViewPaths.length > 0
+              )}
+              canDeleteNode={(node) => node.kind === "saved-view-item"
+                ? Boolean(savedViews.onDeleteItem)
+                : node.data?.immutable !== true}
+              canMoveNode={(node) => node.kind === "saved-view-item"
+                ? Boolean(savedViews.onMoveItem)
+                : node.data?.immutable !== true}
+              canRenameNode={(node) => node.kind !== "saved-view-item"}
               componentName="TreeBrowser"
               defaultPageSize={4}
               initialSelectedPath={effectiveSelectedViewId
@@ -1178,6 +1199,7 @@ export function TreeBrowser<TContent = unknown>({
                 : []}
               initialPageSizes={{ [rootId]: 4 }}
               listControlProps={listControlProps}
+              itemRenameVisible={selectedView?.immutable !== true}
               menuVisible={false}
               model={savedViewsModel}
               rootPageSize={4}
@@ -1193,6 +1215,16 @@ export function TreeBrowser<TContent = unknown>({
                 return savedViewToTreeNode(created);
               }}
               onDeleteNode={async (viewId) => {
+                const item = findSavedViewItem(savedViews.views, viewId);
+                if (item) {
+                  return savedViews.onDeleteItem?.(
+                    item.view.id,
+                    item.item.id,
+                  ) ?? false;
+                }
+                if (savedViews.views.find(({ id }) => id === viewId)?.immutable) {
+                  return false;
+                }
                 const deleted = await savedViews.onDelete(viewId);
                 if (deleted && effectiveSelectedViewId === viewId) {
                   setSelectedViewId(null);
@@ -1202,22 +1234,30 @@ export function TreeBrowser<TContent = unknown>({
                 }
                 return deleted;
               }}
-              onMoveNode={savedViews.onMove}
-              onRenameNode={savedViews.onRename}
+              onMoveNode={(nodeId, afterNodeId) => {
+                const item = findSavedViewItem(savedViews.views, nodeId);
+                if (item) {
+                  const afterItem = afterNodeId
+                    ? findSavedViewItem(savedViews.views, afterNodeId)
+                    : null;
+                  return savedViews.onMoveItem?.(
+                    item.view.id,
+                    item.item.id,
+                    afterItem?.item.id ?? null,
+                  ) ?? false;
+                }
+                return savedViews.views.find(({ id }) => id === nodeId)?.immutable
+                  ? false
+                  : savedViews.onMove(nodeId, afterNodeId);
+              }}
+              onRenameNode={(viewId, name) => (
+                savedViews.views.find(({ id }) => id === viewId)?.immutable
+                  ? false
+                  : savedViews.onRename(viewId, name)
+              )}
               onSelectedPathChange={(path) => {
                 setSelectedViewId(path[0] ?? null);
               }}
-              renderContent={({ height, node }) => (
-                <Base
-                  as="output"
-                  className={styles.viewContent}
-                  componentName="Base"
-                  height={height}
-                  aria-label={`${node.label} selected paths`}
-                >
-                  {node.data?.paths.join("\n") ?? ""}
-                </Base>
-              )}
             />
           </div>
         ) : null}
@@ -1285,7 +1325,7 @@ function pathsEqual(left: readonly string[], right: readonly string[]) {
     && left.every((value, index) => value === right[index]);
 }
 
-function savedViewToTreeNode(
+export function savedViewToTreeNode(
   view: TreeBrowserSavedView,
 ): TreeBrowserNode<TreeBrowserSavedView> {
   return {
@@ -1294,12 +1334,54 @@ function savedViewToTreeNode(
     label: view.name,
     localId: view.id,
     enabled: true,
-    contentEditable: true,
+    contentEditable: view.immutable !== true,
     contentVisible: true,
-    listEditable: false,
+    listEditable: true,
     data: view,
+    children: savedViewItems(view).map((item) => savedViewItemToTreeNode(
+      view,
+      item,
+    )),
+  };
+}
+
+function savedViewItems(view: TreeBrowserSavedView): TreeBrowserSavedViewItem[] {
+  return view.items ?? view.paths.map((path) => ({ id: path, label: path, path }));
+}
+
+function savedViewItemNodeId(viewId: string, itemId: string) {
+  return `${viewId}::${encodeURIComponent(itemId)}`;
+}
+
+function savedViewItemToTreeNode(
+  view: TreeBrowserSavedView,
+  item: TreeBrowserSavedViewItem,
+): TreeBrowserNode<TreeBrowserSavedView> {
+  return {
+    id: savedViewItemNodeId(view.id, item.id),
+    kind: "saved-view-item",
+    label: item.label,
+    localId: item.id,
+    enabled: true,
+    contentEditable: false,
+    contentVisible: false,
+    listEditable: false,
+    data: { ...view, paths: [item.path], items: [item] },
     children: [],
   };
+}
+
+function findSavedViewItem(
+  views: readonly TreeBrowserSavedView[],
+  nodeId: string,
+) {
+  for (const view of views) {
+    const item = savedViewItems(view).find((candidate) => (
+      savedViewItemNodeId(view.id, candidate.id) === nodeId
+    ));
+    if (item) return { view, item };
+  }
+  return null;
 }
 
 function resolveTreeLocalIdPath<

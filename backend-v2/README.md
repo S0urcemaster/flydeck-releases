@@ -77,6 +77,7 @@ DELETE /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId
 GET /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId/content
 PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId/content
 PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId/enabled
+PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId/sharing
 PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/selection
 GET /flydeck/api/v2/workspaces/:workspaceId/cron
 POST /flydeck/api/v2/workspaces/:workspaceId/cron
@@ -88,7 +89,8 @@ POST /flydeck/api/v2/workspaces/:workspaceId/backup
 
 All workspace routes require the opaque session cookie. Viewers can load DATA,
 content, and CRON; mutations require `owner` or `editor`. Tree, node content,
-per-user enabled state, selection, list page sizes, and CRON mutations use
+per-user enabled state, workspace sharing state, selection, list page sizes,
+and CRON mutations use
 expected revisions. Selection and page sizes share the per-user tree-state
 revision and are cached optimistically by the V2 frontend. Creation requests
 are idempotent for 24 hours via their UUID request ID.
@@ -117,8 +119,11 @@ transition to expired without an external notification.
 
 The server uses narrow REST messages. A complete flat tree is transferred only
 for initial load or resynchronization. Create, rename, move, delete, enabled,
-selection, and content changes have separate request schemas in
+sharing, selection, and content changes have separate request schemas in
 `@flydeck/shared/v2` and carry expected revisions.
+Sharing a DATA node is transactional and exclusive across its branch: the
+server disables every shared ancestor and descendant in the same transaction,
+so Relay One can never receive nested publication roots.
 
 ## PostgreSQL integration test
 

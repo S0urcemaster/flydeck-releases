@@ -224,10 +224,18 @@ function mergeNodes<TData>(
 ): TreeBrowserModelNode<TData>[] {
   const definitionsById = new Map(definitions.map((node) => [node.id, node]));
   const storedById = new Map(storedNodes.map((node) => [node.id, node]));
-  const orderedIds = [
-    ...storedNodes.map(({ id }) => id),
-    ...definitions.filter(({ id }) => !storedById.has(id)).map(({ id }) => id),
-  ];
+  const orderedIds = storedNodes.map(({ id }) => id);
+  definitions.forEach((definition, definitionIndex) => {
+    if (storedById.has(definition.id)) return;
+    const followingDefinition = definitions.slice(definitionIndex + 1).find(
+      ({ id }) => orderedIds.includes(id),
+    );
+    if (!followingDefinition) {
+      orderedIds.push(definition.id);
+      return;
+    }
+    orderedIds.splice(orderedIds.indexOf(followingDefinition.id), 0, definition.id);
+  });
 
   return orderedIds.flatMap((id) => {
     const definition = definitionsById.get(id);

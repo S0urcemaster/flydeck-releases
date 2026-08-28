@@ -161,6 +161,7 @@ export type ComponentPropertiesConfig = {
   };
   InlineAppView: { base: StoredBaseProperties };
   BackupApp: { base: StoredBaseProperties };
+  MaintenanceApp: { base: StoredBaseProperties };
   AppTitle: {
     title: string;
     symbol: string;
@@ -280,6 +281,7 @@ export function parseComponentPropertiesConfig(
   const appStatusLine = input.AppStatusLine;
   const inlineAppView = input.InlineAppView;
   const backupApp = input.BackupApp;
+  const maintenanceApp = input.MaintenanceApp;
   const appTitle = input.AppTitle;
   const appShell = input.AppShell;
   const modulePanel = input.ModulePanel;
@@ -368,6 +370,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(appStatusLine)
     || !isRecord(inlineAppView)
     || !isRecord(backupApp)
+    || !isRecord(maintenanceApp)
     || !isRecord(appTitle)
     || !isRecord(appShell)
     || !isRecord(modulePanel)
@@ -460,6 +463,7 @@ export function parseComponentPropertiesConfig(
   const appStatusLineBase = parseStoredBaseProperties(appStatusLine.base);
   const inlineAppViewBase = parseStoredBaseProperties(inlineAppView.base);
   const backupAppBase = parseStoredBaseProperties(backupApp.base);
+  const maintenanceAppBase = parseStoredBaseProperties(maintenanceApp.base);
   const titleBase = parseStoredBaseProperties(appTitle.base);
   const shellBase = parseStoredBaseProperties(appShell.base);
   const panelBase = parseStoredBaseProperties(modulePanel.base);
@@ -551,6 +555,7 @@ export function parseComponentPropertiesConfig(
     || !appStatusLineBase
     || !inlineAppViewBase
     || !backupAppBase
+    || !maintenanceAppBase
     || !titleBase
     || !shellBase
     || !panelBase
@@ -852,6 +857,7 @@ export function parseComponentPropertiesConfig(
     },
     InlineAppView: { base: inlineAppViewBase },
     BackupApp: { base: backupAppBase },
+    MaintenanceApp: { base: maintenanceAppBase },
     AppTitle: {
       title: appTitle.title,
       symbol: appTitle.symbol,

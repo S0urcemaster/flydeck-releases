@@ -18,6 +18,7 @@ export {
   type TreeBrowserRootControl,
   type TreeBrowserRootTarget,
   type TreeBrowserSavedView,
+  type TreeBrowserSavedViewItem,
   type TreeBrowserSavedViewsControl,
   type TreeBrowserProps,
 } from "./TreeBrowser";

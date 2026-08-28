@@ -9,6 +9,7 @@ import {
   editTreeNodeRequestSchema,
   reparentTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
+  setTreeNodeSharingRequestSchema,
   setTreeSelectionRequestSchema,
   treeDocumentDtoSchema,
   treeNodeContentDtoSchema,
@@ -94,6 +95,27 @@ describe("V2 network contracts", () => {
       enabled: true,
       expectedRevision: 2,
     })).toEqual({ requestId: firstId, enabled: true, expectedRevision: 2 });
+  });
+
+  it("requires a public name when sharing a DATA node", () => {
+    expect(setTreeNodeSharingRequestSchema.safeParse({
+      requestId: firstId,
+      shared: true,
+      shareName: null,
+      expectedRevision: 2,
+    }).success).toBe(false);
+    expect(setTreeNodeSharingRequestSchema.parse({
+      requestId: firstId,
+      shared: true,
+      shareName: "Public notes",
+      expectedRevision: 2,
+    }).shareName).toBe("Public notes");
+    expect(setTreeNodeSharingRequestSchema.parse({
+      requestId: firstId,
+      shared: false,
+      shareName: null,
+      expectedRevision: 2,
+    }).shared).toBe(false);
   });
 
   it("validates server-synchronized page sizes by tree list owner", () => {

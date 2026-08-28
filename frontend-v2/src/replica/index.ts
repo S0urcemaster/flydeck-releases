@@ -28,3 +28,11 @@ export {
   workspaceSyncEngine,
 } from "./WorkspaceSyncEngine";
 export { useWorkspaceReplica } from "./useWorkspaceReplica";
+export {
+  createDataImagePreview,
+  deleteDataImageDraft,
+  deleteWorkspaceDataImageDrafts,
+  readDataImageDraft,
+  writeDataImageDraft,
+  type DataImageDraft,
+} from "./DataImageDraftStore";

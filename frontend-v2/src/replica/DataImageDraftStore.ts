@@ -4,6 +4,12 @@ export type DataImageDraft = {
   previewBlob?: Blob;
 };
 
+export type DataImageDraftRepository = {
+  read(workspaceId: string, nodeId: string): Promise<DataImageDraft | null>;
+  delete(workspaceId: string, nodeId: string): Promise<void>;
+  deleteWorkspace?(workspaceId: string): Promise<void>;
+};
+
 export async function createDataImagePreview(blob: Blob): Promise<Blob> {
   if (typeof document === "undefined") return blob;
   let bitmap: ImageBitmap;
@@ -80,6 +86,36 @@ export async function deleteDataImageDraft(
     nodeId,
   )));
 }
+
+export async function deleteWorkspaceDataImageDrafts(workspaceId: string) {
+  const database = await openDatabase();
+  if (!database) return;
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(storeName, "readwrite");
+    const store = transaction.objectStore(storeName);
+    const request = store.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      if (typeof cursor.key === "string" && cursor.key.startsWith(`${workspaceId}:`)) {
+        cursor.delete();
+      }
+      cursor.continue();
+    };
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+export const dataImageDraftRepository: DataImageDraftRepository = {
+  read: readDataImageDraft,
+  delete: deleteDataImageDraft,
+  deleteWorkspace: deleteWorkspaceDataImageDrafts,
+};
 
 function draftKey(workspaceId: string, nodeId: string) {
   return `${workspaceId}:${nodeId}`;

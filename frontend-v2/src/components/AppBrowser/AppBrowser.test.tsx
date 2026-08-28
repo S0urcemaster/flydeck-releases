@@ -37,6 +37,16 @@ describe("AppBrowser", () => {
     );
   });
 
+  it("places Maintenance directly before Backup", () => {
+    const markup = renderToStaticMarkup(
+      <AppBrowser initialSelectedPath={["system"]} />,
+    );
+
+    expect(markup).toContain(">Maintenance</button>");
+    expect(markup.indexOf(">Maintenance</button>"))
+      .toBeLessThan(markup.indexOf(">Backup</button>"));
+  });
+
   it("requires every parent visibility flag for generated output", () => {
     const nodes: TreeBrowserNode<AppData>[] = [{
       id: "widgets",

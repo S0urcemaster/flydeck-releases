@@ -288,6 +288,90 @@ describe("WorkspaceSyncEngine", () => {
     }
   });
 
+  it("uploads a cached image only after its new node reaches the server", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const before = tree("Before", 0, 1);
+    const newNodeId = "00000000-0000-4000-8000-000000000017";
+    const createdNode = {
+      ...before.document.nodes[0],
+      id: newNodeId,
+      label: "New post",
+      localId: "new-post",
+      revision: 0,
+    };
+    const after = {
+      ...before,
+      document: {
+        ...before.document,
+        revision: 2,
+        nodes: [...before.document.nodes, createdNode],
+      },
+    };
+    await replica.replaceTree(scope, before);
+    const calls: string[] = [];
+    const api = {
+      createDataNode: vi.fn().mockImplementation(async () => {
+        calls.push("create");
+        return { node: createdNode, treeRevision: 2 };
+      }),
+      uploadDataImage: vi.fn().mockImplementation(async () => {
+        calls.push("upload");
+        return {
+          nodeId: newNodeId,
+          mimeType: "image/jpeg",
+          originalName: "photo.jpg",
+          byteSize: 5,
+          updatedAt: "2026-08-28T20:00:00.000Z",
+        };
+      }),
+      loadDataTree: vi.fn().mockResolvedValue(after),
+    } as unknown as V2ApiClient;
+    const imageDrafts = {
+      read: vi.fn().mockResolvedValue({
+        blob: new Blob(["photo"], { type: "image/jpeg" }),
+        fileName: "photo.jpg",
+      }),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      api,
+      new WorkspaceSyncStatusStore(false),
+      false,
+      5_000,
+      imageDrafts,
+    );
+
+    await engine.submit(scope, {
+      type: "create-node",
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000018",
+        nodeId: newNodeId,
+        parentId: null,
+        afterNodeId: nodeId,
+        kind: "data-file",
+        label: "New post",
+        localId: "new-post",
+        expectedTreeRevision: 1,
+      },
+    });
+    await engine.submit(scope, {
+      type: "upload-image",
+      nodeId: newNodeId,
+      input: {
+        requestId: "00000000-0000-4000-8000-000000000019",
+        fileName: "photo.jpg",
+        mimeType: "image/jpeg",
+      },
+    });
+
+    await expect(engine.flush(scope)).resolves.toBe(true);
+
+    expect(calls).toEqual(["create", "upload"]);
+    expect(imageDrafts.delete).toHaveBeenCalledWith(scope.workspaceId, newNodeId);
+    expect((await replica.load(scope))?.outbox).toEqual([]);
+  });
+
   it("replays rapid moves with consecutive optimistic revisions", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     const before = tree("Before", 0, 1);
@@ -708,6 +792,59 @@ describe("WorkspaceSyncEngine", () => {
     expect(cached?.tree?.document.nodes[0].label).toBe("Local");
     expect(cached?.outbox).toHaveLength(1);
     expect(cached?.outbox[0].blocked).toBeUndefined();
+  });
+
+  it("resets a blocked client replica and image drafts to the server state", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const local = tree("Local", 0, 1);
+    const server = tree("Server", 4, 7);
+    await replica.replaceTree(scope, local);
+    await replica.putContent(scope, {
+      nodeId,
+      format: "markdown",
+      content: "Local only",
+      revision: 0,
+    });
+    const commandId = "00000000-0000-4000-8000-000000000020";
+    await replica.enqueue(scope, {
+      type: "set-selection",
+      input: {
+        requestId: commandId,
+        selectedPath: ["00000000-0000-4000-8000-000000000099"],
+        pageSizes: {},
+        expectedRevision: 0,
+      },
+    });
+    await replica.markBlocked(
+      scope,
+      commandId,
+      "INVALID_REQUEST",
+      "Selected path is not a valid tree path",
+    );
+    const deleteWorkspace = vi.fn().mockResolvedValue(undefined);
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      { loadDataTree: vi.fn().mockResolvedValue(server) } as unknown as V2ApiClient,
+      new WorkspaceSyncStatusStore(false),
+      false,
+      5_000,
+      {
+        read: vi.fn().mockResolvedValue(null),
+        delete: vi.fn().mockResolvedValue(undefined),
+        deleteWorkspace,
+      },
+    );
+
+    await expect(engine.resetToServer(scope)).resolves.toBe(true);
+
+    expect(await replica.load(scope)).toMatchObject({
+      confirmedTree: server,
+      tree: server,
+      confirmedContents: {},
+      contents: {},
+      outbox: [],
+    });
+    expect(deleteWorkspace).toHaveBeenCalledWith(scope.workspaceId);
   });
 });
 

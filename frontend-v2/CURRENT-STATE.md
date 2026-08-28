@@ -191,6 +191,11 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   revisioned optimistic replica/outbox as the selected path. Existing V2
   IndexedDB replicas migrate to this server-backed shape without losing queued
   commands.
+  APPS/System contains `Maintenance` directly before `Backup`. Its
+  `Reset Client to Server` action is an explicit recovery escape hatch: it
+  first loads the server tree, then discards the complete local replica outbox,
+  cached contents, and workspace image drafts. A failed server read leaves the
+  client cache untouched.
   A global TreeBrowser menu precedes every level. Its permanent first row shows
   the current slash-separated local-ID path without separator whitespace in a
   flexible-width input followed by fixed-width
@@ -217,7 +222,13 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   created view remains selected and active.
   Only selected nodes and the ancestor paths required to reach them remain
   visible. The Views browser stays open for normal CRUD and content navigation;
-  opening a view's content displays its referenced paths.
+  opening a view displays every referenced path as a real flat child item rather
+  than a newline-separated content block. Child move controls persist path order
+  back into the view, and left/right page controls expose further children in
+  four-item pages. Deleting a normal child removes only that path reference from
+  the view. `_shared` remains the immutable final view, while its shared-root
+  child items are movable and deleting one performs Unshare; their persisted
+  UUID order is the public Relay One root order, with newly shared roots appended.
   `TreeBrowser` supplies the selected-row color by depth, alternating from
   `ACCENT_ONE` to `ACCENT_TWO`.
   Selecting a row makes it the only active item in its sibling list and checks
@@ -236,7 +247,26 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   of the owning list is visible.
 - `DataBrowser` and `FunctionBrowser` specialize `TreeBrowser` and are shown
   in DATA and FUNC. `DataBrowser` renders the workspace replica's canonical
-  DATA tree.
+  DATA tree. Its item content keeps the content editor permanently visible and
+  collapses ID, Name, Parent, and Sharing behind one full-width Details row.
+  Sharing is workspace-canonical DATA state: its wider leading checkbox and
+  form save the active flag and public share name atomically. A checkbox change
+  persists Share or Unshare immediately without requiring the input keyboard;
+  Unshare retains the name for later reuse. Sharing a child disables shared
+  ancestors, while sharing a parent disables every shared descendant. The
+  server performs that exclusivity change atomically and the optimistic replica
+  applies the identical cascade immediately. An active share is rejected by
+  the client, shared Zod contract, service, and PostgreSQL constraint unless
+  its name is present. Its checkbox labels the inactive and active states
+  `Share` and `Shared`. System/trash branches cannot be shared. The immutable
+  `_shared` view is always the final item in the Views list.
+  A selected or captured image now owns a visible `Save` button directly below
+  its preview. Save enqueues a typed image command behind preceding DATA writes;
+  its original Blob remains in the separate IndexedDB image store until server
+  confirmation. There is no waiting dialog; a dialog with Retry appears only
+  after queue failure. Image upload no longer depends on opening the content
+  keyboard or saving unchanged content. The content keyboard's `Save` is disabled
+  whenever its draft exactly matches the confirmed content record.
   `FunctionBrowser` starts with `Widgets`, `System`, and `User`; `System`
   contains a `DeviceInfo` item. `Widgets → Compass` builds category lists from
   `assets/sayings.json`, with the matching sayings below every category; the
@@ -267,7 +297,7 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   and retries desired content after connectivity returns. Offline mutation
   queuing is active through that same replica.
 - Every shared DATA mutation contract now carries a UUID request ID, including
-  create, rename, move, reparent, delete, enabled state, selection, and content.
+  create, rename, move, reparent, delete, enabled state, sharing, selection, and content.
   Create additionally carries its client-assigned node UUID and sibling-local
   short generated `localId`, so an offline item has both a stable internal identity
   and an address before server contact; users may later choose a longer ID. Backend tree routes execute
@@ -280,9 +310,9 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - `WorkspaceSyncEngine` now owns serialized per-workspace replay, dispatches
   every typed DATA command through `V2ApiClient`, retains failed entries,
   records attempts, acknowledges confirmed responses, and refreshes the tree
-  after a drained queue. Normal writes use a one-second trailing write-behind
+  after a drained queue. Normal writes use a five-second trailing write-behind
   window: every action is durable and visible locally at once, while server
-  replay starts only after one quiet second. Commands atomically rebase their
+  replay starts only after five quiet seconds. Commands atomically rebase their
   expected tree/node/content revision when entering the replica, so rapid
   ordered actions cannot share a stale component revision. App startup
   registers the last confirmed workspace;
@@ -301,8 +331,12 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   background, so DATA selection and editing no longer wait for network replay.
   DataBrowser keeps one mounted TreeBrowser and reconciles changed replica
   models in place instead of key-remounting the complete tree after every
-  revision. Conflict recovery replaces the observable replica from the server
-  without reloading the browser page.
+  revision. Every replica snapshot now supplies a fresh canonical model
+  definition, so optimistic ID and name changes immediately reach the parent
+  list and ListControl as well as the Inspector. Because DATA manages the
+  structure externally, this definition update preserves the open path, page,
+  and content mode. Conflict recovery replaces the observable replica from the
+  server without reloading the browser page.
 - The title status line visualizes durable writes in the blue primary accent.
   Each user command shows `cached...` for at least 500ms and then `saved`; while
   offline it transitions to `in queue`, and a completely replayed recovery

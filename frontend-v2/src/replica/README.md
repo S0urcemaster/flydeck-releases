@@ -20,6 +20,9 @@ disposable response cache.
 - Commands are sent in outbox order. Their request IDs are stable across retry,
   so the server can return an earlier idempotent result without duplicating the
   mutation.
+- Image commands keep only their stable node/file reference in the ordered
+  outbox. The original Blob remains in the dedicated IndexedDB image store
+  until its upload succeeds, so a new node is created before its image is sent.
 
 ## Full server reads
 
@@ -36,3 +39,9 @@ invalid command is retained as blocked for an explicit later retry or repair.
 `WorkspaceSyncEngine.retryBlocked()` releases one such command deliberately;
 `WorkspaceReplica.exportRecord()` produces a complete JSON repair snapshot
 including the checkpoint, visible projection, contents, and outbox.
+
+The APPS/System `Maintenance` action is the deliberate destructive escape
+hatch. `Reset Client to Server` first loads a valid server tree, then atomically
+replaces the replica, clears its contents and complete outbox, and deletes all
+cached image drafts for that workspace. It never clears local state when the
+server read fails.

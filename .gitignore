@@ -1,6 +1,9 @@
 node_modules/
 frontend/dist/
 desktop-v2/dist/
+relayone/dist/
+relayone/dist-server/
+relayone/.env
 desktop-v2/src-tauri/target/
 *.tsbuildinfo
 frontend/vite.config.js

@@ -1,0 +1,20 @@
+[Unit]
+Description=Isolated Tailscale identity for Relay One
+After=network-online.target relayone.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/tailscaled --tun=userspace-networking --state=%S/relayone-tailscale/tailscaled.state --statedir=%S/relayone-tailscale --socket=%t/relayone-tailscale/tailscaled.sock
+Restart=on-failure
+RestartSec=3
+
+StateDirectory=relayone-tailscale
+RuntimeDirectory=relayone-tailscale
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+
+[Install]
+WantedBy=default.target

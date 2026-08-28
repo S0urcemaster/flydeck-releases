@@ -97,6 +97,9 @@ the newline-separated selected local-ID paths. Its create, rename, move,
 content, and delete operations therefore use the normal replica/outbox and
 backend idempotency boundaries. Activating one projects only those paths and
 their required ancestors; canonical source DATA is not duplicated.
+DATA also appends one immutable built-in `_shared` view. It derives its paths
+from canonical node sharing flags, includes each shared subtree, and cannot be
+renamed, moved, or deleted; no duplicate `_system/views` record is created.
 The referenced Views browser uses the compact `S`/four-item list. Selection and
 application are separate: a full-width `active` button above its virtual root
 toggles filtering for the selected view; creating a view selects and activates
