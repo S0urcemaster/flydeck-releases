@@ -8,6 +8,11 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 27.08.026 11:15 Pre-Release V2 (a08ee4ceb933)
+- Sharing nodes on
+- Relay One / a public viewer with tailscale funnel
+- Fixes
+
 ### 27.08.026 11:15 Pre-Release V2 (b9cbe85519b1)
 - Agent Chat Alpha
 - DATA/TreeBrowser fixes
