@@ -8,7 +8,11 @@ Your agent should be able to connect it
 
 ## Releases
 
-### 03.09.026 21:21 V2 Beta1 ()
+### 03.09.026 21:21 V2 Beta1 (1f602079b320)
+- Agent Jobs seen
+- Debounced Flydon <> Relay One
+- 3 more DATA views with own selected path
+- More live testing and fixes
 
 ### 27.08.026 11:15 Pre-Release V2 (a08ee4ceb933)
 - Sharing nodes on
