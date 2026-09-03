@@ -1,8 +1,10 @@
 export const moduleMenuItems = [
   "AGNT",
   "DATA",
+  "DATB",
+  "DATC",
+  "DATD",
   "FUNC",
-  "CRON",
   "HELP",
   "CONFIG",
 ] as const;

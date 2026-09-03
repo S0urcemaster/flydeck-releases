@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 import { parseComponentPropertiesConfig } from "./src/config/componentProperties";
@@ -26,6 +26,9 @@ const generatedComponentPropertiesPath = fileURLToPath(
 );
 
 export default defineConfig({
+  test: {
+    include: ["src/**/*.test.{ts,tsx}"],
+  },
   server: {
     proxy: {
       "/flydeck/api/v2": "http://127.0.0.1:5100",

@@ -1,0 +1,43 @@
+.root,
+.identityFields,
+.actions,
+.tabs,
+.panel,
+.memoryFields,
+.dataFields,
+.modelControls,
+.timeFields {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.root {
+  align-content: start;
+}
+
+.actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.modelControls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.status {
+  margin: 0;
+  padding: var(--space-xs);
+  overflow-wrap: anywhere;
+}
+
+.status {
+  color: var(--color-text-muted);
+}

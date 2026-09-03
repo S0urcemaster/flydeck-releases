@@ -9,7 +9,7 @@ import {
 import { Base, resolveCssValue, type BaseProps } from "../Base";
 import {
   Keyboard,
-  initialKeyboardFontStage,
+  initialTextareaFontStage,
   scaledFontSize,
   type KeyboardProps,
   type InputFontStage,
@@ -57,7 +57,7 @@ export function Textarea({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [smartphoneKeyboardEnabled, setSmartphoneKeyboardEnabled] = useState(false);
   const [fontStage, setFontStage] = useState<InputFontStage>(
-    initialKeyboardFontStage,
+    initialTextareaFontStage,
   );
   const [uncontrolledContentLength, setUncontrolledContentLength] = useState(
     () => textLength(defaultValue),
@@ -69,7 +69,7 @@ export function Textarea({
   const resolvedTextareaRef = controlRef ?? textareaRef;
   const classes = className ? `${styles.control} ${className}` : styles.control;
   const keyboardExpandsControl = keyboardVisible && keyboardLayout === "inline";
-  const resolvedFontSize = scaledFontSize(fontSize, fontStage, "medium");
+  const resolvedFontSize = scaledFontSize(fontSize, fontStage, "small");
   const visibleLabel = label ?? ariaLabel;
   const contentLength = value === undefined
     ? uncontrolledContentLength

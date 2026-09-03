@@ -51,6 +51,7 @@ declare global {
 export type TextEntryElement = HTMLInputElement | HTMLTextAreaElement;
 export type InputFontStage = "small" | "medium" | "large";
 export const initialKeyboardFontStage: InputFontStage = "medium";
+export const initialTextareaFontStage: InputFontStage = "small";
 type KeyboardKey = {
   id: string;
   position: "standard" | "row-two-edge" | "row-three-edge" | "row-four-edge" | "space";

@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 
 import { Button, type ButtonProps } from "../Button";
+import { PressButton } from "../PressButton";
 import { resolveCssValue } from "../Base";
 import styles from "./SymbolButton.module.css";
 
@@ -28,12 +29,14 @@ export function SymbolButtonConfigurationProvider({
 }
 
 export type SymbolButtonProps = Omit<ButtonProps, "children"> & {
+  activateOnPress?: boolean;
   symbol: ReactNode;
   symbolLeft?: string;
   symbolTop?: string;
 };
 
 export function SymbolButton({
+  activateOnPress = false,
   componentName = "SymbolButton",
   symbol,
   symbolLeft,
@@ -41,8 +44,9 @@ export function SymbolButton({
   ...buttonProps
 }: SymbolButtonProps) {
   const configuredDefaults = useContext(SymbolButtonConfigurationContext);
+  const ButtonComponent = activateOnPress ? PressButton : Button;
   return (
-    <Button {...buttonProps} componentName={componentName}>
+    <ButtonComponent {...buttonProps} componentName={componentName}>
       <span
         className={styles.symbol}
         aria-hidden="true"
@@ -53,6 +57,6 @@ export function SymbolButton({
       >
         {symbol}
       </span>
-    </Button>
+    </ButtonComponent>
   );
 }

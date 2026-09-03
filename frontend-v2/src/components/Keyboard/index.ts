@@ -19,6 +19,7 @@ export {
   insertDialKeyboardText,
   insertKeyboardText,
   initialKeyboardFontStage,
+  initialTextareaFontStage,
   keyboardCharacter,
   keyboardKeys,
   lockKeyboardShift,

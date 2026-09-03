@@ -47,7 +47,7 @@ ssh "${ssh_options[@]}" "$deploy_host" \
    systemctl --user restart flydeck-v2.service
    for attempt in 1 2 3 4 5 6 7 8 9 10; do
      if curl --fail --silent http://127.0.0.1:5100/flydeck/api/v2/health/ready >/dev/null \
-       && curl --fail --silent http://127.0.0.1:5100/v2/ >/dev/null; then
+       && curl --fail --silent http://127.0.0.1:5100/ >/dev/null; then
        break
      fi
      if [ \"\$attempt\" -eq 10 ]; then
@@ -57,7 +57,8 @@ ssh "${ssh_options[@]}" "$deploy_host" \
      sleep 1
    done
    test \"\$(systemctl --user is-active flydeck-v2.service)\" = active
-   tailscale serve --bg --yes --set-path /v2 http://127.0.0.1:5100/v2
+   tailscale serve --bg --yes http://127.0.0.1:5000
+   tailscale serve --bg --yes --set-path /v2 http://127.0.0.1:5100
    tailscale serve --bg --yes --set-path /flydeck/api/v2 http://127.0.0.1:5100/flydeck/api/v2"
 
 echo "Checking public v2 endpoints and the unchanged v1 endpoint..."

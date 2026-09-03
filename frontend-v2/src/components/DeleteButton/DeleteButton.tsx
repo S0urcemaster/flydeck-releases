@@ -16,6 +16,7 @@ export type DeleteButtonProps = Omit<
   action?: "delete" | "reset";
   armedColor?: string;
   children?: ReactNode;
+  confirmation?: boolean;
   label: string;
   onDelete: () => void | Promise<void>;
   timeout?: number;
@@ -24,6 +25,7 @@ export type DeleteButtonProps = Omit<
 export function DeleteButton({
   action = "delete",
   children = <Trash2 aria-hidden="true" />,
+  confirmation = true,
   label,
   onDelete,
   timeout = 500,
@@ -42,7 +44,7 @@ export function DeleteButton({
   function click(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (pendingRef.current) return;
-    if (armed) {
+    if (armed || !confirmation) {
       if (timeoutId.current) clearTimeout(timeoutId.current);
       timeoutId.current = null;
       setArmed(false);
@@ -77,7 +79,8 @@ export function DeleteButton({
     disabled: buttonProps.disabled || pending,
     "aria-label": `${pending
       ? action === "delete" ? "Deleting" : "Resetting"
-      : armed ? `Confirm ${action} for` : `Arm ${action} for`} ${label}`,
+      : armed ? `Confirm ${action} for`
+        : confirmation ? `Arm ${action} for` : `${action === "delete" ? "Delete" : "Reset"}`} ${label}`,
     onClick: click,
   };
 

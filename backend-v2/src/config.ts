@@ -16,6 +16,9 @@ const envSchema = z.object({
   BACKUP_DIRECTORY: z.string().trim().default("backups"),
   BACKUP_RETENTION: z.coerce.number().int().min(1).max(365).default(7),
   IMAGE_DIRECTORY: z.string().trim().default("../flydon-server/images"),
+  RELAY_INGEST_URL: z.url().optional(),
+  RELAY_INGEST_SECRET: z.string().min(32).optional(),
+  RELAY_SYNC_INTERVAL_MS: z.coerce.number().int().min(1_000).max(300_000).default(5_000),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   FRONTEND_DIST: z.string().trim().optional(),
   FRONTEND_BASE_PATH: z.string().default("/v2"),
@@ -36,6 +39,9 @@ export type AppConfig = {
   backupDirectory: string;
   backupRetention: number;
   imageDirectory?: string;
+  relayIngestUrl?: string;
+  relayIngestSecret?: string;
+  relaySyncIntervalMs: number;
   sessionTtlDays: number;
   frontendDist?: string;
   frontendBasePath: string;
@@ -58,6 +64,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     backupDirectory: path.resolve(parsed.BACKUP_DIRECTORY),
     backupRetention: parsed.BACKUP_RETENTION,
     imageDirectory: path.resolve(parsed.IMAGE_DIRECTORY),
+    relayIngestUrl: parsed.RELAY_INGEST_URL,
+    relayIngestSecret: parsed.RELAY_INGEST_SECRET,
+    relaySyncIntervalMs: parsed.RELAY_SYNC_INTERVAL_MS,
     sessionTtlDays: parsed.SESSION_TTL_DAYS,
     frontendDist: parsed.FRONTEND_DIST
       ? path.resolve(parsed.FRONTEND_DIST)

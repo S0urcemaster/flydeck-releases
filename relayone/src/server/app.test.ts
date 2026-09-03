@@ -1,3 +1,5 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
@@ -15,6 +17,10 @@ const config: RelayConfig = {
   title: "Relay One",
   info: "Selected posts.",
   imageDirectory: "/tmp/images",
+  assetDirectory: "/tmp/relay-assets",
+  ingestSecret: null,
+  maxAssetBytes: 25 * 1_024 * 1_024,
+  dataSource: "legacy",
   publicCacheSeconds: 15,
   frontendDist: path.resolve("dist-does-not-exist"),
 };
@@ -28,8 +34,9 @@ const site: RelaySite = {
     localId: "posts",
     createdAt: "2026-01-01T10:00:00.000Z",
     updatedAt: "2026-01-01T10:00:00.000Z",
-    imageUrl: null,
-    hasChildren: false,
+  imageUrl: null,
+  childCount: 0,
+  hasChildren: false,
   }],
 };
 
@@ -70,6 +77,21 @@ describe("Relay One app", () => {
 
     expect(response.status).toBe(404);
     expect(response.body.error).toBe("IMAGE_NOT_FOUND");
+  });
+
+  it("serves frontend bundles before interpreting content-addressed assets", async () => {
+    const frontendDist = await mkdtemp(path.join(os.tmpdir(), "relay-frontend-"));
+    try {
+      await mkdir(path.join(frontendDist, "assets"));
+      await writeFile(path.join(frontendDist, "assets", "app.js"), "window.relayLoaded=true");
+      const response = await request(createApp({ ...config, frontendDist }, reader()))
+        .get("/assets/app.js");
+
+      expect(response.status).toBe(200);
+      expect(response.text).toContain("relayLoaded");
+    } finally {
+      await rm(frontendDist, { recursive: true, force: true });
+    }
   });
 
   it("reports an unavailable publication without leaking database details", async () => {

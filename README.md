@@ -8,6 +8,8 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 03.09.026 21:21 V2 Beta1 ()
+
 ### 27.08.026 11:15 Pre-Release V2 (a08ee4ceb933)
 - Sharing nodes on
 - Relay One / a public viewer with tailscale funnel

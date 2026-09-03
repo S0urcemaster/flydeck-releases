@@ -120,6 +120,36 @@ describe("WorkspaceSyncEngine", () => {
     }
   });
 
+  it("does not drop a server refresh requested during an active refresh", async () => {
+    const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
+    const before = tree("Before", 0, 1);
+    const running = tree("Running", 1, 2);
+    const completed = tree("Completed", 2, 3);
+    await replica.replaceTree(scope, before);
+    let resolveFirst!: (value: TreeLoadDto) => void;
+    const firstResponse = new Promise<TreeLoadDto>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const loadDataTree = vi.fn()
+      .mockReturnValueOnce(firstResponse)
+      .mockResolvedValueOnce(completed);
+    const engine = new WorkspaceSyncEngine(
+      replica,
+      { loadDataTree } as unknown as V2ApiClient,
+      new WorkspaceSyncStatusStore(false),
+      false,
+    );
+
+    const firstRefresh = engine.flush(scope);
+    const completionRefresh = engine.flush(scope);
+    resolveFirst(running);
+
+    await expect(firstRefresh).resolves.toBe(true);
+    await expect(completionRefresh).resolves.toBe(true);
+    expect(loadDataTree).toHaveBeenCalledTimes(2);
+    expect(replica.getSnapshot(scope)?.tree?.document.nodes[0].label).toBe("Completed");
+  });
+
   it("keeps an optimistic command queued when transport is offline", async () => {
     const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
     await replica.replaceTree(scope, tree("Before", 0, 1));

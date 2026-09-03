@@ -31,4 +31,13 @@ describe("DeleteButton", () => {
     expect(markup).toContain(">RESET</button>");
     expect(markup.match(/data-component-name=/g)).toHaveLength(1);
   });
+
+  it("can delete immediately when the domain uses recoverable trash", () => {
+    const markup = renderToStaticMarkup(
+      <DeleteButton confirmation={false} label="Job" onDelete={() => undefined} />,
+    );
+
+    expect(markup).toContain('aria-label="Delete Job"');
+    expect(markup).not.toContain("Arm delete");
+  });
 });

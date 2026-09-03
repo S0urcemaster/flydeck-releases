@@ -51,6 +51,7 @@ export const treeNodeDtoSchema = z.object({
   updatedAt: z.iso.datetime().optional(),
   shared: z.boolean().optional(),
   shareName: treeNodeShareNameSchema.nullable().optional(),
+  jobConfigured: z.boolean().optional(),
   capabilities: treeNodeCapabilitiesDtoSchema,
 });
 

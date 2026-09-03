@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createTreeNodeLocalId } from "@flydeck/shared/v2";
-import { PanelsTopLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Base, resolveCssValue, type BaseStyleProps } from "../Base";
 import { BrowserItem, type BrowserItemProps } from "../BrowserItem";
@@ -21,7 +21,6 @@ import {
 import { ListControlButton } from "../ListControlButton";
 import { InputControl } from "../InputControl";
 import type { ListControlListSize } from "../ListControlListSizeButton";
-import { ClientStateStore } from "../../state";
 import {
   TreeBrowserModel,
   createTreeBrowserSnapshot,
@@ -87,10 +86,10 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   rootListItemLimit?: number;
   rootLabel?: string;
   menuVisible?: boolean;
+  leafListsVisible?: boolean;
   itemRenameVisible?: boolean;
   structureManagedExternally?: boolean;
   selectionActiveColor?: string;
-  savedViews?: TreeBrowserSavedViewsControl;
   initialSelectedPath?: string[];
   initialPageSizes?: Record<string, ListControlListSize>;
   rowGap?: string;
@@ -192,41 +191,6 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
 };
 
 const rootId = "__tree_root__";
-export type TreeBrowserSavedView = {
-  id: string;
-  name: string;
-  paths: string[];
-  items?: TreeBrowserSavedViewItem[];
-  immutable?: boolean;
-  includeDescendants?: boolean;
-};
-
-export type TreeBrowserSavedViewItem = {
-  id: string;
-  label: string;
-  path: string;
-};
-
-export type TreeBrowserSavedViewsControl = {
-  dataSource: string;
-  views: readonly TreeBrowserSavedView[];
-  onCreate: (
-    name: string,
-    paths: readonly string[],
-  ) => Promise<TreeBrowserSavedView | false>;
-  onDelete: (viewId: string) => Promise<boolean>;
-  onDeleteItem?: (viewId: string, itemId: string) => Promise<boolean>;
-  onMove: (viewId: string, afterViewId: string | null) => Promise<boolean>;
-  onMoveItem?: (
-    viewId: string,
-    itemId: string,
-    afterItemId: string | null,
-  ) => Promise<boolean>;
-  onRename: (viewId: string, name: string) => Promise<boolean>;
-};
-
-const transientViewsStore = new ClientStateStore({ storage: () => null });
-
 function listLevelActiveColor(depth: number) {
   return depth % 2 === 0 ? "COLOR_ACCENT_ONE" : "COLOR_ACCENT_TWO";
 }
@@ -234,17 +198,17 @@ function listLevelActiveColor(depth: number) {
 export function TreeBrowser<TContent = unknown>({
   componentName = "TreeBrowser",
   browserLabel = "Tree browser",
-  defaultPageSize = 7,
+  defaultPageSize = 4,
   rootPageSize = defaultPageSize,
   model,
   rootListEditable = true,
   rootListItemLimit,
   rootLabel = "root",
   menuVisible = true,
+  leafListsVisible = true,
   itemRenameVisible = true,
   structureManagedExternally = false,
   selectionActiveColor,
-  savedViews,
   initialSelectedPath,
   initialPageSizes,
   rowGap,
@@ -302,11 +266,7 @@ export function TreeBrowser<TContent = unknown>({
     ? pageSizeDraft.value
     : initialPageSizes ?? pageSizeDraft.value;
   const [globalSearch, setGlobalSearch] = useState("");
-  const [menuView, setMenuView] = useState<
-    "default" | "search" | "views"
-  >("default");
-  const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
-  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [menuView, setMenuView] = useState<"default" | "search">("default");
   const tree = structureManagedExternally
     ? modelState.document.nodes
     : localTree;
@@ -317,44 +277,9 @@ export function TreeBrowser<TContent = unknown>({
     ? modelState.semanticState.enabledByNodeId
     : localEnabledByNodeId;
   const activeModel = useRef(model);
-  const selectedView = savedViews?.views.find(({ id }) => id === selectedViewId);
-  const activeView = savedViews?.views.find(({ id }) => id === activeViewId);
-  const effectiveSelectedViewId = selectedView?.id ?? null;
-  const effectiveActiveViewId = activeView?.id ?? null;
-  const activeViewNodeIds = useMemo(
-    () => activeView
-      ? new Set(activeView.paths.flatMap((path) => {
-          const resolved = resolveTreeLocalIdPath(tree, path) ?? [];
-          if (!activeView.includeDescendants) return resolved;
-          const root = resolved.at(-1);
-          const node = root ? findTreeNode(tree, root) : undefined;
-          return node ? [...resolved, ...findSubtreeIds([node], node.id)] : resolved;
-        }))
-      : null,
-    [activeView, tree],
-  );
-  const selectedViewNodeIds = useMemo(() => [...new Set(
-    Object.values(actionSelectionByListId).flat(),
-  )].filter((id) => Boolean(findTreeNode(tree, id))), [
-    actionSelectionByListId,
-    tree,
-  ]);
   const controlledCheckedNodeIds = checkedNodeIds
     ? new Set(checkedNodeIds)
     : null;
-  const selectedViewPaths = useMemo(() => selectedViewNodeIds.flatMap((id) => {
-    const path = findTreeLocalIdPath(tree, id);
-    return path ? [path.join("/")] : [];
-  }), [selectedViewNodeIds, tree]);
-  const savedViewsModel = useMemo(() => new TreeBrowserModel<TreeBrowserSavedView>({
-    definitionAuthority: true,
-    initialTree: (savedViews?.views ?? []).map((view) => ({
-      ...savedViewToTreeNode(view),
-      enabled: view.id === effectiveActiveViewId,
-    })),
-    storageKey: `flydeck.tree.views.reference.${savedViews?.dataSource ?? "none"}`,
-    store: transientViewsStore,
-  }), [effectiveActiveViewId, savedViews]);
   const selectedPathLabel = useMemo(
     () => createSelectedPathLabel(tree, selectedPath),
     [selectedPath, tree],
@@ -623,7 +548,7 @@ export function TreeBrowser<TContent = unknown>({
       : "";
     const filteredNodes = filterTreeLevelNodes(
       nodes,
-      activeViewNodeIds,
+      null,
       normalizedSearch,
     );
     const pageSize = pageSizes[parentId]
@@ -1034,7 +959,8 @@ export function TreeBrowser<TContent = unknown>({
                 )}
               </div>
             </div>
-            {selectedNode && !inlineContentVisible ? (
+            {selectedNode && !inlineContentVisible
+              && (leafListsVisible || selectedNode.children.length > 0) ? (
               <div className={styles.childListFrame}>
                 {renderLevel(
                   selectedNode.children,
@@ -1091,19 +1017,6 @@ export function TreeBrowser<TContent = unknown>({
                   }
                 }}
               />
-              <ListControlButton
-                {...listControlProps?.buttonProps}
-                activeColor="COLOR_SUCCESS"
-                aria-label="Show saved views"
-                disabled={!savedViews}
-                selected={isViewsButtonActive(menuView, effectiveActiveViewId)}
-                symbol={<PanelsTopLeft aria-hidden="true" />}
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  if (menuView === "search") setGlobalSearch("");
-                  setMenuView(menuView === "views" ? "default" : "views");
-                }}
-              />
             </>
           )}
           keyboardActions={menuView === "search" ? null : (
@@ -1130,7 +1043,7 @@ export function TreeBrowser<TContent = unknown>({
             const matchPath = findFirstMatchingVisibleNodePath(
               tree,
               value,
-              activeViewNodeIds,
+              null,
             );
             if (matchPath && matchPath.length > 1) {
               setSelectedPath(matchPath.slice(0, -1));
@@ -1139,11 +1052,7 @@ export function TreeBrowser<TContent = unknown>({
           inputProps={{
             ...listControlProps?.inputProps,
             background: menuView === "default" ? "COLOR_APP" : "transparent",
-            "aria-label": menuView === "search"
-              ? activeView
-                ? `Search view ${activeView.name}`
-                : "Search complete tree"
-              : "Tree path",
+            "aria-label": menuView === "search" ? "Search complete tree" : "Tree path",
             autoFocus: menuView === "search",
             color: menuView === "search"
               ? listControlProps?.inputProps?.color
@@ -1157,110 +1066,6 @@ export function TreeBrowser<TContent = unknown>({
             },
           }}
         />
-        {menuView === "views" && savedViews ? (
-          <div className={styles.views} aria-label="Saved views">
-            <ListControlButton
-              {...listControlProps?.buttonProps}
-              activeColor="COLOR_SUCCESS"
-              aria-label="Activate selected view"
-              disabled={!selectedView}
-              selected={Boolean(
-                selectedView && selectedView.id === effectiveActiveViewId,
-              )}
-              width="100%"
-              onClick={() => {
-                if (!selectedView) return;
-                setActiveViewId((current) => toggleActiveViewId(
-                  selectedView.id,
-                  current,
-                ));
-                setPages({});
-              }}
-            >
-              active
-            </ListControlButton>
-            <TreeBrowser<TreeBrowserSavedView>
-              browserItemProps={browserItemProps}
-              browserLabel="Saved views browser"
-              canCreateNode={(parentId) => (
-                parentId === rootId && selectedViewPaths.length > 0
-              )}
-              canDeleteNode={(node) => node.kind === "saved-view-item"
-                ? Boolean(savedViews.onDeleteItem)
-                : node.data?.immutable !== true}
-              canMoveNode={(node) => node.kind === "saved-view-item"
-                ? Boolean(savedViews.onMoveItem)
-                : node.data?.immutable !== true}
-              canRenameNode={(node) => node.kind !== "saved-view-item"}
-              componentName="TreeBrowser"
-              defaultPageSize={4}
-              initialSelectedPath={effectiveSelectedViewId
-                ? [effectiveSelectedViewId]
-                : []}
-              initialPageSizes={{ [rootId]: 4 }}
-              listControlProps={listControlProps}
-              itemRenameVisible={selectedView?.immutable !== true}
-              menuVisible={false}
-              model={savedViewsModel}
-              rootPageSize={4}
-              rootLabel="views"
-              rowGap={rowGap}
-              selectionActiveColor="COLOR_SUCCESS"
-              onCreateNode={async (name) => {
-                const created = await savedViews.onCreate(name, selectedViewPaths);
-                if (!created) return false;
-                setSelectedViewId(created.id);
-                setActiveViewId(created.id);
-                setPages({});
-                return savedViewToTreeNode(created);
-              }}
-              onDeleteNode={async (viewId) => {
-                const item = findSavedViewItem(savedViews.views, viewId);
-                if (item) {
-                  return savedViews.onDeleteItem?.(
-                    item.view.id,
-                    item.item.id,
-                  ) ?? false;
-                }
-                if (savedViews.views.find(({ id }) => id === viewId)?.immutable) {
-                  return false;
-                }
-                const deleted = await savedViews.onDelete(viewId);
-                if (deleted && effectiveSelectedViewId === viewId) {
-                  setSelectedViewId(null);
-                }
-                if (deleted && effectiveActiveViewId === viewId) {
-                  setActiveViewId(null);
-                }
-                return deleted;
-              }}
-              onMoveNode={(nodeId, afterNodeId) => {
-                const item = findSavedViewItem(savedViews.views, nodeId);
-                if (item) {
-                  const afterItem = afterNodeId
-                    ? findSavedViewItem(savedViews.views, afterNodeId)
-                    : null;
-                  return savedViews.onMoveItem?.(
-                    item.view.id,
-                    item.item.id,
-                    afterItem?.item.id ?? null,
-                  ) ?? false;
-                }
-                return savedViews.views.find(({ id }) => id === nodeId)?.immutable
-                  ? false
-                  : savedViews.onMove(nodeId, afterNodeId);
-              }}
-              onRenameNode={(viewId, name) => (
-                savedViews.views.find(({ id }) => id === viewId)?.immutable
-                  ? false
-                  : savedViews.onRename(viewId, name)
-              )}
-              onSelectedPathChange={(path) => {
-                setSelectedViewId(path[0] ?? null);
-              }}
-            />
-          </div>
-        ) : null}
       </Base> : null}
       {renderLevel(tree, rootId, 0, rootListEditable, rootListItemLimit)}
     </Base>
@@ -1284,13 +1089,6 @@ export function createSelectedPathLabel<
     siblings = node.children;
   }
   return labels.length > 0 ? labels.join("/") : "root";
-}
-
-export function isViewsButtonActive(
-  menuView: "default" | "search" | "views",
-  activeViewId: string | null,
-) {
-  return menuView === "views" || activeViewId !== null;
 }
 
 export function resolveTreeLabelPath<
@@ -1323,83 +1121,6 @@ export function resolveTreeLabelPath<
 function pathsEqual(left: readonly string[], right: readonly string[]) {
   return left.length === right.length
     && left.every((value, index) => value === right[index]);
-}
-
-export function savedViewToTreeNode(
-  view: TreeBrowserSavedView,
-): TreeBrowserNode<TreeBrowserSavedView> {
-  return {
-    id: view.id,
-    kind: "saved-view",
-    label: view.name,
-    localId: view.id,
-    enabled: true,
-    contentEditable: view.immutable !== true,
-    contentVisible: true,
-    listEditable: true,
-    data: view,
-    children: savedViewItems(view).map((item) => savedViewItemToTreeNode(
-      view,
-      item,
-    )),
-  };
-}
-
-function savedViewItems(view: TreeBrowserSavedView): TreeBrowserSavedViewItem[] {
-  return view.items ?? view.paths.map((path) => ({ id: path, label: path, path }));
-}
-
-function savedViewItemNodeId(viewId: string, itemId: string) {
-  return `${viewId}::${encodeURIComponent(itemId)}`;
-}
-
-function savedViewItemToTreeNode(
-  view: TreeBrowserSavedView,
-  item: TreeBrowserSavedViewItem,
-): TreeBrowserNode<TreeBrowserSavedView> {
-  return {
-    id: savedViewItemNodeId(view.id, item.id),
-    kind: "saved-view-item",
-    label: item.label,
-    localId: item.id,
-    enabled: true,
-    contentEditable: false,
-    contentVisible: false,
-    listEditable: false,
-    data: { ...view, paths: [item.path], items: [item] },
-    children: [],
-  };
-}
-
-function findSavedViewItem(
-  views: readonly TreeBrowserSavedView[],
-  nodeId: string,
-) {
-  for (const view of views) {
-    const item = savedViewItems(view).find((candidate) => (
-      savedViewItemNodeId(view.id, candidate.id) === nodeId
-    ));
-    if (item) return { view, item };
-  }
-  return null;
-}
-
-function resolveTreeLocalIdPath<
-  TNode extends { id: string; localId?: string; children: readonly TNode[] },
->(nodes: readonly TNode[], path: string): string[] | null {
-  const segments = path.split("/").filter(Boolean);
-  if (segments.length === 0) return [];
-  const ids: string[] = [];
-  let siblings = nodes;
-  for (const segment of segments) {
-    const node = siblings.find((candidate) => (
-      (candidate.localId ?? candidate.id) === segment
-    ));
-    if (!node) return null;
-    ids.push(node.id);
-    siblings = node.children;
-  }
-  return ids;
 }
 
 export function filterTreeLevelNodes<
@@ -1713,13 +1434,6 @@ function findReadonlyTreePath<
     if (nested) return [node.id, ...nested];
   }
   return null;
-}
-
-export function toggleActiveViewId(
-  selectedViewId: string,
-  activeViewId: string | null,
-): string | null {
-  return selectedViewId === activeViewId ? null : selectedViewId;
 }
 
 function omitActionSelection(

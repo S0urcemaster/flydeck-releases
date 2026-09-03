@@ -13,17 +13,28 @@
   grid-column: 1;
   grid-row: 1;
   overflow: hidden;
+  position: relative;
 }
 
 .labelText {
   display: block;
   min-width: 0;
   overflow: hidden;
-  padding-left: var(--space-md);
+  padding-inline: var(--space-md) calc(var(--space-md) * 2);
   text-align: left;
   text-overflow: ellipsis;
   text-transform: var(--global-text-transform, none);
   white-space: nowrap;
+}
+
+.newItemLabel {
+  position: absolute;
+  top: 50%;
+  right: var(--space-md);
+  font-size: 1.25em;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
 .actions {

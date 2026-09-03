@@ -1,37 +1,22 @@
-import { InputControl, type InputControlProps } from "../../components/InputControl";
-import { AgentChatBrowser } from "../../components/AgentChatBrowser";
-import type {
-  AgentChatContentProps,
-  AgentChatContentStyleProps,
-} from "../../components/AgentChatContent";
-import { MemoryBrowser } from "../../components/MemoryBrowser";
+import type { InputControlProps } from "../../components/InputControl";
+import type { BaseStyleProps } from "../../components/Base";
+import { AgentJobBrowser, AgentMemoBrowser } from "../../components/AgentJobBrowser";
+import type { JobCaseProps, JobCaseStyleProps } from "../../components/JobCase";
 import { Module, type ModuleProps } from "../../components/Module";
 import {
   SubmodulePanel,
   type SubmodulePanelProps,
 } from "../../components/SubmodulePanel";
-import {
-  TreeBrowserModel,
-  type TreeBrowserProps,
-} from "../../components/TreeBrowser";
-import {
-  isStringRecord,
-  useClientStateSlice,
-  type ClientStateSlice,
-} from "../../state";
-import {
-  agentMemoryInitialDrafts,
-  agentMemoryInitialTree,
-  defaultAgentMemory,
-  type AgentMemoryData,
-} from "./agentMemory";
+import type { TreeBrowserProps } from "../../components/TreeBrowser";
+import { useClientStateSlice, type ClientStateSlice } from "../../state";
 import styles from "./AgentModule.module.css";
 
 export type AgentModuleProps = ModuleProps & {
   inputControlProps?: InputControlProps;
-  chatContentProps?: AgentChatContentStyleProps;
-  nodeIdInputProps?: AgentChatContentProps["nodeIdInputProps"];
-  parentInputProps?: AgentChatContentProps["parentInputProps"];
+  jobBrowserProps?: BaseStyleProps;
+  jobCaseProps?: JobCaseStyleProps;
+  nodeIdInputProps?: JobCaseProps["nodeIdInputProps"];
+  parentInputProps?: JobCaseProps["parentInputProps"];
   workspaceId?: string;
   onSynchronizationError?: (reason: string) => void;
   treeBrowserProps?: Omit<
@@ -49,8 +34,9 @@ export type AgentModuleProps = ModuleProps & {
 };
 
 export function AgentModule({
-  chatContentProps,
+  jobCaseProps,
   inputControlProps,
+  jobBrowserProps,
   nodeIdInputProps,
   parentInputProps,
   workspaceId,
@@ -62,8 +48,9 @@ export function AgentModule({
   const [activeSection, setActiveSection] = useClientStateSlice(
     agentSectionSlice,
   );
-  const [drafts, setDrafts] = useClientStateSlice(agentMemoDraftsSlice);
-
+  const [memoSelectionIds, setMemoSelectionIds] = useClientStateSlice(
+    memoSelectionSlice,
+  );
   return (
     <Module
       {...props}
@@ -76,10 +63,12 @@ export function AgentModule({
         activeItem={activeSection}
         onChange={setActiveSection}
       />
-      {activeSection === "CHAT" && (
-        <AgentChatBrowser
-          chatContentProps={chatContentProps}
-          {...treeBrowserProps}
+      {activeSection === "JOBS" && (
+        <AgentJobBrowser
+          {...jobBrowserProps}
+          jobCaseProps={jobCaseProps}
+          memoSelectionIds={memoSelectionIds}
+          treeBrowserProps={treeBrowserProps}
           inputControlProps={inputControlProps}
           nodeIdInputProps={nodeIdInputProps}
           parentInputProps={parentInputProps}
@@ -88,50 +77,34 @@ export function AgentModule({
         />
       )}
       {activeSection === "MEMO" && (
-        <MemoryBrowser
-          {...treeBrowserProps}
-          model={agentTreeBrowserModel}
-          renderContent={({ height, node }) => (
-            <InputControl
-              {...inputControlProps}
-              height={height}
-              value={drafts[node.id] ?? initialMemoryContent(node.data)}
-              onChange={(value) => setDrafts((current) => ({
-                ...current,
-                [node.id]: value,
-              }))}
-            />
-          )}
+        <AgentMemoBrowser
+          checkedNodeIds={memoSelectionIds}
+          inputControlProps={inputControlProps}
+          nodeIdInputProps={nodeIdInputProps}
+          parentInputProps={parentInputProps}
+          treeBrowserProps={treeBrowserProps}
+          workspaceId={workspaceId}
+          onSynchronizationError={onSynchronizationError}
+          onNodeCheckedChange={setMemoSelectionIds}
         />
       )}
     </Module>
   );
 }
 
-const agentMemoDraftsSlice: ClientStateSlice<Record<string, string>> = {
-  name: `drafts.memo.default.${defaultAgentMemory.version}`,
-  version: 1,
-  defaultValue: agentMemoryInitialDrafts,
-  validate: isStringRecord,
-};
-
-const agentSectionSlice: ClientStateSlice<"CHAT" | "MEMO"> = {
+const agentSectionSlice: ClientStateSlice<"JOBS" | "MEMO"> = {
   name: "navigation.agentSection",
   version: 1,
-  defaultValue: "MEMO",
-  validate: (value): value is "CHAT" | "MEMO" => (
-    value === "CHAT" || value === "MEMO"
+  defaultValue: "JOBS",
+  validate: (value): value is "JOBS" | "MEMO" => (
+    value === "JOBS" || value === "MEMO"
   ),
 };
 
-const agentTreeBrowserModel = new TreeBrowserModel<AgentMemoryData>({
-  initialTree: agentMemoryInitialTree,
-  storageKey: `flydeck.tree.memo.default.${defaultAgentMemory.version}`,
-});
-
-function initialMemoryContent(value: unknown) {
-  return value && typeof value === "object"
-    && typeof (value as Partial<AgentMemoryData>).initialContent === "string"
-    ? (value as AgentMemoryData).initialContent
-    : "";
-}
+const memoSelectionSlice: ClientStateSlice<string[]> = {
+  name: "agent.memoSelection",
+  version: 2,
+  defaultValue: [],
+  validate: (value): value is string[] => Array.isArray(value)
+    && value.every((entry) => typeof entry === "string"),
+};

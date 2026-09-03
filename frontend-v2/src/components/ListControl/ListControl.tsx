@@ -26,6 +26,12 @@ import {
 } from "../ListControlListSizeButton";
 import styles from "./ListControl.module.css";
 
+function oppositeTreeAccent(activeColor: string) {
+  if (activeColor === "COLOR_ACCENT_ONE") return "COLOR_ACCENT_TWO";
+  if (activeColor === "COLOR_ACCENT_TWO") return "COLOR_ACCENT_ONE";
+  return activeColor;
+}
+
 type ListControlTextInputProps = Omit<
   InputProps,
   | "aria-label"
@@ -179,6 +185,15 @@ export function ListControl({
             onClick={() => setNewView({ selectedName, visible: true })}
           >
             <span className={styles.labelText}>{selectedName ?? ""}</span>
+            <Base
+              as="span"
+              componentName="Base"
+              className={styles.newItemLabel}
+              color={oppositeTreeAccent(activeColor)}
+              aria-hidden="true"
+            >
+              +
+            </Base>
           </ListControlButton>
           <div className={styles.actions}>
         <ListControlButton
@@ -219,6 +234,7 @@ export function ListControl({
           <BrowserItemModeButton
             {...buttonProps}
             {...modeButtonProps}
+            activeColor={oppositeTreeAccent(activeColor)}
             mode={mode}
             onModeChange={onModeChange}
           />

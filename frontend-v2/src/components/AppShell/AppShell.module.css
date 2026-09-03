@@ -13,12 +13,12 @@
   padding:
     max(var(--app-shell-padding), env(safe-area-inset-top))
     max(var(--app-shell-padding), env(safe-area-inset-right))
-    max(var(--app-shell-padding), env(safe-area-inset-bottom))
+    max(300px, env(safe-area-inset-bottom))
     max(var(--app-shell-padding), env(safe-area-inset-left));
 }
 
 .root.root[data-safe-area="false"] {
-  padding: var(--app-shell-padding);
+  padding: var(--app-shell-padding) var(--app-shell-padding) 300px;
 }
 
 .root[data-viewport="container"] {

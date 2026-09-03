@@ -11,6 +11,10 @@ const config: RelayConfig = {
   title: "Relay One",
   info: "Selected posts.",
   imageDirectory: "/srv/relayone/images",
+  assetDirectory: "/srv/relayone/assets",
+  ingestSecret: null,
+  maxAssetBytes: 25 * 1_024 * 1_024,
+  dataSource: "legacy",
   publicCacheSeconds: 15,
   frontendDist: "/srv/relayone/dist",
 };
@@ -30,7 +34,7 @@ describe("RelayStore", () => {
           format: "markdown" as const,
           content: "Welcome",
           has_image: false,
-          has_children: true,
+          child_count: 1,
         },
         {
           publication_root_id: "00000000-0000-4000-8000-000000000001",
@@ -44,7 +48,7 @@ describe("RelayStore", () => {
           format: "text" as const,
           content: "Hello",
           has_image: true,
-          has_children: false,
+          child_count: 0,
         },
       ];
     let queryCount = 0;
@@ -61,6 +65,7 @@ describe("RelayStore", () => {
     const rootPage = await store.loadNode("00000000-0000-4000-8000-000000000001");
 
     expect(site?.roots[0].label).toBe("Public posts");
+    expect(site?.roots[0].childCount).toBe(1);
     expect(site?.roots[0]).not.toHaveProperty("content");
     expect(page?.post).toMatchObject({
       label: "Public first post",

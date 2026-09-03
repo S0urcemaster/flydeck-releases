@@ -1,4 +1,4 @@
-import { Pool, type QueryResultRow } from "pg";
+import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 import type { RelayConfig } from "./config.js";
 
@@ -9,7 +9,10 @@ export type Queryable = {
   ): Promise<{ rows: TResult[]; rowCount: number | null }>;
 };
 
-export type RelayDatabase = Queryable & { end(): Promise<void> };
+export type RelayDatabase = Queryable & {
+  transaction<TResult>(operation: (client: Queryable) => Promise<TResult>): Promise<TResult>;
+  end(): Promise<void>;
+};
 
 export function createDatabase(config: RelayConfig): RelayDatabase {
   const pool = new Pool({
@@ -21,6 +24,25 @@ export function createDatabase(config: RelayConfig): RelayDatabase {
   });
   return {
     query: (text, values) => pool.query(text, values ? [...values] : undefined),
+    transaction: (operation) => runTransaction(pool, operation),
     end: () => pool.end(),
   };
+}
+
+async function runTransaction<TResult>(
+  pool: Pool,
+  operation: (client: PoolClient) => Promise<TResult>,
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await operation(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

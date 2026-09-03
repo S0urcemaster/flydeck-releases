@@ -6,17 +6,13 @@ import {
   createBatchRootTargets,
   createRootTargets,
   createSelectedPathLabel,
-  filterTreeLevelNodes,
   insertAt,
-  isViewsButtonActive,
   moveInTree,
   removeFromTree,
   removeNodesFromTree,
   reparentInTree,
   reparentNodesInTree,
   resolveTreeLabelPath,
-  savedViewToTreeNode,
-  toggleActiveViewId,
   updateActionSelection,
   updateTreeActionSelection,
   type TreeBrowserNode,
@@ -53,7 +49,7 @@ describe("TreeBrowser", () => {
     expect(markup).toContain('aria-label="Tree browser menu"');
     expect(markup).toContain("background:var(--color-app)");
     expect(markup).toContain('aria-label="Search tree"');
-    expect(markup).toContain('aria-label="Show saved views"');
+    expect(markup).not.toContain('aria-label="Show saved views"');
     expect(markup).toContain('aria-label="Tree path"');
     expect(markup).toContain('value="root"');
     expect(markup).toContain('color:var(--color-success)');
@@ -93,7 +89,7 @@ describe("TreeBrowser", () => {
     expect(markup).toContain('aria-label="Create child in views"');
   });
 
-  it("does not check a focused item in a referenced views tree", () => {
+  it("does not check a focused item in a referenced tree", () => {
     const markup = renderToStaticMarkup(
       <TreeBrowser
         initialSelectedPath={["plants"]}
@@ -106,27 +102,8 @@ describe("TreeBrowser", () => {
     expect(markup).toContain(
       'aria-label="Select Pflanzen for actions" type="button" aria-pressed="false"',
     );
-    expect(markup).not.toContain("var(--color-success)");
   });
 
-  it("keeps saved-view item lists reorderable without making items editable", () => {
-    const viewNode = savedViewToTreeNode({
-      id: "__shared_view__",
-      name: "_shared",
-      paths: ["posts", "lager"],
-      items: [
-        { id: "posts-id", label: "Posts", path: "posts" },
-        { id: "lager-id", label: "Lager", path: "lager" },
-      ],
-      immutable: true,
-    });
-
-    expect(viewNode.listEditable).toBe(true);
-    expect(viewNode.children).toMatchObject([
-      { kind: "saved-view-item", label: "Posts", contentEditable: false },
-      { kind: "saved-view-item", label: "Lager", contentEditable: false },
-    ]);
-  });
 
   it("allows deleting the focused item without checking it for a view", () => {
     const markup = renderToStaticMarkup(
@@ -367,7 +344,7 @@ describe("TreeBrowser", () => {
 
     expect(markup.match(
       /<span[^>]*class="[^"]*emptySpace[^"]*"/g,
-    )).toHaveLength(6);
+    )).toHaveLength(3);
     expect(markup).not.toMatch(/emptySpace[^>]*style=/);
   });
 
@@ -409,25 +386,6 @@ describe("TreeBrowser", () => {
     expect(moveInTree(nestedTree, "oak", -1)[0].children[0].id).toBe("oak");
   });
 
-  it("combines a saved view with global descendant search", () => {
-    const nodes = [{
-      id: "desk",
-      label: "Desk",
-      children: [{ id: "pen", label: "Pen", children: [] }],
-    }, {
-      id: "garden",
-      label: "Garden",
-      children: [{ id: "rose", label: "Rose", children: [] }],
-    }];
-
-    expect(filterTreeLevelNodes(nodes, new Set(["pen"]), "")).toEqual([
-      nodes[0],
-    ]);
-    expect(filterTreeLevelNodes(nodes, new Set(["pen"]), "pen")).toEqual([
-      nodes[0],
-    ]);
-    expect(filterTreeLevelNodes(nodes, new Set(["pen"]), "rose")).toEqual([]);
-  });
 
   it("keeps checkbox state independent from the active item", () => {
     const selected = updateActionSelection(
@@ -549,18 +507,7 @@ describe("TreeBrowser", () => {
     });
   });
 
-  it("activates and deactivates only the selected saved view", () => {
-    expect(toggleActiveViewId("focus", null)).toBe("focus");
-    expect(toggleActiveViewId("focus", "other")).toBe("focus");
-    expect(toggleActiveViewId("focus", "focus")).toBeNull();
-  });
 
-  it("keeps the views button active while a saved view filters the tree", () => {
-    expect(isViewsButtonActive("views", null)).toBe(true);
-    expect(isViewsButtonActive("default", "focus")).toBe(true);
-    expect(isViewsButtonActive("search", "focus")).toBe(true);
-    expect(isViewsButtonActive("default", null)).toBe(false);
-  });
 
   it("removes several selected siblings and their subtrees at once", () => {
     const nodes = [{

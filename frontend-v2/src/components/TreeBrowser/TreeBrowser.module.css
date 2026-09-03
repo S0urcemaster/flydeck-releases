@@ -26,11 +26,6 @@
   margin-block-end: var(--space-xs);
 }
 
-.views {
-  display: grid;
-  min-width: 0;
-}
-
 .level {
   margin: 0;
   padding: 0;

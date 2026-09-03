@@ -5,7 +5,7 @@ import {
 } from "../SubmoduleButton";
 import styles from "./SubmodulePanel.module.css";
 
-export type AgentSubmodule = "CHAT" | "MEMO";
+export type AgentSubmodule = "JOBS" | "MEMO";
 
 export type SubmodulePanelProps<TItem extends string = AgentSubmodule> = BaseStyleProps & {
   activeItem: TItem;
@@ -14,7 +14,7 @@ export type SubmodulePanelProps<TItem extends string = AgentSubmodule> = BaseSty
   buttonProps?: Omit<SubmoduleButtonProps, "children" | "onClick" | "selected">;
 };
 
-const defaultItems: readonly AgentSubmodule[] = ["CHAT", "MEMO"];
+const defaultItems: readonly AgentSubmodule[] = ["JOBS", "MEMO"];
 
 export function SubmodulePanel<TItem extends string = AgentSubmodule>({
   activeItem,

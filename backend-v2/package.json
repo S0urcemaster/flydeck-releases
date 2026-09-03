@@ -11,7 +11,8 @@
     "set-password": "tsx src/setup/setPassword.ts",
     "import:v1": "tsx src/import/runV1Import.ts",
     "test": "vitest run",
-    "migrate": "tsx src/db/runMigrations.ts"
+    "migrate": "tsx src/db/runMigrations.ts",
+    "relay:sync-all": "tsx src/publication/enqueueAllPublications.ts"
   },
   "dependencies": {
     "@flydeck/shared": "*",

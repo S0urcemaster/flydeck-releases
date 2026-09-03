@@ -21,7 +21,7 @@ type PublishedNodeRow = {
   format: "text" | "markdown" | "json";
   content: string;
   has_image: boolean;
-  has_children: boolean;
+  child_count: number;
 };
 
 type ImageRow = {
@@ -33,10 +33,18 @@ type ImageRow = {
 
 export type RelayImage = ImageRow & { absolutePath: string };
 
+export type RelayAsset = {
+  absolutePath: string;
+  byte_size: number;
+  mime_type: string;
+  updated_at: Date;
+};
+
 export interface RelayReader {
   loadSite(): Promise<RelaySite | null>;
   loadNode(nodeId: string): Promise<RelayNodePage | null>;
   readImage(nodeId: string): Promise<RelayImage | null>;
+  readAsset?(sha256: string): Promise<RelayAsset | null>;
   isReady(): Promise<boolean>;
 }
 
@@ -119,7 +127,8 @@ function toSummary(row: PublishedNodeRow): RelayPostSummary {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     imageUrl: row.has_image ? `/api/images/${row.id}` : null,
-    hasChildren: row.has_children,
+    childCount: row.child_count,
+    hasChildren: row.child_count > 0,
   };
 }
 
@@ -183,10 +192,21 @@ const publicationRootsSql = `
     node.position, node.created_at, node.updated_at,
     'text'::text AS format, ''::text AS content,
     (node_images.node_id IS NOT NULL) AS has_image,
-    EXISTS (
-      SELECT 1 FROM tree_nodes child
-      WHERE child.tree_id = node.tree_id AND child.parent_id = node.id
-    ) AS has_children
+    (
+      WITH RECURSIVE descendants AS (
+        SELECT child.id
+        FROM tree_nodes child
+        WHERE child.tree_id = node.tree_id AND child.parent_id = node.id
+
+        UNION ALL
+
+        SELECT child.id
+        FROM tree_nodes child
+        JOIN descendants parent ON child.parent_id = parent.id
+        WHERE child.tree_id = node.tree_id
+      )
+      SELECT count(*)::int FROM descendants
+    ) AS child_count
   FROM tree_nodes node
   JOIN publication_roots ON publication_roots.id = node.id
   LEFT JOIN shared_order ON shared_order.node_id = node.id
@@ -291,10 +311,21 @@ const publishedNavigationSql = `
     COALESCE(node_contents.format, 'text') AS format,
     COALESCE(node_contents.content, '') AS content,
     (node_images.node_id IS NOT NULL) AS has_image,
-    EXISTS (
-      SELECT 1 FROM tree_nodes child
-      WHERE child.tree_id = node.tree_id AND child.parent_id = node.id
-    ) AS has_children
+    (
+      WITH RECURSIVE descendants AS (
+        SELECT child.id
+        FROM tree_nodes child
+        WHERE child.tree_id = node.tree_id AND child.parent_id = node.id
+
+        UNION ALL
+
+        SELECT child.id
+        FROM tree_nodes child
+        JOIN descendants parent ON child.parent_id = parent.id
+        WHERE child.tree_id = node.tree_id
+      )
+      SELECT count(*)::int FROM descendants
+    ) AS child_count
   FROM visible_ids
   JOIN tree_nodes node ON node.id = visible_ids.id
   CROSS JOIN selected_publication

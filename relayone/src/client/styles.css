@@ -132,10 +132,12 @@ textarea {
 }
 
 .childIndicator {
+  min-width: 1.5ch;
   color: var(--level-accent);
-  font-size: 1.35rem;
+  font-size: 0.85rem;
   font-weight: 700;
   line-height: 1;
+  text-align: right;
 }
 
 .treeLevel a:hover,

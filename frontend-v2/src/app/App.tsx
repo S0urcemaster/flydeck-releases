@@ -21,7 +21,6 @@ import {
 import generatedProperties from "../config/generated-component-properties.json";
 import generatedThemes from "../themes/generated-themes.json";
 import { AgentModule } from "../modules/AgentModule";
-import { CronModule } from "../modules/CronModule";
 import { DataModule } from "../modules/DataModule";
 import { FunctionsModule } from "../modules/FunctionsModule";
 import { HelpModule } from "../modules/HelpModule";
@@ -118,22 +117,6 @@ export function App() {
   const shellBase = resolveBaseProperties(properties.AppShell.base);
   const panelBase = resolveBaseProperties(properties.ModulePanel.base);
   const buttonBase = resolveBaseProperties(properties.Button.base);
-  const pointerButtonBase = resolveBaseProperties(properties.PointerButton.base);
-  const pointerButtonProps = {
-    border: pointerButtonBase.border,
-    color: pointerButtonBase.color,
-    deltaY: properties.PointerButton.deltaY,
-    height: pointerButtonBase.height,
-    margin: pointerButtonBase.margin,
-    padding: properties.PointerButton.padding,
-    primaryFontSize: properties.PointerButton.primaryFontSize,
-    secondaryFontSize: properties.PointerButton.secondaryFontSize,
-    width: pointerButtonBase.width,
-  };
-  const pointerProps = {
-    lineWidth: properties.Pointer.lineWidth,
-    tipRadius: properties.Pointer.tipRadius,
-  };
   const compactButtonBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.CompactButton.base,
@@ -228,7 +211,7 @@ export function App() {
   const moduleMenuActionsBase = resolveBaseProperties(
     properties.ModuleMenuActions.base,
   );
-  const chatModuleBase = resolveDerivedBaseProperties(
+  const agentModuleBase = resolveDerivedBaseProperties(
     properties.Module.base,
     properties.AgentModule.base,
   );
@@ -244,32 +227,6 @@ export function App() {
     buttonBase,
     properties.DeleteButton.base,
   );
-  const dialerButtonBase = resolveDerivedBaseProperties(
-    buttonBase,
-    properties.DialerButton.base,
-  );
-  const dialerCenterButtonBase = resolveDerivedBaseProperties(
-    dialerButtonBase,
-    properties.DialerCenterButton.base,
-  );
-  const dialSurfaceBase = resolveBaseProperties(properties.DialSurface.base);
-  const cronDialerBase = resolveBaseProperties(properties.CronDialer.base);
-  const dialerProps = {
-    ...cronDialerBase,
-    centerFontSize: properties.CronDialer.centerFontSize,
-    centerFontWeight: properties.CronDialer.centerFontWeight,
-    dialSurfaceProps: dialSurfaceBase,
-    innerDiscColor: properties.CronDialer.innerDiscColor,
-    innerGradientEnd: properties.CronDialer.innerGradientEnd,
-    innerGradientStart: properties.CronDialer.innerGradientStart,
-    innerScaleFontSize: properties.CronDialer.innerScaleFontSize,
-    innerScaleFontWeight: properties.CronDialer.innerScaleFontWeight,
-    outerDiscColor: properties.CronDialer.outerDiscColor,
-    outerGradientEnd: properties.CronDialer.outerGradientEnd,
-    outerGradientStart: properties.CronDialer.outerGradientStart,
-    outerScaleFontSize: properties.CronDialer.outerScaleFontSize,
-    outerScaleFontWeight: properties.CronDialer.outerScaleFontWeight,
-  };
   const treeBrowserBase = resolveBaseProperties(properties.TreeBrowser.base);
   const dataBrowserBase = resolveDerivedBaseProperties(
     treeBrowserBase,
@@ -279,12 +236,9 @@ export function App() {
     treeBrowserBase,
     properties.AppBrowser.base,
   );
-  const memoryBrowserBase = resolveDerivedBaseProperties(
-    treeBrowserBase,
-    properties.MemoryBrowser.base,
-  );
-  const agentChatContentBase = resolveBaseProperties(
-    properties.AgentChatContent.base,
+  const jobCaseBase = resolveBaseProperties(properties.JobCase.base);
+  const agentJobBrowserBase = resolveBaseProperties(
+    properties.AgentJobBrowser.base,
   );
   const dataTreeBase = resolveDerivedBaseProperties(
     dataBrowserBase,
@@ -337,9 +291,6 @@ export function App() {
   const checkboxBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.Checkbox.base,
-  );
-  const checkRadioButtonBase = resolveBaseProperties(
-    properties.CheckRadioButton.base,
   );
   const inputBase = resolveBaseProperties(properties.Input.base);
   const configuredInputProps = {
@@ -437,10 +388,6 @@ export function App() {
       listSizeButtonProps: listControlListSizeButtonProps,
     },
   };
-  const cronModuleBase = resolveDerivedBaseProperties(
-    properties.Module.base,
-    properties.CronModule.base,
-  );
   const helpModuleBase = resolveDerivedBaseProperties(
     properties.Module.base,
     properties.HelpModule.base,
@@ -683,11 +630,16 @@ export function App() {
       />
       {activeMenuItem === "AGNT" && (
         <AgentModule
-          {...chatModuleBase}
-          chatContentProps={{
-            ...agentChatContentBase,
-            fontSize: properties.AgentChatContent.fontSize,
+          {...agentModuleBase}
+          jobCaseProps={{
+            ...jobCaseBase,
+            buttonProps: {
+              ...buttonBase,
+              activeColor: properties.Button.activeColor,
+            },
+            fontSize: properties.JobCase.fontSize,
           }}
+          jobBrowserProps={agentJobBrowserBase}
           inputControlProps={sharedInputControlProps}
           nodeIdInputProps={{
             ...nodeIdInputBase,
@@ -705,7 +657,7 @@ export function App() {
           workspaceId={workspaceId}
           onSynchronizationError={reportSynchronizationError}
           treeBrowserProps={{
-            ...memoryBrowserBase,
+            ...treeBrowserBase,
             rowGap: properties.TreeBrowser.rowGap,
             ...sharedTreeChildProps,
           }}
@@ -718,8 +670,11 @@ export function App() {
           }}
         />
       )}
-      {activeMenuItem === "DATA" && (
+      {(["DATA", "DATB", "DATC", "DATD"] as const).includes(
+        activeMenuItem as "DATA" | "DATB" | "DATC" | "DATD",
+      ) && (
         <DataModule
+          key={activeMenuItem}
           {...dataModuleBase}
           dataBrowserProps={{
             ...dataTreeBase,
@@ -727,7 +682,13 @@ export function App() {
               ...sharedInputControlProps,
               ...contentEditorBase,
             },
+            imageDeleteButtonProps: {
+              ...deleteButtonBase,
+              armedColor: properties.DeleteButton.armedColor,
+              timeout: unlockButtonTimeout,
+            },
             inputControlProps: sharedInputControlProps,
+            navigationSlot: activeMenuItem.toLocaleLowerCase(),
             nodeIdInputProps: {
               ...nodeIdInputBase,
               buttonProps: sharedInputControlProps.buttonProps,
@@ -844,39 +805,6 @@ export function App() {
           }}
         />
       )}
-      {activeMenuItem === "CRON" && (
-        <CronModule
-          {...cronModuleBase}
-          dialerButtonProps={{
-            ...dialerButtonBase,
-            activeColor: properties.Button.activeColor,
-          }}
-          dialerCenterButtonProps={dialerCenterButtonBase}
-          dialerProps={{
-            ...dialerProps,
-            workspaceId,
-            dataSourceBrowserProps: {
-              ...treeBrowserBase,
-              rowGap: properties.TreeBrowser.rowGap,
-              ...sharedTreeChildProps,
-            },
-            dataSourceToggleButtonProps: checkRadioButtonBase,
-            eventButtonProps: {
-              ...buttonBase,
-              activeColor: properties.Button.activeColor,
-            },
-            eventDeleteButtonProps: {
-              ...deleteButtonBase,
-              armedColor: properties.DeleteButton.armedColor,
-              timeout: unlockButtonTimeout,
-            },
-            eventInputProps: configuredInputProps,
-            eventTextareaProps: configuredTextareaProps,
-            pointerButtonProps,
-            pointerProps,
-          }}
-        />
-      )}
       {activeMenuItem === "HELP" && <HelpModule {...helpModuleBase} />}
       {activeMenuItem === "CONFIG" && (
         <SettingsModule
@@ -940,7 +868,9 @@ const activeMenuItemSlice: ClientStateSlice<ModuleMenuItem> = {
   defaultValue: initialMenuItem,
   validate: (value): value is ModuleMenuItem => (
     typeof value === "string"
-      && ["AGNT", "DATA", "FUNC", "CRON", "HELP", "CONFIG"].includes(value)
+      && [
+        "AGNT", "DATA", "DATB", "DATC", "DATD", "FUNC", "HELP", "CONFIG",
+      ].includes(value)
   ),
 };
 
@@ -949,7 +879,8 @@ const previousPrimaryMenuItemSlice: ClientStateSlice<PrimaryModuleItem> = {
   version: 1,
   defaultValue: initialPrimaryMenuItem,
   validate: (value): value is PrimaryModuleItem => (
-    value === "AGNT" || value === "DATA" || value === "FUNC" || value === "CRON"
+    value === "AGNT" || value === "DATA" || value === "DATB"
+      || value === "DATC" || value === "DATD" || value === "FUNC"
   ),
 };
 

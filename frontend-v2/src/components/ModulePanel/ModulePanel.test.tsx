@@ -11,12 +11,32 @@ const moduleButtonProps = {
 
 describe("ModulePanel", () => {
   it("defines the mobile menu order", () => {
-    expect(modulePanelItems).toEqual(["AGNT", "DATA", "FUNC", "CRON"]);
-    expect(isValidElement(ModulePanel({
-      activeItem: "FUNC",
-      moduleButtonProps,
-      onChange: () => undefined,
-    }))).toBe(true);
+    expect(modulePanelItems).toEqual(["AGNT", "DATA", "DATB", "FUNC"]);
+    expect(isValidElement(
+      <ModulePanel
+        activeItem="FUNC"
+        moduleButtonProps={moduleButtonProps}
+        onChange={() => undefined}
+      />,
+    )).toBe(true);
+  });
+
+  it("shows only the active B/C/D slot label with its own symbol", () => {
+    const markup = renderToStaticMarkup(
+      <ModulePanel
+        activeItem="DATC"
+        moduleButtonProps={moduleButtonProps}
+        onChange={() => undefined}
+      />,
+    );
+
+    const cycleButton = markup.match(
+      /<button[^>]*aria-label="Data navigation slot C"[^>]*>.*?<\/button>/,
+    )?.[0];
+    expect(cycleButton).toContain("database-zap");
+    expect(cycleButton).toContain(">DATC<");
+    expect(cycleButton).not.toContain(">DATB<");
+    expect(cycleButton).not.toContain(">DATD<");
   });
 
   it("passes configured Button base properties to its controls", () => {

@@ -72,3 +72,11 @@ node. Do not publish Relay One through a developer workstation's Funnel.
 The user service template is `deploy/relayone/relayone.service`. Its environment
 belongs at `/home/flydon/.config/relayone.env`; keep that file outside releases
 and source control.
+
+## Combined production deployment
+
+From the repository root, `./deploy.sh` tests and builds both Flydeck V2 and
+Relay One, deploys their separate releases, and refreshes both Tailscale
+publication layers. Flydeck V2 is served at the Flydon hostname root; Relay One
+continues to use its isolated Funnel identity. The script also disables the old
+V1 service but deliberately does not delete its releases or workspace sources.

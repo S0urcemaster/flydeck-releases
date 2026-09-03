@@ -11,6 +11,11 @@ const envSchema = z.object({
     "Selected posts from my private Flydeck.",
   ),
   IMAGE_DIRECTORY: z.string().trim().default("../flydon-server/images"),
+  RELAY_ASSET_DIRECTORY: z.string().trim().default("../relayone-data/assets"),
+  RELAY_INGEST_SECRET: z.string().min(32).optional(),
+  RELAY_MAX_ASSET_BYTES: z.coerce.number().int().min(1).max(100 * 1_024 * 1_024)
+    .default(25 * 1_024 * 1_024),
+  RELAY_DATA_SOURCE: z.enum(["legacy", "projection"]).default("legacy"),
   PUBLIC_CACHE_SECONDS: z.coerce.number().int().min(0).max(300).default(15),
   FRONTEND_DIST: z.string().trim().default("dist"),
 });
@@ -23,6 +28,10 @@ export type RelayConfig = {
   title: string;
   info: string;
   imageDirectory: string;
+  assetDirectory: string;
+  ingestSecret: string | null;
+  maxAssetBytes: number;
+  dataSource: "legacy" | "projection";
   publicCacheSeconds: number;
   frontendDist: string;
 };
@@ -37,6 +46,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): RelayConfig {
     title: parsed.RELAYONE_TITLE,
     info: parsed.RELAYONE_INFO,
     imageDirectory: path.resolve(parsed.IMAGE_DIRECTORY),
+    assetDirectory: path.resolve(parsed.RELAY_ASSET_DIRECTORY),
+    ingestSecret: parsed.RELAY_INGEST_SECRET ?? null,
+    maxAssetBytes: parsed.RELAY_MAX_ASSET_BYTES,
+    dataSource: parsed.RELAY_DATA_SOURCE,
     publicCacheSeconds: parsed.PUBLIC_CACHE_SECONDS,
     frontendDist: path.resolve(parsed.FRONTEND_DIST),
   };

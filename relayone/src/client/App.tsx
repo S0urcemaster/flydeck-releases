@@ -180,7 +180,7 @@ export function normalizeRelaySite(site: RelaySite): RelaySite {
   return site;
 }
 
-function PostNavigation({
+export function PostNavigation({
   levels,
   selectedId,
 }: {
@@ -206,7 +206,12 @@ function PostNavigation({
                 >
                   <span>{node.label}</span>
                   {node.hasChildren && (
-                    <span className="childIndicator" aria-hidden="true">›</span>
+                    <span
+                      className="childIndicator"
+                      aria-label={`${node.childCount} children`}
+                    >
+                      {node.childCount}
+                    </span>
                   )}
                 </a>
               </li>

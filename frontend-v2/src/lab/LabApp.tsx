@@ -37,7 +37,6 @@ import { PromptInput } from "../components/PromptInput";
 import { CompactButton } from "../components/CompactButton";
 import { ColorDialer } from "../components/ColorDialer";
 import { CompassApp } from "../components/CompassApp";
-import { CronDialer } from "../components/CronDialer";
 import { PointerButton, type PointerButtonProps } from "../components/PointerButton";
 import { Pointer, type PointerProps } from "../components/Pointer";
 import { CycleButton } from "../components/CycleButton";
@@ -110,7 +109,6 @@ import {
 } from "../config/componentProperties";
 import generatedComponentProperties from "../config/generated-component-properties.json";
 import { AgentModule } from "../modules/AgentModule";
-import { CronModule } from "../modules/CronModule";
 import { DataModule } from "../modules/DataModule";
 import { FunctionsModule } from "../modules/FunctionsModule";
 import { HelpModule } from "../modules/HelpModule";
@@ -436,49 +434,12 @@ export function LabApp() {
     useState<BaseLabValues>(storedComponentProperties.DialButton.base);
   const [cycleButtonPreviewValue, setCycleButtonPreviewValue] = useState("S");
   const [colorDialerPreviewValue, setColorDialerPreviewValue] = useState("#2468b2ff");
-  const [cronDialerCenterFontSize, setCronDialerCenterFontSize] = useState(
-    storedComponentProperties.CronDialer.centerFontSize,
-  );
-  const [cronDialerCenterFontWeight, setCronDialerCenterFontWeight] = useState(
-    storedComponentProperties.CronDialer.centerFontWeight,
-  );
-  const [cronDialerInnerDiscColor, setCronDialerInnerDiscColor] = useState(
-    storedComponentProperties.CronDialer.innerDiscColor,
-  );
-  const [cronDialerInnerGradientEnd, setCronDialerInnerGradientEnd] = useState(
-    storedComponentProperties.CronDialer.innerGradientEnd,
-  );
-  const [cronDialerInnerGradientStart, setCronDialerInnerGradientStart] = useState(
-    storedComponentProperties.CronDialer.innerGradientStart,
-  );
-  const [cronDialerInnerScaleFontSize, setCronDialerInnerScaleFontSize] = useState(
-    storedComponentProperties.CronDialer.innerScaleFontSize,
-  );
-  const [cronDialerInnerScaleFontWeight, setCronDialerInnerScaleFontWeight] = useState(
-    storedComponentProperties.CronDialer.innerScaleFontWeight,
-  );
-  const [cronDialerOuterDiscColor, setCronDialerOuterDiscColor] = useState(
-    storedComponentProperties.CronDialer.outerDiscColor,
-  );
-  const [cronDialerOuterGradientEnd, setCronDialerOuterGradientEnd] = useState(
-    storedComponentProperties.CronDialer.outerGradientEnd,
-  );
-  const [cronDialerOuterGradientStart, setCronDialerOuterGradientStart] = useState(
-    storedComponentProperties.CronDialer.outerGradientStart,
-  );
-  const [cronDialerOuterScaleFontSize, setCronDialerOuterScaleFontSize] = useState(
-    storedComponentProperties.CronDialer.outerScaleFontSize,
-  );
-  const [cronDialerOuterScaleFontWeight, setCronDialerOuterScaleFontWeight] = useState(
-    storedComponentProperties.CronDialer.outerScaleFontWeight,
-  );
   const [dialBaseValues, setDialBaseValues] = useState<
-    Record<DialBaseComponentName | "ColorDialer" | "CronDialer", BaseLabValues>
+    Record<DialBaseComponentName | "ColorDialer", BaseLabValues>
   >({
     DialSurface: storedComponentProperties.DialSurface.base,
     Dialer: storedComponentProperties.Dialer.base,
     ColorDialer: storedComponentProperties.ColorDialer.base,
-    CronDialer: storedComponentProperties.CronDialer.base,
   });
   const [keyboardBaseValues, setKeyboardBaseValues] =
     useState<BaseLabValues>(storedComponentProperties.Keyboard.base);
@@ -533,8 +494,8 @@ export function LabApp() {
       storedComponentProperties.BrowserItemModeButton.base,
     Checkbox: storedComponentProperties.Checkbox.base,
     CheckRadioButton: storedComponentProperties.CheckRadioButton.base,
-    AgentChatContent: storedComponentProperties.AgentChatContent.base,
-    AgentChatBrowser: storedComponentProperties.AgentChatBrowser.base,
+    JobCase: storedComponentProperties.JobCase.base,
+    AgentJobBrowser: storedComponentProperties.AgentJobBrowser.base,
     DataBrowser: storedComponentProperties.DataBrowser.base,
     AppBrowser: storedComponentProperties.AppBrowser.base,
     InputControl: storedComponentProperties.InputControl.base,
@@ -594,8 +555,8 @@ export function LabApp() {
   const [checkboxFontSize, setCheckboxFontSize] = useState(
     storedComponentProperties.Checkbox.fontSize,
   );
-  const [agentChatContentFontSize, setAgentChatContentFontSize] = useState(
-    storedComponentProperties.AgentChatContent.fontSize,
+  const [jobCaseFontSize, setJobCaseFontSize] = useState(
+    storedComponentProperties.JobCase.fontSize,
   );
   const [buttonLinkLabel, setButtonLinkLabel] =
     useState(storedComponentProperties.ButtonLink.label);
@@ -612,7 +573,6 @@ export function LabApp() {
     AgentModule: storedComponentProperties.AgentModule.base,
     DataModule: storedComponentProperties.DataModule.base,
     FunctionsModule: storedComponentProperties.FunctionsModule.base,
-    CronModule: storedComponentProperties.CronModule.base,
     HelpModule: storedComponentProperties.HelpModule.base,
     SettingsModule: storedComponentProperties.SettingsModule.base,
   });
@@ -630,7 +590,7 @@ export function LabApp() {
   );
   const [offlineModePreview, setOfflineModePreview] = useState(false);
   const [submodulePreviewItem, setSubmodulePreviewItem] =
-    useState<"CHAT" | "MEMO">("MEMO");
+    useState<"JOBS" | "MEMO">("MEMO");
   const [rgbPreviewValue, setRgbPreviewValue] = useState("#2468b280");
   const [subtitle, setSubtitle] = useState(storedComponentProperties.AppTitle.subtitle);
   const [titleBaseValues, setTitleBaseValues] =
@@ -893,12 +853,12 @@ export function LabApp() {
       CheckRadioButton: {
         base: browserComponentBaseValues.CheckRadioButton,
       },
-      AgentChatContent: {
-        fontSize: agentChatContentFontSize,
-        base: browserComponentBaseValues.AgentChatContent,
+      JobCase: {
+        fontSize: jobCaseFontSize,
+        base: browserComponentBaseValues.JobCase,
       },
-      AgentChatBrowser: {
-        base: browserComponentBaseValues.AgentChatBrowser,
+      AgentJobBrowser: {
+        base: browserComponentBaseValues.AgentJobBrowser,
       },
       DeviceInfo: { base: deviceInfoBaseValues },
       DataBrowser: { base: browserComponentBaseValues.DataBrowser },
@@ -934,21 +894,6 @@ export function LabApp() {
       DialSurface: { base: dialBaseValues.DialSurface },
       Dialer: { base: dialBaseValues.Dialer },
       ColorDialer: { base: dialBaseValues.ColorDialer },
-      CronDialer: {
-        centerFontSize: cronDialerCenterFontSize,
-        centerFontWeight: cronDialerCenterFontWeight,
-        innerDiscColor: cronDialerInnerDiscColor,
-        innerGradientEnd: cronDialerInnerGradientEnd,
-        innerGradientStart: cronDialerInnerGradientStart,
-        innerScaleFontSize: cronDialerInnerScaleFontSize,
-        innerScaleFontWeight: cronDialerInnerScaleFontWeight,
-        outerDiscColor: cronDialerOuterDiscColor,
-        outerGradientEnd: cronDialerOuterGradientEnd,
-        outerGradientStart: cronDialerOuterGradientStart,
-        outerScaleFontSize: cronDialerOuterScaleFontSize,
-        outerScaleFontWeight: cronDialerOuterScaleFontWeight,
-        base: dialBaseValues.CronDialer,
-      },
       DeviceInfoButton: {
         base: browserComponentBaseValues.DeviceInfoButton,
       },
@@ -991,9 +936,12 @@ export function LabApp() {
       AgentModule: { base: moduleBaseValues.AgentModule },
       DataModule: { base: moduleBaseValues.DataModule },
       FunctionsModule: { base: moduleBaseValues.FunctionsModule },
-      CronModule: { base: moduleBaseValues.CronModule },
       HelpModule: { base: moduleBaseValues.HelpModule },
       SettingsModule: { base: moduleBaseValues.SettingsModule },
+      // Archived components remain round-trippable in the stored configuration,
+      // but are intentionally absent from the active component catalog and lab.
+      CronDialer: storedComponentProperties.CronDialer,
+      CronModule: storedComponentProperties.CronModule,
     };
   }
 
@@ -1410,20 +1358,20 @@ export function LabApp() {
             Cron
           </CheckRadioButton>
         );
-      case "AgentChatContent":
+      case "JobCase":
         return (
           <Base
             {...baseProps}
-            componentName="AgentChatContent"
-            style={{ fontSize: resolveCssValue(agentChatContentFontSize) }}
+            componentName="JobCase"
+            style={{ fontSize: resolveCssValue(jobCaseFontSize) }}
           >
-            Agent chat content
+            Job case
           </Base>
         );
-      case "AgentChatBrowser":
+      case "AgentJobBrowser":
         return (
-          <Base {...baseProps} componentName="AgentChatBrowser">
-            Agent chat browser
+          <Base {...baseProps} componentName="AgentJobBrowser">
+            Agent job browser
           </Base>
         );
       case "Input":
@@ -1668,15 +1616,6 @@ export function LabApp() {
         return <DataModule {...props} />;
       case "FunctionsModule":
         return <FunctionsModule {...props} />;
-      case "CronModule":
-        return (
-          <CronModule
-            {...props}
-            dialerButtonProps={{
-              activeColor: buttonActiveColor,
-            }}
-          />
-        );
       case "HelpModule":
         return <HelpModule {...props} />;
       case "SettingsModule":
@@ -3071,162 +3010,6 @@ export function LabApp() {
         </section>
       )}
 
-      {selectedComponent === "CronDialer" && (
-        <section className={styles.component}>
-          <div className={styles.componentHeader}>
-            <div>
-              <h2 className={styles.componentName}>CronDialer</h2>
-              <p className={styles.description}>
-                Vertical time scale with horizontal zoom and vertical travel.
-              </p>
-            </div>
-            <code className={styles.path}>components/CronDialer</code>
-          </div>
-          <div className={styles.preview}>
-            <CronDialer
-              {...toBaseStyleProps(dialBaseValues.CronDialer)}
-              buttonProps={{ activeColor: buttonActiveColor }}
-              centerFontSize={cronDialerCenterFontSize}
-              centerFontWeight={cronDialerCenterFontWeight}
-              dialSurfaceProps={toBaseStyleProps(dialBaseValues.DialSurface)}
-              innerDiscColor={cronDialerInnerDiscColor}
-              innerGradientEnd={cronDialerInnerGradientEnd}
-              innerGradientStart={cronDialerInnerGradientStart}
-              innerScaleFontSize={cronDialerInnerScaleFontSize}
-              innerScaleFontWeight={cronDialerInnerScaleFontWeight}
-              outerDiscColor={cronDialerOuterDiscColor}
-              outerGradientEnd={cronDialerOuterGradientEnd}
-              outerGradientStart={cronDialerOuterGradientStart}
-              outerScaleFontSize={cronDialerOuterScaleFontSize}
-              outerScaleFontWeight={cronDialerOuterScaleFontWeight}
-            />
-          </div>
-          <BasePropertyControls
-            componentName="CronDialer"
-            ownPropertyComments={{
-              centerFontSize: "Center button CSS font-size",
-              centerFontWeight: "Center button CSS font-weight",
-              innerDiscColor: "Inner disc CSS color",
-              innerGradientEnd: "End color reused by every inner segment",
-              innerGradientStart: "Start color reused by every inner segment",
-              innerScaleFontSize: "Inner zoom-scale CSS font-size",
-              innerScaleFontWeight: "Inner zoom-scale CSS font-weight",
-              outerDiscColor: "Outer disc CSS color",
-              outerGradientEnd: "Outer time-segment end color",
-              outerGradientStart: "Outer time-segment start color",
-              outerScaleFontSize: "Outer time-scale CSS font-size",
-              outerScaleFontWeight: "Outer time-scale CSS font-weight",
-            }}
-            ownProperties={{
-              centerFontSize: cronDialerCenterFontSize,
-              centerFontWeight: cronDialerCenterFontWeight,
-              innerDiscColor: cronDialerInnerDiscColor,
-              innerGradientEnd: cronDialerInnerGradientEnd,
-              innerGradientStart: cronDialerInnerGradientStart,
-              innerScaleFontSize: cronDialerInnerScaleFontSize,
-              innerScaleFontWeight: cronDialerInnerScaleFontWeight,
-              outerDiscColor: cronDialerOuterDiscColor,
-              outerGradientEnd: cronDialerOuterGradientEnd,
-              outerGradientStart: cronDialerOuterGradientStart,
-              outerScaleFontSize: cronDialerOuterScaleFontSize,
-              outerScaleFontWeight: cronDialerOuterScaleFontWeight,
-            }}
-            values={dialBaseValues.CronDialer}
-            onChange={(name, value) => setDialBaseValues((current) => ({
-              ...current,
-              CronDialer: { ...current.CronDialer, [name]: value },
-            }))}
-            onOwnPropertyChange={(name, value) => {
-              if (typeof value !== "string") return;
-              if (name === "centerFontSize") setCronDialerCenterFontSize(value);
-              if (name === "centerFontWeight") setCronDialerCenterFontWeight(value);
-              if (name === "innerDiscColor") setCronDialerInnerDiscColor(value);
-              if (name === "innerGradientEnd") {
-                setCronDialerInnerGradientEnd(value);
-              }
-              if (name === "innerGradientStart") {
-                setCronDialerInnerGradientStart(value);
-              }
-              if (name === "innerScaleFontSize") {
-                setCronDialerInnerScaleFontSize(value);
-              }
-              if (name === "innerScaleFontWeight") {
-                setCronDialerInnerScaleFontWeight(value);
-              }
-              if (name === "outerDiscColor") setCronDialerOuterDiscColor(value);
-              if (name === "outerGradientEnd") {
-                setCronDialerOuterGradientEnd(value);
-              }
-              if (name === "outerGradientStart") {
-                setCronDialerOuterGradientStart(value);
-              }
-              if (name === "outerScaleFontSize") {
-                setCronDialerOuterScaleFontSize(value);
-              }
-              if (name === "outerScaleFontWeight") {
-                setCronDialerOuterScaleFontWeight(value);
-              }
-            }}
-            onInheritedPropertyChange={(parentName, name, value) => {
-              if (parentName !== "Dialer" || typeof value !== "string") return;
-              setDialBaseValues((current) => ({
-                ...current,
-                Dialer: { ...current.Dialer, [name]: value },
-              }));
-            }}
-          />
-          <div className={styles.actions}>
-            <Button onClick={() => {
-              setDialBaseValues((current) => ({
-                ...current,
-                CronDialer: { ...storedComponentProperties.CronDialer.base },
-              }));
-              setCronDialerCenterFontSize(
-                storedComponentProperties.CronDialer.centerFontSize,
-              );
-              setCronDialerCenterFontWeight(
-                storedComponentProperties.CronDialer.centerFontWeight,
-              );
-              setCronDialerInnerDiscColor(
-                storedComponentProperties.CronDialer.innerDiscColor,
-              );
-              setCronDialerInnerGradientEnd(
-                storedComponentProperties.CronDialer.innerGradientEnd,
-              );
-              setCronDialerInnerGradientStart(
-                storedComponentProperties.CronDialer.innerGradientStart,
-              );
-              setCronDialerInnerScaleFontSize(
-                storedComponentProperties.CronDialer.innerScaleFontSize,
-              );
-              setCronDialerInnerScaleFontWeight(
-                storedComponentProperties.CronDialer.innerScaleFontWeight,
-              );
-              setCronDialerOuterDiscColor(
-                storedComponentProperties.CronDialer.outerDiscColor,
-              );
-              setCronDialerOuterGradientEnd(
-                storedComponentProperties.CronDialer.outerGradientEnd,
-              );
-              setCronDialerOuterGradientStart(
-                storedComponentProperties.CronDialer.outerGradientStart,
-              );
-              setCronDialerOuterScaleFontSize(
-                storedComponentProperties.CronDialer.outerScaleFontSize,
-              );
-              setCronDialerOuterScaleFontWeight(
-                storedComponentProperties.CronDialer.outerScaleFontWeight,
-              );
-            }}>
-              RESET
-            </Button>
-            <Button onClick={applyComponentProperties} disabled={isApplying}>
-              {isApplying ? "APPLYING…" : "APPLY"}
-            </Button>
-          </div>
-        </section>
-      )}
-
       {selectedComponent === "PressButton" && (
         <section className={styles.component}>
           <div className={styles.componentHeader}>
@@ -3815,8 +3598,8 @@ export function LabApp() {
                   fontSize:
                     "Checkbox mark CSS font-size; inherit uses Button.fontSize",
                 }
-              : componentName === "AgentChatContent"
-              ? { fontSize: "CSS font-size for chat messages" }
+              : componentName === "JobCase"
+              ? { fontSize: "CSS font-size for the job case" }
               : undefined}
             ownProperties={componentName === "DeleteButton"
               ? { armedColor: deleteButtonArmedColor }
@@ -3846,8 +3629,8 @@ export function LabApp() {
                   activeColor: checkboxActiveColor,
                   fontSize: checkboxFontSize,
                 }
-              : componentName === "AgentChatContent"
-              ? { fontSize: agentChatContentFontSize }
+              : componentName === "JobCase"
+              ? { fontSize: jobCaseFontSize }
               : undefined}
             inheritedPropertySections={
               componentName === "Checkbox"
@@ -4017,11 +3800,11 @@ export function LabApp() {
                 setCheckboxFontSize(value);
               }
               if (
-                componentName === "AgentChatContent"
+                componentName === "JobCase"
                 && name === "fontSize"
                 && typeof value === "string"
               ) {
-                setAgentChatContentFontSize(value);
+                setJobCaseFontSize(value);
               }
             }}
             onInheritedPropertyChange={(parentName, name, value) => {
@@ -4101,13 +3884,11 @@ export function LabApp() {
                     storedComponentProperties.Checkbox.fontSize,
                   );
                 }
-                if (componentName === "AgentChatContent") {
-                  setAgentChatContentFontSize(
-                    storedComponentProperties.AgentChatContent.fontSize,
-                  );
-                }
                 if (componentName === "Input") {
                   setInputKeyboard(true);
+                }
+                if (componentName === "JobCase") {
+                  setJobCaseFontSize(storedComponentProperties.JobCase.fontSize);
                 }
                 if (componentName === "ListControlListSizeButton") {
                   setBrowserComponentBaseValues((current) => ({
@@ -4356,7 +4137,7 @@ export function LabApp() {
         <BasePropertyControls
           componentName="ModulePanel"
           ownPropertyComments={{
-            activeItem: "AGNT | DATA | FUNC | CRON | HELP | CONFIG",
+            activeItem: "AGNT | DATA | DATB | DATC | DATD | FUNC | HELP | CONFIG",
           }}
           ownProperties={{ activeItem: panelPreviewItem }}
           values={modulePanelBaseValues}
@@ -4368,8 +4149,10 @@ export function LabApp() {
               && [
                 "AGNT",
                 "DATA",
+                "DATB",
+                "DATC",
+                "DATD",
                 "FUNC",
-                "CRON",
                 "HELP",
                 "CONFIG",
               ].includes(value)

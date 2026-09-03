@@ -9,7 +9,6 @@ Work in Progress :
 - AGNT Don,t know what for atm
 - DATA Module pretty functional
 - APPS need a rework
-- CRON feels done but is untested
 
 ## General
 
@@ -154,19 +153,12 @@ With **Top/Down** you can change the order of the items in a list and
 
 with **left/right** you can change the page of the list if there are more items than you have set per page
 
-### Navigator, Search and Views
+### Navigator and Search
 
 To encounter with bigger data : there is a text input always at the top where you can type an path directly
 
 Activate the lens to use it for text search
 
-#### Views
-
-Views are meant to focus on parts of your data
-
-Use the checkboxes/numbers to the left of each item - and when checked : creating a new view stores that selection
-
-You can then recall that view to only show certain parts of your data (only 1 view atm)
 
 ## APPS
 
@@ -174,13 +166,6 @@ Data visualiszations / input forms
 
 V2 being planning
 
-## CRON
-
-Zoomable timeline
-
-Can be datasourced for any historic data
-
-In planning
 
 ## Settings
 
@@ -205,4 +190,3 @@ Browser API Speech recognition without the need to be online
 - Cursor left/right / word select
 - Copy/Paste/Select All as long press functions
 - Emotes button switches whole keyboard > shift button has 3 layers again
-

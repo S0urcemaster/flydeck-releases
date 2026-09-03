@@ -21,7 +21,12 @@ import {
   type DataImageDraft,
   type WorkspaceReplicaScope,
 } from "../../replica";
-import { ClientStateStore, useClientStateScope } from "../../state";
+import {
+  ClientStateStore,
+  useClientStateScope,
+  useClientStateSlice,
+  type ClientStateSlice,
+} from "../../state";
 import {
   TreeBrowser,
   TreeBrowserModel,
@@ -30,14 +35,12 @@ import {
   type TreeBrowserInitialNode,
   type TreeBrowserProps,
   type TreeBrowserRootControl,
-  type TreeBrowserSavedView,
-  type TreeBrowserSavedViewItem,
-  type TreeBrowserSavedViewsControl,
 } from "../TreeBrowser";
 import { InputControl, type InputControlProps } from "../InputControl";
 import { Button, type ButtonProps } from "../Button";
 import { BlockingDialog } from "../BlockingDialog";
 import { Checkbox } from "../Checkbox";
+import { DeleteButton, type DeleteButtonProps } from "../DeleteButton";
 import { ListControlButton } from "../ListControlButton";
 import {
   ListControlListSizeButton,
@@ -56,6 +59,7 @@ export type DataBrowserProps = Omit<
   "model" | "renderContent"
 > & {
   contentEditorProps?: ContentEditorProps;
+  imageDeleteButtonProps?: Omit<DeleteButtonProps, "children" | "label" | "onDelete">;
   inputControlProps?: InputControlProps;
   nodeIdInputProps?: Omit<
     NodeIdInputProps,
@@ -69,37 +73,61 @@ export type DataBrowserProps = Omit<
     | "targets"
     | "value"
   >;
+  navigationSlot?: string;
   workspaceId?: string;
   onSynchronizationError?: (reason: string) => void;
 };
 
 const memoryStore = new ClientStateStore({ storage: () => null });
 const emptyDataTree: TreeBrowserInitialNode[] = [];
-const savedViewsDataSource = "_system/views";
-const sharedViewId = "__shared_view__";
 const emptyDataModel = new TreeBrowserModel({
   initialTree: emptyDataTree,
   storageKey: "flydeck.tree.data.empty",
   store: memoryStore,
 });
 
+function createSelectedPathSlice(slot: string): ClientStateSlice<string[]> {
+  return {
+    name: `treeNavigation.${slot}.selectedPath`,
+    version: 1,
+    defaultValue: [],
+    validate: (value): value is string[] => (
+      Array.isArray(value) && value.every((entry) => typeof entry === "string")
+    ),
+  };
+}
+
 export function DataBrowser({
   componentName = "DataBrowser",
   contentEditorProps,
+  imageDeleteButtonProps,
   inputControlProps,
   nodeIdInputProps,
+  navigationSlot = "data",
   parentInputProps,
   workspaceId,
   onSynchronizationError,
   ...treeBrowserProps
 }: DataBrowserProps) {
   const { userId } = useClientStateScope();
+  const navigationSlice = useMemo(
+    () => createSelectedPathSlice(navigationSlot),
+    [navigationSlot],
+  );
+  const [localSelectedPath, setLocalSelectedPath] = useClientStateSlice(
+    navigationSlice,
+  );
   if (!workspaceId) {
     return (
       <TreeBrowser
         {...treeBrowserProps}
         componentName={componentName}
+        initialSelectedPath={localSelectedPath}
         model={emptyDataModel}
+        onSelectedPathChange={(selectedPath) => {
+          setLocalSelectedPath(selectedPath);
+          return true;
+        }}
         renderContent={({ height }) => (
           <InputControl {...inputControlProps} height={height} />
         )}
@@ -112,9 +140,13 @@ export function DataBrowser({
       {...treeBrowserProps}
       componentName={componentName}
       contentEditorProps={contentEditorProps}
+      imageDeleteButtonProps={imageDeleteButtonProps}
       inputControlProps={inputControlProps}
       nodeIdInputProps={nodeIdInputProps}
+      navigationSlot={navigationSlot}
       parentInputProps={parentInputProps}
+      localSelectedPath={localSelectedPath}
+      setLocalSelectedPath={setLocalSelectedPath}
       workspaceId={workspaceId}
       userId={userId}
       onSynchronizationError={onSynchronizationError}
@@ -125,19 +157,27 @@ export function DataBrowser({
 function ServerDataBrowser({
   componentName,
   contentEditorProps,
+  imageDeleteButtonProps,
   inputControlProps,
   nodeIdInputProps,
+  navigationSlot,
   parentInputProps,
+  localSelectedPath,
+  setLocalSelectedPath,
   workspaceId,
   userId,
   onSynchronizationError,
   ...treeBrowserProps
-}: DataBrowserProps & { workspaceId: string; userId: string }) {
+}: DataBrowserProps & {
+  workspaceId: string;
+  userId: string;
+  localSelectedPath: string[];
+  setLocalSelectedPath: (selectedPath: string[]) => void;
+}) {
   const treeRevision = useRef(0);
   const nodeRevisions = useRef(new Map<string, number>());
   const enabledRevisions = useRef<Record<string, number>>({});
   const selectionRevision = useRef(0);
-  const selectedPath = useRef<string[]>([]);
   const pageSizes = useRef<TreeLoadDto["selection"]["pageSizes"]>({});
   const replicaScope = useMemo<WorkspaceReplicaScope>(() => ({
     userId,
@@ -145,60 +185,6 @@ function ServerDataBrowser({
   }), [userId, workspaceId]);
   const replicaRecord = useWorkspaceReplica(replicaScope);
   const treeLoad = replicaRecord?.tree ?? null;
-  const viewRoot = useMemo(() => treeLoad
-    ? resolveFlatTreePath(treeLoad.document.nodes, savedViewsDataSource)
-    : undefined, [treeLoad]);
-  const allViewNodes = useMemo(() => viewRoot && treeLoad
-    ? treeLoad.document.nodes
-        .filter(({ parentId }) => parentId === viewRoot.id)
-        .sort(compareDataNodes)
-    : [], [treeLoad, viewRoot]);
-  const sharedOrderNode = useMemo(() => allViewNodes.find(
-    ({ localId }) => localId === "_shared",
-  ), [allViewNodes]);
-  const viewNodes = useMemo(() => allViewNodes.filter(
-    ({ id }) => id !== sharedOrderNode?.id,
-  ), [allViewNodes, sharedOrderNode?.id]);
-  const savedViewDefinitions = useMemo(() => {
-    const nodes = treeLoad?.document.nodes ?? [];
-    const storedSharedOrder = parseSavedViewPaths(
-      sharedOrderNode
-        ? replicaRecord?.contents[sharedOrderNode.id]?.content ?? ""
-        : "",
-    );
-    const sharedNodes = orderSharedNodes(nodes.filter((node) => (
-      node.shared && !hasSharedAncestor(nodes, node)
-    )), storedSharedOrder);
-    const sharedItems = sharedNodes.flatMap((node) => {
-      const path = createFlatTreeLocalIdPath(nodes, node.id);
-      return path ? [{
-        id: node.id,
-        label: node.shareName ?? node.label,
-        path,
-      }] : [];
-    });
-    return [
-      ...viewNodes.map((node) => {
-        const paths = parseSavedViewPaths(
-          replicaRecord?.contents[node.id]?.content ?? "",
-        );
-        return {
-          id: node.id,
-          name: node.label,
-          paths,
-          items: paths.map((path) => ({ id: path, label: path, path })),
-        };
-      }),
-      {
-        id: sharedViewId,
-        name: "_shared",
-        paths: sharedItems.map(({ path }) => path),
-        items: sharedItems,
-        immutable: true,
-        includeDescendants: true,
-      },
-    ] satisfies TreeBrowserSavedView[];
-  }, [replicaRecord?.contents, sharedOrderNode, treeLoad?.document.nodes, viewNodes]);
 
   const fail = useCallback((error: unknown) => {
     onSynchronizationError?.(
@@ -223,7 +209,6 @@ function ServerDataBrowser({
         );
         enabledRevisions.current = { ...record.tree.semanticState.nodeRevisions };
         selectionRevision.current = record.tree.selection.revision;
-        selectedPath.current = [...record.tree.selection.selectedPath];
         pageSizes.current = { ...record.tree.selection.pageSizes };
       }
       return record;
@@ -241,18 +226,8 @@ function ServerDataBrowser({
     );
     enabledRevisions.current = { ...treeLoad.semanticState.nodeRevisions };
     selectionRevision.current = treeLoad.selection.revision;
-    selectedPath.current = [...treeLoad.selection.selectedPath];
     pageSizes.current = { ...treeLoad.selection.pageSizes };
   }, [treeLoad]);
-
-  useEffect(() => {
-    if (allViewNodes.length > 0) {
-      void workspaceSyncEngine.ensureContents(
-        replicaScope,
-        allViewNodes.map(({ id }) => id),
-      );
-    }
-  }, [allViewNodes, replicaScope]);
 
   const createCanonicalNode = useCallback(async (
     label: string,
@@ -287,26 +262,6 @@ function ServerDataBrowser({
     return record?.tree?.document.nodes.find(({ id }) => id === nodeId) ?? null;
   }, [replicaRecord?.tree?.document.nodes, submitCommand, treeLoad?.document.nodes]);
 
-  const ensureSavedViewsRoot = useCallback(async (userCommandId: string) => {
-    const root = replicaRecord?.tree
-      ? resolveFlatTreePath(replicaRecord.tree.document.nodes, savedViewsDataSource)
-      : undefined;
-    if (root) return root;
-    const system = replicaRecord?.tree
-      ? resolveFlatTreePath(replicaRecord.tree.document.nodes, "_system")
-      : treeLoad
-        ? resolveFlatTreePath(treeLoad.document.nodes, "_system")
-        : undefined;
-    if (!system) return null;
-    return createCanonicalNode(
-      "Views",
-      system.id,
-      null,
-      "views",
-      userCommandId,
-    );
-  }, [createCanonicalNode, replicaRecord, treeLoad]);
-
   const setNodeSharing = useCallback(async (
     nodeId: string,
     shared: boolean,
@@ -323,158 +278,6 @@ function ServerDataBrowser({
     },
   }, userCommandId)), [submitCommand]);
 
-  const savedViewsControl = useMemo<TreeBrowserSavedViewsControl>(() => ({
-    dataSource: savedViewsDataSource,
-    views: savedViewDefinitions,
-    onCreate: async (name, paths) => {
-      if (!name.trim() || name.trim().length > 16 || paths.length === 0) return false;
-      const userCommandId = crypto.randomUUID();
-      const root = await ensureSavedViewsRoot(userCommandId);
-      if (!root) return false;
-      const currentNodes = replicaRecord?.tree?.document.nodes
-        ?? treeLoad?.document.nodes
-        ?? [];
-      const siblings = currentNodes
-        .filter(({ parentId }) => parentId === root.id)
-        .sort(compareDataNodes);
-      const node = await createCanonicalNode(
-        name.trim(),
-        root.id,
-        siblings.at(-1)?.id ?? null,
-        createTreeNodeLocalId(name, siblings.map(({ localId }) => localId)),
-        userCommandId,
-      );
-      if (!node) return false;
-      await submitCommand({
-        type: "update-content",
-        nodeId: node.id,
-        input: {
-          requestId: crypto.randomUUID(),
-          content: paths.join("\n"),
-          expectedRevision: 0,
-        },
-      }, userCommandId);
-      return { id: node.id, name: node.label, paths: [...paths] };
-    },
-    onDelete: async (viewId) => Boolean(await submitCommand({
-      type: "delete-node",
-      nodeId: viewId,
-      input: {
-        requestId: crypto.randomUUID(),
-        expectedTreeRevision: treeRevision.current,
-      },
-    })),
-    onDeleteItem: async (viewId, itemId) => {
-      const view = savedViewDefinitions.find(({ id }) => id === viewId);
-      if (!view) return false;
-      if (viewId === sharedViewId) {
-        const node = treeLoad?.document.nodes.find(({ id }) => id === itemId);
-        if (!node) return false;
-        const userCommandId = crypto.randomUUID();
-        const unshared = await setNodeSharing(
-          node.id,
-          false,
-          node.shareName ?? null,
-          userCommandId,
-        );
-        if (!unshared || !sharedOrderNode) return unshared;
-        const remainingItems = removeSavedViewItem(view.items ?? [], itemId);
-        return Boolean(await submitCommand({
-          type: "update-content",
-          nodeId: sharedOrderNode.id,
-          input: {
-            requestId: crypto.randomUUID(),
-            content: remainingItems.map(({ id }) => id).join("\n"),
-            expectedRevision: replicaRecord?.contents[sharedOrderNode.id]
-              ?.revision ?? 0,
-          },
-        }, userCommandId));
-      }
-      const remainingItems = removeSavedViewItem(view.items ?? [], itemId);
-      if (remainingItems.length === (view.items ?? []).length) return false;
-      return Boolean(await submitCommand({
-        type: "update-content",
-        nodeId: viewId,
-        input: {
-          requestId: crypto.randomUUID(),
-          content: remainingItems.map(({ path }) => path).join("\n"),
-          expectedRevision: replicaRecord?.contents[viewId]?.revision ?? 0,
-        },
-      }));
-    },
-    onMove: async (viewId, afterViewId) => Boolean(await submitCommand({
-      type: "move-node",
-      nodeId: viewId,
-      input: {
-        requestId: crypto.randomUUID(),
-        afterNodeId: afterViewId,
-        expectedTreeRevision: treeRevision.current,
-      },
-    })),
-    onMoveItem: async (viewId, itemId, afterItemId) => {
-      const view = savedViewDefinitions.find(({ id }) => id === viewId);
-      if (!view) return false;
-      const orderedItems = moveSavedViewItem(
-        view.items ?? [],
-        itemId,
-        afterItemId,
-      );
-      const userCommandId = crypto.randomUUID();
-      if (viewId === sharedViewId) {
-        const root = await ensureSavedViewsRoot(userCommandId);
-        if (!root) return false;
-        let orderNode = sharedOrderNode;
-        if (!orderNode) {
-          orderNode = await createCanonicalNode(
-            "_shared",
-            root.id,
-            allViewNodes.at(-1)?.id ?? null,
-            "_shared",
-            userCommandId,
-          ) ?? undefined;
-        }
-        if (!orderNode) return false;
-        return Boolean(await submitCommand({
-          type: "update-content",
-          nodeId: orderNode.id,
-          input: {
-            requestId: crypto.randomUUID(),
-            content: orderedItems.map(({ id }) => id).join("\n"),
-            expectedRevision: replicaRecord?.contents[orderNode.id]?.revision ?? 0,
-          },
-        }, userCommandId));
-      }
-      return Boolean(await submitCommand({
-        type: "update-content",
-        nodeId: viewId,
-        input: {
-          requestId: crypto.randomUUID(),
-          content: orderedItems.map(({ path }) => path).join("\n"),
-          expectedRevision: replicaRecord?.contents[viewId]?.revision ?? 0,
-        },
-      }, userCommandId));
-    },
-    onRename: async (viewId, name) => Boolean(await submitCommand({
-      type: "rename-node",
-      nodeId: viewId,
-      input: {
-        requestId: crypto.randomUUID(),
-        label: name,
-        expectedRevision: nodeRevisions.current.get(viewId) ?? 0,
-      },
-    })),
-  }), [
-    createCanonicalNode,
-    ensureSavedViewsRoot,
-    allViewNodes,
-    replicaRecord,
-    savedViewDefinitions,
-    setNodeSharing,
-    sharedOrderNode,
-    submitCommand,
-    treeLoad,
-  ]);
-
   const renameNode = useCallback(async (nodeId: string, label: string) => {
     return Boolean(await submitCommand({
       type: "rename-node",
@@ -490,7 +293,7 @@ function ServerDataBrowser({
   const model = treeLoad ? new TreeBrowserModel({
     definitionAuthority: true,
     initialTree: toInitialTree(treeLoad),
-    storageKey: `flydeck.tree.data.server.${workspaceId}`,
+    storageKey: `flydeck.tree.data.server.${workspaceId}.${navigationSlot}`,
     store: memoryStore,
   }) : null;
 
@@ -502,8 +305,7 @@ function ServerDataBrowser({
       componentName={componentName}
       model={model}
       structureManagedExternally
-      savedViews={savedViewsControl}
-      initialSelectedPath={treeLoad.selection.selectedPath}
+      initialSelectedPath={localSelectedPath}
       initialPageSizes={treeLoad.selection.pageSizes}
       onCreateNode={async (label, parentId, afterNodeId) => {
         const node = await createCanonicalNode(label, parentId, afterNodeId);
@@ -554,22 +356,15 @@ function ServerDataBrowser({
         }, userCommandId));
       }}
       onSelectedPathChange={async (selectedPath) => {
-        return Boolean(await submitCommand({
-          type: "set-selection",
-          input: {
-            requestId: crypto.randomUUID(),
-            selectedPath,
-            pageSizes: pageSizes.current,
-            expectedRevision: selectionRevision.current,
-          },
-        }));
+        setLocalSelectedPath(selectedPath);
+        return true;
       }}
       onPageSizesChange={async (nextPageSizes) => {
         return Boolean(await submitCommand({
           type: "set-selection",
           input: {
             requestId: crypto.randomUUID(),
-            selectedPath: selectedPath.current,
+            selectedPath: treeLoad.selection.selectedPath,
             pageSizes: nextPageSizes,
             expectedRevision: selectionRevision.current,
           },
@@ -596,6 +391,7 @@ function ServerDataBrowser({
         return <ServerDataContent
           {...inputControlProps}
           contentEditorProps={contentEditorProps}
+          imageDeleteButtonProps={imageDeleteButtonProps}
           nodeIdInputProps={nodeIdInputProps}
           height={height}
           nodeId={node.id}
@@ -626,7 +422,7 @@ function ServerDataBrowser({
   );
 }
 
-function ServerDataContent({
+export function ServerDataContent({
   nodeId,
   name,
   localId,
@@ -644,12 +440,14 @@ function ServerDataContent({
   parentInputProps,
   nodeIdInputProps,
   contentEditorProps,
+  imageDeleteButtonProps,
   replicaScope,
   onSynchronizationError,
   height,
   ...inputControlProps
 }: InputControlProps & {
   contentEditorProps?: ContentEditorProps;
+  imageDeleteButtonProps?: DataBrowserProps["imageDeleteButtonProps"];
   nodeIdInputProps?: DataBrowserProps["nodeIdInputProps"];
   nodeId: string;
   name: string;
@@ -910,7 +708,7 @@ function ServerDataContent({
   }
 
   return (
-    <div className={styles.content} style={{ height }}>
+    <div className={styles.content} style={{ minHeight: height }}>
       <ListControlButton
         {...inputControlProps.buttonProps}
         aria-expanded={detailsOpen}
@@ -1084,33 +882,18 @@ function ServerDataContent({
                 });
               }}
             />
-            <Button
+            <DeleteButton
               {...inputControlProps.buttonProps}
-              activeColor="COLOR_SPEECH"
-              aria-label="Remove image"
-              background="COLOR_SPEECH"
+              {...imageDeleteButtonProps}
               className={styles.imageRemoveButton}
               disabled={inputControlProps.buttonProps?.disabled || imageQueued}
               height="2.5rem"
+              label="image"
               width="2.5rem"
-              onClick={() => void removeImage().catch(onSynchronizationError)}
+              onDelete={() => removeImage().catch(onSynchronizationError)}
             >
               <X aria-hidden="true" size="1em" />
-            </Button>
-            {imageDraft && (
-              <Button
-                {...inputControlProps.buttonProps}
-                aria-label="Save image"
-                className={styles.imageSaveButton}
-                disabled={inputControlProps.buttonProps?.disabled
-                  || imageSavePending
-                  || imageQueued}
-                width="100%"
-                onClick={() => void saveImage()}
-              >
-                Save
-              </Button>
-            )}
+            </DeleteButton>
           </div>
         )}
         <ContentEditor
@@ -1122,9 +905,11 @@ function ServerDataContent({
           disabled: inputControlProps.buttonProps?.disabled
             || contentEditorProps?.buttonProps?.disabled
             || !document
-            || !contentHasChanges(document.content, draft),
+            || imageSavePending
+            || (!contentHasChanges(document.content, draft)
+              && (!imageDraft || imageQueued)),
         }}
-        height={root ? "100%" : height}
+        height="auto"
         textareaProps={{
           ...inputControlProps.textareaProps,
           ...contentEditorProps?.textareaProps,
@@ -1133,6 +918,15 @@ function ServerDataContent({
             contentEditorProps?.textareaProps?.className,
             styles.contentTextarea,
           ].filter(Boolean).join(" "),
+          onPaste: (event) => {
+            inputControlProps.textareaProps?.onPaste?.(event);
+            contentEditorProps?.textareaProps?.onPaste?.(event);
+            if (event.defaultPrevented) return;
+            const image = clipboardImage(event.clipboardData.items);
+            if (!image) return;
+            event.preventDefault();
+            void selectImage(image).catch(onSynchronizationError);
+          },
         }}
         value={draft}
         onChange={(value) => setContentDraft({
@@ -1141,25 +935,28 @@ function ServerDataContent({
           value,
         })}
         onSend={async (content) => {
-          if (!document || !contentHasChanges(document.content, content)) return;
+          if (!document) return;
           try {
-            const record = await workspaceSyncEngine.submit(replicaScope, {
-              type: "update-content",
-              nodeId,
-              input: {
-                requestId: crypto.randomUUID(),
-                content,
-                expectedRevision: document.revision,
-              },
-            });
-            const current = record.contents[nodeId];
-            if (current) {
-              setContentDraft({
+            if (contentHasChanges(document.content, content)) {
+              const record = await workspaceSyncEngine.submit(replicaScope, {
+                type: "update-content",
                 nodeId,
-                revision: current.revision,
-                value: current.content,
+                input: {
+                  requestId: crypto.randomUUID(),
+                  content,
+                  expectedRevision: document.revision,
+                },
               });
+              const current = record.contents[nodeId];
+              if (current) {
+                setContentDraft({
+                  nodeId,
+                  revision: current.revision,
+                  value: current.content,
+                });
+              }
             }
+            await saveImage();
           } catch (error) {
             onSynchronizationError(error);
           }
@@ -1300,6 +1097,19 @@ function DataListSizeControl({
   );
 }
 
+export function clipboardImage(
+  items: ArrayLike<Pick<DataTransferItem, "getAsFile" | "kind" | "type">>,
+): File | null {
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    if (!item) continue;
+    if (item.kind !== "file" || !item.type.startsWith("image/")) continue;
+    const file = item.getAsFile();
+    if (file) return file;
+  }
+  return null;
+}
+
 function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
   const enabled = new Set(load.semanticState.enabledNodeIds);
   const childrenByParent = new Map<string | null, TreeNodeDto[]>();
@@ -1320,7 +1130,7 @@ function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
         enabled: enabled.has(node.id),
         contentEditable: node.capabilities.contentEditable,
         contentVisible: false,
-        listEditable: node.kind === "system-directory" || node.kind === "trash-directory"
+        listEditable: node.kind === "trash-directory"
           ? false
           : node.capabilities.listEditable,
         listItemLimit: node.capabilities.listItemLimit ?? undefined,
@@ -1358,83 +1168,6 @@ export function resolveFlatTreePath(
     parentId = current.id;
   }
   return current;
-}
-
-export function createFlatTreeLocalIdPath(
-  nodes: readonly TreeNodeDto[],
-  nodeId: string,
-) {
-  const byId = new Map(nodes.map((node) => [node.id, node]));
-  const segments: string[] = [];
-  const visited = new Set<string>();
-  let current = byId.get(nodeId);
-  while (current) {
-    if (visited.has(current.id)) return null;
-    visited.add(current.id);
-    segments.unshift(current.localId);
-    current = current.parentId ? byId.get(current.parentId) : undefined;
-  }
-  return segments.length > 0 ? segments.join("/") : null;
-}
-
-export function parseSavedViewPaths(content: string) {
-  return [...new Set(content
-    .split(/\r?\n/)
-    .map((path) => path.trim())
-    .filter(Boolean))];
-}
-
-export function moveSavedViewItem(
-  items: readonly TreeBrowserSavedViewItem[],
-  itemId: string,
-  afterItemId: string | null,
-) {
-  const moving = items.find(({ id }) => id === itemId);
-  if (!moving) return [...items];
-  const remaining = items.filter(({ id }) => id !== itemId);
-  const insertionIndex = afterItemId === null
-    ? 0
-    : remaining.findIndex(({ id }) => id === afterItemId) + 1;
-  if (insertionIndex <= 0 && afterItemId !== null) return [...items];
-  return [
-    ...remaining.slice(0, insertionIndex),
-    moving,
-    ...remaining.slice(insertionIndex),
-  ];
-}
-
-export function removeSavedViewItem(
-  items: readonly TreeBrowserSavedViewItem[],
-  itemId: string,
-) {
-  return items.filter(({ id }) => id !== itemId);
-}
-
-export function orderSharedNodes(
-  nodes: readonly TreeNodeDto[],
-  orderedIds: readonly string[],
-) {
-  const order = new Map(orderedIds.map((id, index) => [id, index]));
-  return [...nodes].sort((left, right) => {
-    const leftOrder = order.get(left.id);
-    const rightOrder = order.get(right.id);
-    if (leftOrder !== undefined || rightOrder !== undefined) {
-      if (leftOrder === undefined) return 1;
-      if (rightOrder === undefined) return -1;
-      return leftOrder - rightOrder;
-    }
-    return compareDataNodes(left, right);
-  });
-}
-
-function hasSharedAncestor(nodes: readonly TreeNodeDto[], node: TreeNodeDto) {
-  const byId = new Map(nodes.map((candidate) => [candidate.id, candidate]));
-  let parent = node.parentId ? byId.get(node.parentId) : undefined;
-  while (parent) {
-    if (parent.shared) return true;
-    parent = parent.parentId ? byId.get(parent.parentId) : undefined;
-  }
-  return false;
 }
 
 function toCreatedTreeNode(node: TreeNodeDto) {

@@ -4,11 +4,19 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDatabase } from "./database.js";
 import { RelayStore } from "./RelayStore.js";
+import { ProjectedRelayStore } from "./ProjectedRelayStore.js";
+import { AssetStore } from "./ingest/AssetStore.js";
+import { PublicationIngestService } from "./ingest/PublicationIngestService.js";
 
 const config = loadConfig();
 const database = createDatabase(config);
-const relay = new RelayStore(database, config);
-const app = createApp(config, relay);
+const relay = config.dataSource === "projection"
+  ? new ProjectedRelayStore(database, config)
+  : new RelayStore(database, config);
+const ingest = config.ingestSecret
+  ? new PublicationIngestService(database, new AssetStore(config.assetDirectory))
+  : undefined;
+const app = createApp(config, relay, ingest);
 const server = app.listen(config.port, config.host, () => {
   console.info(`Relay One listening on http://${config.host}:${config.port}`);
 });

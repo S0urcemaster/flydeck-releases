@@ -43,7 +43,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - `Button` is the shared selected/disabled button control. `ModulePanel` and the
   AppShell viewport simulation compose it instead of styling raw buttons.
 - `ModuleButton` composes `PressButton` and is parameterized by label and
-  symbol. `ModulePanel` renders AGNT, DATA, APPS, and CRON directly as four
+  symbol. `ModulePanel` renders AGNT, DATA, a B/C/D data-slot cycle, and APPS
+  directly as four
   instances of that one component; the former empty wrapper components and
   their duplicate persisted contracts have been removed.
 - The ModuleButton lab editor displays its composition chain explicitly:
@@ -54,12 +55,13 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - The theme contract also exposes brown `ACCENT_THREE`; Flydeck V2, the V1
   reference palette, and Greyscale each provide a corresponding value.
 - `SubmodulePanel` owns controlled subordinate navigation and composes
-  `SubmoduleButton` for `CHAT` and `MEMO`. `SubmoduleButton` derives the full
+  `SubmoduleButton` for `JOBS` and `MEMO`. `SubmoduleButton` derives the full
   persisted `Button.base` contract, including its configured 40px height, and
   uses green `ACCENT_TWO` for selection. Both are independently catalogued.
 - `Textarea` is the shared multiline control used by `FunctionsModule` and the
   lab property editor.
-- The shared module-menu state keeps `AGNT`, `DATA`, `FUNC`, `CRON`, `HELP`,
+- The shared module-menu state keeps `AGNT`, `DATA`, `DATB`, `DATC`, `DATD`,
+  `FUNC`, `HELP`,
   and `CONFIG` mutually exclusive. The active module, previous primary module,
   and AGNT submodule are persisted through the unified client state store.
 - `ModuleMenuActions` renders the symbol-only `HelpModuleButton` and
@@ -69,95 +71,64 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `SideModuleButton`, which derives from `ModuleButton` and owns the
   `BUTTON_WIDTH` override. The concrete side buttons inherit that width.
 - `Module` is the shared base surface for `AgentModule`, `DataModule`,
-  `FunctionsModule`, `CronModule`, `HelpModule`, and `SettingsModule`.
+  `FunctionsModule`, `HelpModule`, and `SettingsModule`.
 - Concrete module properties resolve `inherit` against the configured
   `Module.base`, so border, background, spacing, and color form one shared
   module body unless a concrete module overrides them.
-- `Dialer` still supports its generic pointer and wheel interaction modes for
-  other controls. CRON now prototypes a separate `CronDialer → Base` vertical
-  timeline whose height follows the remaining dynamic viewport below its own
-  top edge without creating page scroll. It remeasures browser and visual
-  viewport changes and reserves the AppShell's bottom inset. The center initially
-  represents the current time. Its maximum zoom shows one hour above and below
-  center; its minimum zoom shows one year in either direction. Two equal-width
-  `Zoom out` and `Zoom in` buttons form a menu above the scale and switch one fixed
-  half-range step: `1h`, `24h`, `7d`, `1m`, or `1y`; the time surface has no
-  horizontal zoom gesture. In the `24h` range, scale marks show clock times and
-  switch to the date only at local midnight; the `7d` range has one dated mark
-  per day. The `1y` range marks every calendar month with its three-letter
-  German abbreviation and shows the four-digit year at January boundaries.
-  Date labels render Saturdays blue and Sundays red. A second three-symbol row
-  selects the pointer mode like a radio group: `ArrowRightFromLine` selects the
-  green Start pointer, `SearchCode` selects the brown Browse pointer, and
-  `ArrowRightToLine` selects the blue End pointer. Browse movement changes only
-  its own retained position; Start and End remain unchanged. Every inactive
-  pointer remains visible as a translucent shadow when it lies in the current
-  range. Start and end are held independently, and end is clamped to at least one
-  active vertical grid step after start during initialization. Neither endpoint
-  locks timeline movement: crossing the other endpoint moves that counterpart
-  one active grid step ahead or behind, so past times remain freely reachable
-  while the interval stays valid. The span between Start and End is shown as a
-  subtle band. The inactive endpoint appears at its actual position as a
-  translucent shadow line and dot; when outside the zoom window, the band is
-  clipped to that edge. A vertical drag moves the selected
-  endpoint, with an
-  upward gesture moving into the future. Vertical selection snaps respectively
-  to `1min`, `10min`, `1h`, `12h`, or `1d`; the 12-hour grid is anchored at
-  `06:00` and `18:00`. In the `1h` range, two shorter, thinner five-minute ticks
-  sit between every pair of labeled 15-minute marks; every wider zoom range has
-  one thinner tick midway between adjacent labels. Up/Down keyboard input moves by the same range-dependent
-  step. Pointer line, dot, mode color, position, and shadow presentation are
-  owned by the reusable `Pointer → Base` component. The fixed center timestamp
-  is the reusable `PointerButton`, placed above the active pointer so the line
-  and dot stay unobscured, with the
-  abbreviated weekday before its date. Its translucent background follows the
-  active pointer's green, brown, or blue theme accent; its width is about
-  `2.5rem` narrower than the original label, its left padding is reduced, and
-  it is flush with the timeline's right edge. It sits `0.3125rem` closer to the
-  pointer. `PointerButton → Base` is an independent specialized native button,
-  not a `Button` derivative; its accent surface and padding belong directly to
-  `PointerButton.module.css`. Its persisted Lab contract exposes `padding`,
-  primary and secondary font sizes, Base `width`, and `deltaY`. `Pointer` is
-  independently catalogued with persisted `lineWidth` and `tipRadius` controls.
-  CRON receives both configurations from App instead of owning those dimensions.
-  The button shows both the selected
-  half-range and its active `1m`/`10m`/`1h`/`12h`/`1d` grid in a compact second
-  line. Its responsive fixed width does not change with weekday glyphs. It replaces the complete
-  timeline view with a general-purpose Event form for `Title`, `Subtitle`, and
-  `Text`, suitable for appointments as well as logs, diary entries, and
-  biographical records. Two compact timestamp-only buttons return to the timeline
-  in the corresponding Start or End edit mode. The Text field shrinks within the
-  form while its inline Flydeck Keyboard is visible. An orange `COLOR_SPEECH` X closes the form;
-  its bottom action is `Save`. The complete draft, including both timestamps,
-  is held in the scoped `drafts.cronEvent` ClientStateStore slice and therefore
-  survives local refreshes without direct component access to `localStorage`.
-  Save appends a timestamped entry to the scoped `events.cron` ClientStateStore
-  slice and emits both timestamps and all three fields through `onEventSave`.
-  Saved entries intersecting the visible range appear as blocks from Start to
-  End. They render from oldest to newest so overlapping newer entries remain on
-  top; backend event persistence remains a later CRON-domain slice.
-  The left edge owns a density-controlled time scale; its axis, ticks, and
-  center pointer share one exact horizontal anchor. A fixed horizontal marker
-  shows the exact center timestamp and current half-range. Arrow keys
-  expose the same two axes for keyboard use. The previous circular two-ring
-  experiment and its `SCALE`, `SEND`, `RANGE`, and `ZOOM` corner buttons remain
-  parked, unexported, under `parked/CronWheelDialer` with their tests and
-  styles intact.
-  `SettingsModule` remains an empty migration target. `AgentModule`
-  owns subordinate `CHAT` and `MEMO` navigation; `MEMO` presents the recursive
-  `TreeBrowser` with a locally persisted plant fixture.
+- The CRON module and CronDialer are archived under `parked/Cron` and are absent
+  from application navigation, production builds, tests, and the component lab.
+  `Dialer` remains active for other controls.
+  `SettingsModule` remains an empty migration target. `AgentModule` owns
+  subordinate `JOBS` and `MEMO` navigation. Both use persistent workspace-tree
+  projections and suppress the complete global TreeBrowser path/search
+  menu. `MEMO` starts as an empty server-backed `_system/agnt/memo` root and
+  edits real workspace nodes through the replica. There is no bundled default
+  memory document; future defaults are introduced only with the jobs that need
+  them. `JOBS` uses `_system/agnt/jobs` without a separate type
+  switch. Adding a manual child makes an unsaved item a group; saving JobCase
+  fixes it as a job, whose children are then reserved for run dates and runs.
+  A group can expose JobCase again only after its manual child list is empty.
+  A job's ID, Name, and Parent remain collapsed behind the full-width `Details`
+  control. The always-visible `JobCase` has MEMORY, DATA, PROMPT, and TIME tabs,
+  followed by Start at its lower edge directly before the always-rendered Runs
+  browser, including when it has no entries. MEMORY is an editable textarea.
+  The persistent explicit multi-selection in the MEMO browser has no implicit
+  descendants; `Set Memory` snapshots the currently checked MEMO nodes into
+  an ordered textarea draft, which can then be edited independently and saved
+  through that field's keyboard action. MEMORY, DATA, and PROMPT use editable
+  textareas; `Set Datasources` snapshots every selected DATA root together with
+  its ordered descendant structure and contents using repeated `|-` indentation.
+  MEMORY and DATA use double-height
+  textareas. All textareas initially select the keyboard's `S` font stage.
+  DATA also retains its one-level four-item source list resolving
+  only normal DATA-tree IDs/paths. PROMPT owns the keyboard Save action and the
+  persisted model/effort cycles. TIME stores one UTC instant plus its IANA time
+  zone and enables or disables the one-shot schedule. JobCase ignores the
+  outer TreeBrowser's dynamic content height and top-aligns its rows, so tabs
+  cannot stretch Details or their controls to different heights.
+  Runs are persisted as `job → YYYY-MM-DD → HH:mm · status` tree nodes. Start
+  snapshots ordered memory, DATA selections, prompt, model, and effort before
+  sending the saved `MEMO → Datasources` text as Codex developer/system
+  instructions and Prompt alone as user input. One queued/running run per job
+  is enforced in PostgreSQL. While a
+  run is active JobCase editing is locked. Cancel unlocks editing immediately,
+  keeps Start disabled until the cancel request is resolved, aborts Flydon, and
+  fences all late output with the terminal database status. Completed, failed,
+  cancelled, and interrupted run content uses the ordinary keyboard-backed
+  ContentEditor. Job deletion is immediate because the normal TreeService
+  operation first moves the complete branch to `_trash`, from which it can be
+  reparented.
   `HelpModule` renders `src/assets/manual.md`.
   `HelpModule` and `SettingsModule` are connected to the HELP and CONFIG title
   actions respectively.
-- `MemoryBrowser` is a typed `TreeBrowser` specialization and remains
-  disconnected from `AgentModule` until the plant fixture is replaced. The
-  overlapping `EntryBrowser` implementation and catalog entry have been
-  removed.
+- AGNT/MEMO uses the standard `TreeBrowser` directly, including its standard
+  checkbox selection. Parent/child check cascading is retained for composing
+  Job Memory. The overlapping `EntryBrowser` implementation remains removed.
 - `TreeBrowser` is the recursive tree-navigation base currently shown directly
   under `AGNT` → `MEMO` with a plant-inheritance fixture. A virtual client-only
   `root` owns the first list; it has no editable ID, parent, or content and
   requires no backend node. Each visible level owns a list control and a
-  fixed-size page. Selecting one
+  fixed-size page whose shared default is four items. Selecting one
   row appends exactly one child level below the complete current list; leaf
   selection appends the same five-row level as an empty list. There is no tree
   indentation and no child list is inserted beside or immediately after its
@@ -177,6 +148,11 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   that owner's own child list. Its default level
   contains the owner label button at the left, followed by move-up/down,
   previous/next-page, and finally the list/content switch at the far right.
+  The elementary list/content switch is twice the standard button width and
+  keeps standard horizontal padding. Its current-mode icon aligns left while
+  content is visible and right while the child list is visible. It stays
+  permanently highlighted with the opposite of the current tree level's
+  alternating green/blue active color and changes mode immediately on press. The global
   Clicking the owner label now opens the keyboard-backed `New` input for that
   child list, including an empty list. A created item is inserted after the
   active sibling or at the list end when no sibling is active. Delete travels
@@ -197,46 +173,19 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   cached contents, and workspace image drafts. A failed server read leaves the
   client cache untouched.
   A global TreeBrowser menu precedes every level. Its permanent first row shows
-  the current slash-separated local-ID path without separator whitespace in a
-  flexible-width input followed by fixed-width
-  Search and Views symbol buttons. Search reuses that same input; Search and
-  Views are mutually exclusive menu modes. The complete menu is sticky at the
-  safe top viewport edge, so its expanded input content, keyboard, Search, or
-  Views area remains attached directly below the permanent row while the tree
-  scrolls. The sticky menu and its path/search input use the opaque `COLOR_APP`
-  background, preventing tree rows from showing through. Its one
-  search filters the
-  complete tree or the active saved view, retains matching ancestor paths, and
-  replaces the former per-owner search controls. Views opens a referenced
-  TreeBrowser whose virtual root is labelled `views`. Its source is the
-  canonical DATA branch `_system/views`; the branch is created on the first
-  view write when absent. `New` captures every current action-selection path,
-  stores it line-by-line as the new view node's content through the normal
-  optimistic DATA outbox, and activates it immediately. Rename, move, and
-  delete use the same TreeBrowser CRUD contracts.
-  The referenced Views browser always uses the compact `S`/four-item list.
-  Selecting a stored view only selects it for inspection; a full-width
-  `active` button above the `views` root independently activates or deactivates
-  that view's filtering. The Views menu symbol, this `active` button, and all
-  active controls in the referenced Views tree use the success green. A newly
-  created view remains selected and active.
-  Only selected nodes and the ancestor paths required to reach them remain
-  visible. The Views browser stays open for normal CRUD and content navigation;
-  opening a view displays every referenced path as a real flat child item rather
-  than a newline-separated content block. Child move controls persist path order
-  back into the view, and left/right page controls expose further children in
-  four-item pages. Deleting a normal child removes only that path reference from
-  the view. `_shared` remains the immutable final view, while its shared-root
-  child items are movable and deleting one performs Unshare; their persisted
-  UUID order is the public Relay One root order, with newly shared roots appended.
+  the current slash-separated local-ID path followed by the Search symbol. Search
+  reuses that input, filters the complete tree, and retains matching ancestor paths.
+  The sticky menu and input use the opaque `COLOR_APP` background.
+  DATA and the cycled DATB/DATC/DATD slots share the same replica data but keep
+  their `selectedPath` locally in the client under separate scoped keys. Path
+  navigation no longer submits a server selection mutation.
   `TreeBrowser` supplies the selected-row color by depth, alternating from
   `ACCENT_ONE` to `ACCENT_TWO`.
   Selecting a row makes it the only active item in its sibling list and checks
   it for actions. Further siblings can be added or removed through their
   checkboxes without opening them; the active row remains checked. Navigating
   to another parent preserves the checked sets owned by all other parent lists,
-  including navigation through the shared path/search input, so a saved view
-  captures the accumulated selection across the complete tree. Delete and
+  including navigation through the shared path/search input. Delete and
   Set Parent apply to the complete checked sibling set, and Set Parent validates
   target capacity for the whole batch.
   Checkboxes display each item's one-based position in the complete sibling
@@ -249,6 +198,9 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   in DATA and FUNC. `DataBrowser` renders the workspace replica's canonical
   DATA tree. Its item content keeps the content editor permanently visible and
   collapses ID, Name, Parent, and Sharing behind one full-width Details row.
+  The content textarea has a 13em minimum height (twice its previous minimum),
+  while the TreeBrowser-derived item height is now only a minimum rather than
+  a fixed cap, so content and opened details can expand naturally.
   Sharing is workspace-canonical DATA state: its wider leading checkbox and
   form save the active flag and public share name atomically. A checkbox change
   persists Share or Unshare immediately without requiring the input keyboard;
@@ -258,15 +210,19 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   applies the identical cascade immediately. An active share is rejected by
   the client, shared Zod contract, service, and PostgreSQL constraint unless
   its name is present. Its checkbox labels the inactive and active states
-  `Share` and `Shared`. System/trash branches cannot be shared. The immutable
-  `_shared` view is always the final item in the Views list.
-  A selected or captured image now owns a visible `Save` button directly below
-  its preview. Save enqueues a typed image command behind preceding DATA writes;
-  its original Blob remains in the separate IndexedDB image store until server
-  confirmation. There is no waiting dialog; a dialog with Retry appears only
-  after queue failure. Image upload no longer depends on opening the content
-  keyboard or saving unchanged content. The content keyboard's `Save` is disabled
-  whenever its draft exactly matches the confirmed content record.
+  `Share` and `Shared`. System/trash branches cannot be shared.
+  Selecting, capturing, or pasting an image while the item Content textarea is
+  focused creates the same local image draft and preview. The normal Content
+  keyboard `Save` enqueues changed text and the image through the existing DATA
+  write queue; there is no separate image Save control. The original Blob
+  remains in the separate IndexedDB image store until server confirmation.
+  There is no waiting dialog; a dialog with Retry appears only after queue
+  failure. Content Save is enabled when either text or image has an unsaved
+  change.
+  Removing an image uses the shared armed `DeleteButton`: the first press arms
+  it for the configured timeout and only the second press deletes. DeleteButton
+  uses the orange `COLOR_SPEECH` background at rest and the configured error
+  color while armed.
   `FunctionBrowser` starts with `Widgets`, `System`, and `User`; `System`
   contains a `DeviceInfo` item. `Widgets → Compass` builds category lists from
   `assets/sayings.json`, with the matching sayings below every category; the
@@ -422,7 +378,9 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   output when its visibility flag is active.
 - `DEVICEINFO` reports only passive browser-exposed client information in a
   read-only result field and requests no permissions.
-- V1 in `../frontend` remains the operational reference and must keep building.
+- V1 sources remain archived in `../frontend` and `../backend`, but the combined
+  production deployment disables their service and no longer routes traffic to
+  them. They are not part of the active verification or deployment path.
 
 ## Backend V2 foundation
 
@@ -438,6 +396,11 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   and audit events.
 - `/flydeck/api/v2/health/live` is process-only;
   `/flydeck/api/v2/health/ready` checks PostgreSQL.
+- Production deploys the V2 frontend at the Flydon hostname root (`/`), while
+  the stable API remains under `/flydeck/api/v2`. The root `deploy.sh` tests,
+  builds, and deploys Flydeck V2 plus Relay One, disables the V1
+  `flydeck.service`, replaces the old Flydon Serve routes with the V2 root, and
+  refreshes Relay One through its isolated Funnel identity.
 - Every response receives a request ID. Errors use the shared stable envelope.
 - `/auth/session` resolves an opaque cookie by its SHA-256 hash and returns only
   the user's workspace memberships. `LOGIN_REQUIRED=false` instead resolves a
@@ -474,7 +437,7 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   its `BUTTON_WIDTH`, and no longer advertises the unrelated
   `ListControlButton` contract. `DeleteButton` has one stable `Button` parent
   for both icon and text content instead of changing its runtime ancestry.
-- The primary AGNT, DATA, APPS, and CRON ModuleButtons retain their text labels
+- The primary AGNT, DATA, DATB/DATC/DATD, and APPS controls retain their text labels
   but hide their decorative symbols at viewport widths up to 620px.
 - The manifest test loads every component source and verifies that its JSX
   renders the exact direct parent declared by its public component contract.
@@ -502,9 +465,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   boundary.
 - The final component audit covers all 72 manifest entries. Every component
   except the foundational `Base` now owns a persisted Base contract.
-  `DialSurface → Base`, `Dialer → Base`, and both
-  `ColorDialer → Dialer` and `CronDialer → Base` are represented in generated
-  properties,
+  `DialSurface → Base`, `Dialer → Base`, and `ColorDialer → Dialer` are
+  represented in generated properties,
   runtime resolution, and the lab; Dialer receives its DialSurface properties
   through an explicit child contract. No derived component keeps editable
   color, background, border, spacing, dimensions, or typography as a TSX
@@ -704,7 +666,9 @@ From the repository root:
 npm run build --workspace flydeck-frontend-v2
 npm run lint --workspace flydeck-frontend-v2
 npm test --workspace flydeck-frontend-v2
-npm run build --workspace flydeck-frontend
+npm test --workspace flydeck-backend-v2
+npm test --workspace flydeck-relayone
+./deploy.sh # only when production deployment is explicitly intended
 git diff --check
 ```
 

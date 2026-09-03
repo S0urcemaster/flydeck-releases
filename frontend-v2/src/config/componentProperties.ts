@@ -1,8 +1,10 @@
 const moduleMenuItems = [
   "AGNT",
   "DATA",
+  "DATB",
+  "DATC",
+  "DATD",
   "FUNC",
-  "CRON",
   "HELP",
   "CONFIG",
 ] as const;
@@ -95,7 +97,7 @@ export type ComponentPropertiesConfig = {
     base: StoredBaseProperties;
   };
   CheckRadioButton: { base: StoredBaseProperties };
-  AgentChatContent: { fontSize: string; base: StoredBaseProperties };
+  JobCase: { fontSize: string; base: StoredBaseProperties };
   DeviceInfo: { base: StoredBaseProperties };
   DeviceInfoButton: { base: StoredBaseProperties };
   DeleteButton: { armedColor: string; base: StoredBaseProperties };
@@ -120,7 +122,7 @@ export type ComponentPropertiesConfig = {
     base: StoredBaseProperties;
   };
   MemoryBrowser: { base: StoredBaseProperties };
-  AgentChatBrowser: { base: StoredBaseProperties };
+  AgentJobBrowser: { base: StoredBaseProperties };
   TreeBrowser: { rowGap: string; base: StoredBaseProperties };
   DataBrowser: { base: StoredBaseProperties };
   AppBrowser: { base: StoredBaseProperties };
@@ -243,7 +245,7 @@ export function parseComponentPropertiesConfig(
   const browserItemModeButton = input.BrowserItemModeButton;
   const checkbox = input.Checkbox;
   const checkRadioButton = input.CheckRadioButton;
-  const agentChatContent = input.AgentChatContent;
+  const jobCase = input.JobCase;
   const deviceInfo = input.DeviceInfo;
   const deviceInfoButton = input.DeviceInfoButton;
   const deleteButton = input.DeleteButton;
@@ -254,7 +256,7 @@ export function parseComponentPropertiesConfig(
   const colorDialer = input.ColorDialer;
   const cronDialer = input.CronDialer;
   const memoryBrowser = input.MemoryBrowser;
-  const agentChatBrowser = input.AgentChatBrowser;
+  const agentJobBrowser = input.AgentJobBrowser;
   const treeBrowser = input.TreeBrowser;
   const dataBrowser = input.DataBrowser;
   const appBrowser = input.AppBrowser;
@@ -330,9 +332,9 @@ export function parseComponentPropertiesConfig(
     || !isRecord(browserItemModeButton)
     || !isRecord(checkbox)
     || !isRecord(checkRadioButton)
-    || !isRecord(agentChatContent)
-    || typeof agentChatContent.fontSize !== "string"
-    || agentChatContent.fontSize.trim() === ""
+    || !isRecord(jobCase)
+    || typeof jobCase.fontSize !== "string"
+    || jobCase.fontSize.trim() === ""
     || !isRecord(deviceInfo)
     || !isRecord(deviceInfoButton)
     || !isRecord(deleteButton)
@@ -343,7 +345,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(colorDialer)
     || !isRecord(cronDialer)
     || !isRecord(memoryBrowser)
-    || !isRecord(agentChatBrowser)
+    || !isRecord(agentJobBrowser)
     || !isRecord(treeBrowser)
     || !isRecord(dataBrowser)
     || !isRecord(appBrowser)
@@ -421,7 +423,7 @@ export function parseComponentPropertiesConfig(
   );
   const checkboxBase = parseStoredBaseProperties(checkbox.base);
   const checkRadioButtonBase = parseStoredBaseProperties(checkRadioButton.base);
-  const agentChatContentBase = parseStoredBaseProperties(agentChatContent.base);
+  const jobCaseBase = parseStoredBaseProperties(jobCase.base);
   const deviceInfoBase = parseStoredBaseProperties(deviceInfo.base);
   const deviceInfoButtonBase = parseStoredBaseProperties(deviceInfoButton.base);
   const deleteButtonBase = parseStoredBaseProperties(deleteButton.base);
@@ -434,7 +436,7 @@ export function parseComponentPropertiesConfig(
   const colorDialerBase = parseStoredBaseProperties(colorDialer.base);
   const cronDialerBase = parseStoredBaseProperties(cronDialer.base);
   const memoryBrowserBase = parseStoredBaseProperties(memoryBrowser.base);
-  const agentChatBrowserBase = parseStoredBaseProperties(agentChatBrowser.base);
+  const agentJobBrowserBase = parseStoredBaseProperties(agentJobBrowser.base);
   const treeBrowserBase = parseStoredBaseProperties(treeBrowser.base);
   const dataBrowserBase = parseStoredBaseProperties(dataBrowser.base);
   const appBrowserBase = parseStoredBaseProperties(appBrowser.base);
@@ -518,7 +520,7 @@ export function parseComponentPropertiesConfig(
     || !browserItemModeButtonBase
     || !checkboxBase
     || !checkRadioButtonBase
-    || !agentChatContentBase
+    || !jobCaseBase
     || !deviceInfoBase
     || !deviceInfoButtonBase
     || !deleteButtonBase
@@ -529,7 +531,7 @@ export function parseComponentPropertiesConfig(
     || !colorDialerBase
     || !cronDialerBase
     || !memoryBrowserBase
-    || !agentChatBrowserBase
+    || !agentJobBrowserBase
     || !treeBrowserBase
     || !dataBrowserBase
     || !appBrowserBase
@@ -782,9 +784,9 @@ export function parseComponentPropertiesConfig(
       base: checkboxBase,
     },
     CheckRadioButton: { base: checkRadioButtonBase },
-    AgentChatContent: {
-      fontSize: agentChatContent.fontSize,
-      base: agentChatContentBase,
+    JobCase: {
+      fontSize: jobCase.fontSize,
+      base: jobCaseBase,
     },
     DeviceInfo: { base: deviceInfoBase },
     DeviceInfoButton: { base: deviceInfoButtonBase },
@@ -813,7 +815,7 @@ export function parseComponentPropertiesConfig(
       base: cronDialerBase,
     },
     MemoryBrowser: { base: memoryBrowserBase },
-    AgentChatBrowser: { base: agentChatBrowserBase },
+    AgentJobBrowser: { base: agentJobBrowserBase },
     TreeBrowser: {
       rowGap: treeBrowser.rowGap,
       base: treeBrowserBase,

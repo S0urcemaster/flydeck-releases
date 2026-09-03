@@ -121,10 +121,15 @@ export class WorkspaceSyncEngine {
     }
     const running = this.active.get(key);
     if (running) {
-      return running.then(async (succeeded) => {
-        if (!succeeded) return false;
-        const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
-        return pending > 0 ? this.flush(scope) : true;
+      return this.replica.load(scope).then((requestedWhileOutboxEmpty) => {
+        const externalRefreshRequested = !requestedWhileOutboxEmpty?.outbox.length;
+        return running.then(async (succeeded) => {
+          if (!succeeded) return false;
+          const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
+          // An SSE event can arrive while a sync is active without adding an
+          // outbox command. Preserve that request as a trailing server refresh.
+          return pending > 0 || externalRefreshRequested ? this.flush(scope) : true;
+        });
       });
     }
     const operation = this.flushCommands(scope).finally(() => {

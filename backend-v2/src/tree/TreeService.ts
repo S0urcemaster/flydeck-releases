@@ -33,6 +33,7 @@ type NodeRow = {
   list_item_limit: number | null;
   shared: boolean;
   share_name: string | null;
+  job_configured?: boolean;
   enabled: boolean;
   enabled_revision: string | number;
 };
@@ -109,12 +110,14 @@ export class TreeService {
           tree_nodes.revision, tree_nodes.created_at, tree_nodes.updated_at,
           tree_nodes.content_editable, tree_nodes.list_editable,
           tree_nodes.list_item_limit, tree_nodes.shared, tree_nodes.share_name,
+          (agent_jobs.job_id IS NOT NULL) AS job_configured,
           COALESCE(node_user_states.enabled, false) AS enabled,
           COALESCE(node_user_states.revision, 0) AS enabled_revision
         FROM tree_nodes
         LEFT JOIN node_user_states
           ON node_user_states.node_id = tree_nodes.id
          AND node_user_states.user_id = $2
+        LEFT JOIN agent_jobs ON agent_jobs.job_id = tree_nodes.id
         WHERE tree_nodes.tree_id = $1
         ORDER BY tree_nodes.parent_id NULLS FIRST, tree_nodes.position, tree_nodes.id
       `, [tree.id, userId]),
@@ -143,6 +146,7 @@ export class TreeService {
           updatedAt: node.updated_at.toISOString(),
           shared: node.shared,
           shareName: node.share_name,
+          jobConfigured: node.job_configured,
           capabilities: {
             contentEditable: node.content_editable,
             listEditable: node.list_editable,
@@ -196,6 +200,7 @@ export class TreeService {
       const tree = await findTreeForUpdate(client, workspaceId, "data");
       assertRevision(tree.revision, input.expectedTreeRevision, "Tree");
       await assertWritableParent(client, tree.id, input.parentId);
+      await assertAgentNodeParent(client, tree.id, input.kind, input.parentId);
       await assertLocalIdAvailable(
         client, tree.id, input.parentId, input.localId,
       );
@@ -210,8 +215,9 @@ export class TreeService {
       const nodeId = input.nodeId;
       const inserted = await client.query<MutableNodeRow>(`
         INSERT INTO tree_nodes (
-          id, tree_id, parent_id, kind, label, local_id, position
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          id, tree_id, parent_id, kind, label, local_id, position,
+          content_editable, list_editable
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *, false AS enabled, 0 AS enabled_revision
       `, [
         nodeId,
@@ -221,6 +227,8 @@ export class TreeService {
         input.label,
         input.localId,
         position,
+        true,
+        true,
       ]);
       await client.query(`
         INSERT INTO node_contents (node_id, format, content)
@@ -283,6 +291,7 @@ export class TreeService {
       }
       if (source.parent_id !== input.parentId) {
         await assertWritableParent(client, tree.id, input.parentId);
+        await assertAgentNodeParent(client, tree.id, source.kind, input.parentId);
       }
       await assertLocalIdAvailable(
         client, tree.id, input.parentId, input.localId, nodeId,
@@ -463,11 +472,8 @@ export class TreeService {
         if (!after.rows[0]) {
           throw new HttpError(400, "INVALID_REQUEST", "afterNodeId is not a sibling");
         }
-        if (
-          after.rows[0].kind === "system-directory"
-          || after.rows[0].kind === "trash-directory"
-        ) {
-          throw new HttpError(403, "FORBIDDEN", "System directories cannot be moved past");
+        if (after.rows[0].kind === "trash-directory") {
+          throw new HttpError(403, "FORBIDDEN", "The trash directory cannot be moved past");
         }
         targetPosition = after.rows[0].position + (source.position > after.rows[0].position ? 1 : 0);
       }
@@ -534,6 +540,7 @@ export class TreeService {
         throw new HttpError(400, "INVALID_REQUEST", "A node cannot be its own parent");
       }
       await assertWritableParent(client, tree.id, parentId);
+      await assertAgentNodeParent(client, tree.id, source.kind, parentId);
       await assertLocalIdAvailable(
         client, tree.id, parentId, source.local_id, nodeId,
       );
@@ -1043,8 +1050,57 @@ async function assertMutableDataNode(client: Queryable, treeId: string, nodeId: 
     SELECT kind FROM tree_nodes WHERE tree_id = $1 AND id = $2
   `, [treeId, nodeId]);
   if (!result.rows[0]) throw new HttpError(404, "NOT_FOUND", "Node was not found");
-  if (result.rows[0].kind === "system-directory" || result.rows[0].kind === "trash-directory") {
-    throw new HttpError(403, "FORBIDDEN", "System directories cannot be changed");
+  if (result.rows[0].kind === "trash-directory") {
+    throw new HttpError(403, "FORBIDDEN", "The trash directory cannot be changed");
+  }
+}
+
+async function assertAgentNodeParent(
+  client: Queryable,
+  treeId: string,
+  sourceKind: string,
+  parentId: string | null,
+) {
+  if (sourceKind === "agent-run-date" || sourceKind === "agent-job-run") {
+    throw new HttpError(403, "FORBIDDEN", "Run structure is managed by the job service");
+  }
+  if (!parentId) {
+    if (["agent-job", "agent-job-group", "agent-memo"].includes(sourceKind)) {
+      throw new HttpError(400, "INVALID_REQUEST", "Agent nodes require an agent parent");
+    }
+    return;
+  }
+  const parent = await client.query<{
+    kind: string; local_id: string; job_configured: boolean; has_runs: boolean;
+  }>(`
+    SELECT parent.kind, parent.local_id,
+      (agent_jobs.job_id IS NOT NULL) AS job_configured,
+      EXISTS (
+        SELECT 1 FROM tree_nodes child
+        WHERE child.parent_id = parent.id AND child.kind = 'agent-run-date'
+      ) AS has_runs
+    FROM tree_nodes parent
+    LEFT JOIN agent_jobs ON agent_jobs.job_id = parent.id
+    WHERE parent.tree_id = $1 AND parent.id = $2
+  `, [treeId, parentId]);
+  const row = parent.rows[0];
+  if (!row) throw new HttpError(404, "NOT_FOUND", "Parent node was not found");
+  const jobParent = ["agent-job", "agent-job-group"].includes(row.kind)
+    || (row.kind === "system-directory" && row.local_id === "jobs");
+  const memoParent = row.kind === "agent-memo"
+    || (row.kind === "system-directory" && row.local_id === "memo");
+  const managedRunParent = ["agent-run-date", "agent-job-run"]
+    .includes(row.kind);
+  const fixedJobParent = ["agent-job", "agent-job-group"].includes(row.kind)
+    && (row.job_configured || row.has_runs);
+  const valid = jobParent
+    ? ["agent-job", "agent-job-group"].includes(sourceKind)
+    : memoParent
+      ? sourceKind === "agent-memo"
+      : !managedRunParent
+        && !["agent-job", "agent-job-group", "agent-memo"].includes(sourceKind);
+  if (!valid || managedRunParent || (jobParent && fixedJobParent)) {
+    throw new HttpError(400, "INVALID_REQUEST", "This parent is not valid for the agent item");
   }
 }
 
@@ -1183,6 +1239,7 @@ function toNodeDto(node: MutableNodeRow) {
     updatedAt: node.updated_at.toISOString(),
     shared: node.shared,
     shareName: node.share_name,
+    jobConfigured: node.job_configured,
     capabilities: {
       contentEditable: node.content_editable,
       listEditable: node.list_editable,

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { distributeSubmoduleItems, SubmodulePanel } from "./SubmodulePanel";
 
 describe("SubmodulePanel", () => {
-  it("renders CHAT and MEMO with inherited button height", () => {
+  it("renders JOBS and MEMO with inherited button height", () => {
     const markup = renderToStaticMarkup(
       <SubmodulePanel
         activeItem="MEMO"
@@ -12,7 +12,7 @@ describe("SubmodulePanel", () => {
         onChange={() => undefined}
       />,
     );
-    expect(markup).toContain("CHAT");
+    expect(markup).toContain("JOBS");
     expect(markup).toContain("MEMO");
     expect(markup.match(/height:40px/g)).toHaveLength(2);
     expect(markup.match(/width:100%/g)).toHaveLength(2);

@@ -13,6 +13,7 @@ import { Input, type InputProps } from "../Input";
 import {
   Keyboard,
   initialKeyboardFontStage,
+  initialTextareaFontStage,
   scaledFontSize,
   type InputFontStage,
   type TextEntryElement,
@@ -64,7 +65,7 @@ export function InputControl({
   const [controlHeight, setControlHeight] = useState<string>();
   const [smartphoneKeyboardEnabled, setSmartphoneKeyboardEnabled] = useState(false);
   const [fontStage, setFontStage] = useState<InputFontStage>(
-    initialKeyboardFontStage,
+    control === "textarea" ? initialTextareaFontStage : initialKeyboardFontStage,
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

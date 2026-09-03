@@ -325,9 +325,9 @@
       "color": "inherit",
       "background": "inherit",
       "border": "inherit",
-      "padding": "inherit",
+      "padding": "0 13px 3px 15px",
       "margin": "inherit",
-      "width": "BUTTON_WIDTH",
+      "width": "calc(BUTTON_WIDTH * 1.5)",
       "height": "inherit"
     }
   },
@@ -355,7 +355,7 @@
       "height": "unset"
     }
   },
-  "AgentChatContent": {
+  "JobCase": {
     "fontSize": "1.5rem",
     "base": {
       "color": "inherit",
@@ -393,9 +393,9 @@
     "armedColor": "COLOR_ERROR",
     "base": {
       "color": "inherit",
-      "background": "inherit",
+      "background": "COLOR_SPEECH",
       "border": "inherit",
-      "padding": "0",
+      "padding": "5px 0 0 0",
       "margin": "inherit",
       "width": "BUTTON_WIDTH",
       "height": "inherit"
@@ -490,7 +490,7 @@
       "height": "inherit"
     }
   },
-  "AgentChatBrowser": {
+  "AgentJobBrowser": {
     "base": {
       "color": "inherit",
       "background": "transparent",

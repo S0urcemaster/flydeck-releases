@@ -12,6 +12,7 @@ import {
   emojiKeyboardLayouts,
   Keyboard,
   initialKeyboardFontStage,
+  initialTextareaFontStage,
   keyboardCharacter,
   keyboardLetterDialOptions,
   keyboardKeys,
@@ -30,6 +31,10 @@ import {
 describe("Keyboard", () => {
   it("starts its font-size selector at M", () => {
     expect(initialKeyboardFontStage).toBe("medium");
+  });
+
+  it("starts textarea font-size selectors at S", () => {
+    expect(initialTextareaFontStage).toBe("small");
   });
 
   it("renders the three short and long press actions", () => {

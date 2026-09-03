@@ -1,0 +1,24 @@
+[Unit]
+Description=Relay One independent public backend
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sntr
+Group=sntr
+WorkingDirectory=/opt/relayone/current
+EnvironmentFile=/etc/relayone/relayone.env
+ExecStart=/usr/bin/node dist-server/server/server.js
+Restart=on-failure
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/opt/relayone
+ReadWritePaths=/var/lib/relayone/assets
+
+[Install]
+WantedBy=multi-user.target

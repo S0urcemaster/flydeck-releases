@@ -5,3 +5,15 @@
   justify-content: center;
   line-height: 1;
 }
+
+.symbol {
+  flex: 0 0 auto;
+  margin-inline-end: var(--space-xs);
+  line-height: 1;
+}
+
+@media (max-width: 620px) {
+  .symbol {
+    display: none;
+  }
+}

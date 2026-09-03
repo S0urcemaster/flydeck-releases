@@ -134,7 +134,7 @@ migration protocol beyond the single model version.
 
 | Module | Current V2 behavior | Missing production behavior |
 | --- | --- | --- |
-| AGNT | CHAT placeholder; MEMO shows a locally persisted plant fixture | Chat API, conversations, prompt drafts, agent state, real memo tree and content |
+| AGNT | Persistent JOBS tree, JobCase/run execution, scheduling, and real MEMO tree | Run observability, richer schedules, file/image sources, and historical usage reporting |
 | DATA | Generic tree with dummy categories and local UI state | Server projection, records/content, revisions, CRUD error/loading states |
 | FUNC | Tree-backed DeviceInfo, Compass, and ShoppingList prototypes | Server catalog, persisted user functions/content, execution contract |
 | CRON | Vertical timeline with two-axis gesture control from ±1 hour to ±1 year | Timer API, timer list, notifications, final action semantics |
@@ -432,9 +432,10 @@ lists. Generated IDs are short, while manually chosen IDs may be longer.
 User-facing parent and data-source paths resolve `local_id`
 segments, so label edits never invalidate them.
 
-Chat tables:
+Agent execution tables:
 
-- `conversations`, `messages`, `agent_runs`, `agent_run_events`;
+- legacy `conversations`/messages remain during migration; `agent_jobs` and
+  `agent_job_runs` own the JOBS workflow and reference persistent tree nodes;
 - `codex_thread_id`, model choice, reasoning effort, token usage, status,
   cancellation request, request id, and timestamps;
 - one active queued/running run per conversation enforced by a partial unique
@@ -565,7 +566,7 @@ and abstractions before a real module uses them.
 
 ### Phase 0 — freeze contracts and reference behavior
 
-- Capture V1 screenshots and a behavior inventory for CHAT, DATA, CRON,
+- Capture V1 screenshots and a behavior inventory for JOBS, DATA, CRON,
   keyboards, settings, loading/error, and destructive states.
 - Record four architecture decisions: PostgreSQL authority, workspace tenancy,
   server-synced tree selection, and public WireGuard hub.
@@ -616,10 +617,10 @@ Exit: two users in two workspaces cannot read or mutate each other's resources.
 Exit: DATA is productive in V2 for two users and survives refresh, a second
 device, concurrent edits, backend restart, and restore from backup.
 
-### Phase 4 — editor keyboards, MEMO, and chat
+### Phase 4 — editor keyboards, MEMO, and jobs
 
 - Migrate Editor, Keyboard, and CharacterDialer behavior.
-- Implement real MEMO nodes/content and per-user enabled context.
+- Implement real MEMO nodes/content and explicit per-job memory presets.
 - Port chat conversations, messages, runs, idempotent send, SSE updates,
   cancellation, restart recovery, and model/effort settings to PostgreSQL.
 - Add the chosen workspace agent isolation before enabling the second user.
@@ -682,7 +683,7 @@ must remain private to backend-v2.
 
 V2 is ready to replace V1 only when:
 
-- CHAT, MEMO, DATA, FUNC, CRON, CONFIG, HELP, and all required input methods
+- JOBS, MEMO, DATA, FUNC, CRON, CONFIG, HELP, and all required input methods
   have a documented parity/deviation decision;
 - no meaningful user input exists only in transient component state;
 - multi-user authorization and agent filesystem isolation have adversarial

@@ -1,5 +1,8 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import { createApp } from "./app.js";
 import type { AppConfig } from "./config.js";
@@ -15,6 +18,7 @@ const config: AppConfig = {
   backupRetention: 7,
   trustProxy: false,
   schedulerIntervalMs: 5_000,
+  relaySyncIntervalMs: 5_000,
   loginRequired: true,
   authSecureCookie: false,
   sessionTtlDays: 30,
@@ -32,6 +36,28 @@ function database(query = vi.fn().mockResolvedValue({ rows: [], rowCount: 1 })) 
 }
 
 describe("backend-v2 HTTP foundation", () => {
+  it("serves the production frontend at root without shadowing the V2 API", async () => {
+    const frontendDist = await mkdtemp(path.join(os.tmpdir(), "flydeck-v2-root-"));
+    try {
+      await writeFile(
+        path.join(frontendDist, "index.html"),
+        "<!doctype html><title>Flydeck root</title>",
+      );
+      const app = createApp({
+        ...config,
+        frontendBasePath: "",
+        frontendDist,
+      }, database());
+
+      await request(app).get("/").expect(200, /Flydeck root/);
+      await request(app)
+        .get("/flydeck/api/v2/health/live")
+        .expect(200, { status: "ok" });
+    } finally {
+      await rm(frontendDist, { recursive: true, force: true });
+    }
+  });
+
   it("serves liveness without touching PostgreSQL", async () => {
     const db = database();
     const response = await request(createApp(config, db))

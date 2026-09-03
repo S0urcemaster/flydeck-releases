@@ -27,6 +27,9 @@ describe("ListControl", () => {
     expect(markup).toContain('background:var(--color-surface)');
     expect(markup).toContain('padding:0');
     expect(markup).toContain('>Alpha</span>');
+    expect(markup.match(/<span[^>]*aria-hidden="true"[^>]*>/)?.[0])
+      .toContain("color:var(--color-accent-two)");
+    expect(markup).toContain('>+</span>');
     expect(markup).toContain('aria-label="Previous page"');
     expect(markup).not.toContain("Arm delete for Alpha");
     expect(markup.indexOf("Move selected item down")).toBeLessThan(
@@ -58,6 +61,30 @@ describe("ListControl", () => {
     expect(markup).toContain('aria-label="New item name"');
     expect(markup).toContain("autofocus");
     expect(markup).not.toContain('aria-label="Create child in Alpha"');
+  });
+
+  it("highlights the mode switch with the opposite tree accent", () => {
+    const markup = renderToStaticMarkup(
+      <ListControl
+        activeColor="COLOR_ACCENT_TWO"
+        showModeButton
+        itemCount={1}
+        selectedName="Alpha"
+        page={0}
+        pageSize={7}
+        childPageSize={7}
+        onPageChange={() => undefined}
+        onChildPageSizeChange={() => undefined}
+        onModeChange={() => undefined}
+      />,
+    );
+    const modeButton = markup.match(
+      /<button[^>]*aria-label="Show content"[^>]*>/,
+    )?.[0];
+
+    expect(modeButton).toContain("background:var(--color-accent-one)");
+    expect(markup.match(/<span[^>]*aria-hidden="true"[^>]*>/)?.[0])
+      .toContain("color:var(--color-accent-one)");
   });
 
   it("keeps new-item controls closed when creation is disabled", () => {

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { PressButton, type PressButtonProps } from "../PressButton";
 import styles from "./CycleButton.module.css";
 
@@ -12,6 +14,7 @@ export type CycleButtonProps = Omit<
   options: readonly string[];
   selectedLabel?: string;
   showAlternatives?: boolean;
+  symbol?: ReactNode;
   value: string;
 };
 
@@ -22,6 +25,7 @@ export function CycleButton({
   options,
   selectedLabel,
   showAlternatives = true,
+  symbol,
   value,
   ...buttonProps
 }: CycleButtonProps) {
@@ -54,6 +58,9 @@ export function CycleButton({
         onChange(normalizedOptions[(selectedIndex + 1) % normalizedOptions.length]);
       }}
     >
+      {symbol !== undefined && (
+        <span className={styles.symbol} aria-hidden="true">{symbol}</span>
+      )}
       <span className={styles.content}>
         <span>{displayedSelected}</span>
         {showAlternatives && alternatives && (

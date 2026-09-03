@@ -5,8 +5,14 @@ import path from "node:path";
 import type { RelayError } from "../shared/contracts.js";
 import type { RelayConfig } from "./config.js";
 import type { RelayReader } from "./RelayStore.js";
+import { createIngestRouter } from "./ingest/router.js";
+import type { PublicationIngestService } from "./ingest/PublicationIngestService.js";
 
-export function createApp(config: RelayConfig, relay: RelayReader) {
+export function createApp(
+  config: RelayConfig,
+  relay: RelayReader,
+  ingest?: PublicationIngestService,
+) {
   const app = express();
   app.disable("x-powered-by");
   app.use((_request, response, next) => {
@@ -31,6 +37,14 @@ export function createApp(config: RelayConfig, relay: RelayReader) {
     });
     next();
   });
+
+  if (config.ingestSecret && ingest) {
+    app.use("/ingest/v1", createIngestRouter(
+      config.ingestSecret,
+      config.maxAssetBytes,
+      ingest,
+    ));
+  }
 
   app.get("/api/health/live", (_request, response) => {
     response.json({ status: "ok" });
@@ -86,12 +100,28 @@ export function createApp(config: RelayConfig, relay: RelayReader) {
     });
     response.sendFile(image.absolutePath);
   });
-
   app.use(express.static(config.frontendDist, {
     index: false,
     immutable: true,
     maxAge: "1y",
   }));
+  app.get("/assets/:sha256", async (request, response) => {
+    const asset = await relay.readAsset?.(request.params.sha256);
+    if (!asset) {
+      response.status(404).json({
+        error: "ASSET_NOT_FOUND",
+        message: "The asset is not part of an active publication.",
+      } satisfies RelayError);
+      return;
+    }
+    response.set({
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Content-Length": String(asset.byte_size),
+      "Content-Type": asset.mime_type,
+      "Last-Modified": asset.updated_at.toUTCString(),
+    });
+    response.sendFile(asset.absolutePath);
+  });
   app.use(async (request, response, next) => {
     if (request.method !== "GET" || !request.accepts("html")) {
       next();

@@ -12,6 +12,7 @@ EnvironmentFile=/home/flydon/.config/flydeck-v2.env
 ExecStart=/home/flydon/.nvm/versions/node/v24.18.0/bin/node /home/flydon/.local/share/flydeck-v2/releases/current/node_modules/tsx/dist/cli.mjs backend-v2/src/server.ts
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=15
 
 [Install]
 WantedBy=default.target

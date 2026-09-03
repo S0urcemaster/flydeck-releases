@@ -1,0 +1,12 @@
+.root {
+  display: flex;
+  align-items: center;
+}
+
+.root[data-mode="content"] {
+  justify-content: flex-start;
+}
+
+.root[data-mode="list"] {
+  justify-content: flex-end;
+}

@@ -8,11 +8,8 @@ describe("AgentModule", () => {
     const markup = renderToStaticMarkup(<AgentModule padding="SPACE_SM" />);
 
     expect(markup).toContain('aria-label="Agent module"');
-    expect(markup).toContain("CHAT");
+    expect(markup).toContain("JOBS");
     expect(markup).toContain("MEMO");
-    expect(markup).toContain('aria-label="Memory browser"');
-    expect(markup).toContain("Identity");
-    expect(markup).toContain("Operating rules");
-    expect(markup).not.toContain("Gefäßpflanzen");
+    expect(markup).not.toContain('aria-label="Tree browser menu"');
   });
 });
