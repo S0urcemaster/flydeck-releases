@@ -8,7 +8,8 @@ Your agent should be able to connect it
 
 ## Releases
 
-### 03.09.026 21:21 V2 Beta1 (1f602079b320)
+### 05.09.026 14:00 V2 Beta1 (847529d6e863)
+- Colors
 
 
 ### 03.09.026 21:21 V2 Beta1 (1f602079b320)
