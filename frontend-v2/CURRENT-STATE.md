@@ -211,7 +211,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - `DataBrowser` and `FunctionBrowser` specialize `TreeBrowser` and are shown
   in DATA and FUNC. `DataBrowser` renders the workspace replica's canonical
   DATA tree. Its item content keeps the content editor permanently visible and
-  collapses ID, Name, Parent, and Sharing behind one full-width Details row.
+  collapses ID, Name, Parent, and Sharing behind a Details button. Details and
+  the common item Save share the fixed top row, so keyboard opening cannot move
+  Save vertically. Save is orange while the item is dirty and remains the
+  normal pale yellow while disabled after all changes have been persisted.
   The content textarea has a 13em minimum height (twice its previous minimum),
   while the TreeBrowser-derived item height is now only a minimum rather than
   a fixed cap, so content and opened details can expand naturally.

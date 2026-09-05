@@ -880,7 +880,7 @@ export function ServerDataContent({
 
   return (
     <div className={styles.content} style={{ minHeight: height }}>
-      <div>
+      <div className={styles.itemHeaderActions}>
         <ListControlButton
           {...inputControlProps.buttonProps}
           aria-expanded={detailsOpen}
@@ -889,6 +889,17 @@ export function ServerDataContent({
         >
           {detailsOpen ? "Hide details" : "Details"}
         </ListControlButton>
+        <Button
+          {...inputControlProps.buttonProps}
+          aria-label="Save item"
+          activeColor="COLOR_SPEECH"
+          background={itemSaveDisabled ? "COLOR_SURFACE" : "COLOR_SPEECH"}
+          disabled={itemSaveDisabled}
+          width="100%"
+          onClick={() => void saveItem()}
+        >
+          Save
+        </Button>
       </div>
       {detailsOpen && <div className={styles.details}>
       {onPastelHueChange ? <label className={styles.pastelSliderRow}>
@@ -1124,15 +1135,6 @@ export function ServerDataContent({
         })}
         onSend={(content) => void saveItem(content)}
         />
-        <Button
-          {...inputControlProps.buttonProps}
-          aria-label="Save item"
-          disabled={itemSaveDisabled}
-          width="100%"
-          onClick={() => void saveItem()}
-        >
-          Save
-        </Button>
       </div>
       <DataListSizeControl
         buttonProps={inputControlProps.buttonProps}

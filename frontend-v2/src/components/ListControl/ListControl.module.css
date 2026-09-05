@@ -5,7 +5,8 @@
   border-radius: var(--radius-control);
 }
 
-.root button {
+.root > button,
+.actions > button {
   background-image:
     linear-gradient(
       to right,
