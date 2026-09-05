@@ -24,6 +24,7 @@ import {
   type RenameTreeNodeRequest,
   type SetTreeNodeEnabledRequest,
   type SetTreeNodeSharingRequest,
+  type SetTreeNodePastelHueRequest,
   type SetTreeSelectionRequest,
   type UpdateCronTimerRequest,
   type UpdateTreeNodeContentRequest,
@@ -204,6 +205,18 @@ export class V2ApiClient {
   ) {
     return this.request(
       `${this.dataNodePath(workspaceId, nodeId)}/sharing`,
+      createTreeNodeResponseSchema,
+      { method: "PUT", body: input },
+    );
+  }
+
+  setDataNodePastelHue(
+    workspaceId: string,
+    nodeId: string,
+    input: SetTreeNodePastelHueRequest,
+  ) {
+    return this.request(
+      `${this.dataNodePath(workspaceId, nodeId)}/pastel-hue`,
       createTreeNodeResponseSchema,
       { method: "PUT", body: input },
     );

@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { Camera, FolderOpen, X } from "lucide-react";
 import {
   createTreeNodeLocalId,
   treeNodeLabelSchema,
+  treeNodeLocalIdSchema,
   treeNodeShareNameSchema,
   type TreeLoadDto,
   type TreeNodeContentDto,
@@ -52,6 +60,7 @@ import {
   ParentInput,
   type ParentInputProps,
 } from "../ParentInput";
+import { resolveRootTarget } from "../RootInputControl/RootInputControl";
 import styles from "./DataBrowser.module.css";
 
 export type DataBrowserProps = Omit<
@@ -185,6 +194,31 @@ function ServerDataBrowser({
   }), [userId, workspaceId]);
   const replicaRecord = useWorkspaceReplica(replicaScope);
   const treeLoad = replicaRecord?.tree ?? null;
+  const [pastelHuePreviews, setPastelHuePreviews] = useState<
+    Record<string, number | null>
+  >({});
+  const [adjustingPastelHueNodeId, setAdjustingPastelHueNodeId] = useState<
+    string | null
+  >(null);
+  const previewPastelHue = useCallback((
+    previewNodeId: string,
+    pastelHue: number | null | undefined,
+  ) => {
+    setPastelHuePreviews((current) => {
+      const next = { ...current };
+      if (pastelHue === undefined) delete next[previewNodeId];
+      else next[previewNodeId] = pastelHue;
+      return next;
+    });
+  }, []);
+  const setPastelHueAdjusting = useCallback((
+    previewNodeId: string,
+    adjusting: boolean,
+  ) => {
+    setAdjustingPastelHueNodeId((current) => (
+      adjusting ? previewNodeId : current === previewNodeId ? null : current
+    ));
+  }, []);
 
   const fail = useCallback((error: unknown) => {
     onSynchronizationError?.(
@@ -278,6 +312,19 @@ function ServerDataBrowser({
     },
   }, userCommandId)), [submitCommand]);
 
+  const setNodePastelHue = useCallback(async (
+    nodeId: string,
+    pastelHue: number | null,
+  ) => Boolean(await submitCommand({
+    type: "set-node-pastel-hue",
+    nodeId,
+    input: {
+      requestId: crypto.randomUUID(),
+      pastelHue,
+      expectedRevision: nodeRevisions.current.get(nodeId) ?? 0,
+    },
+  })), [submitCommand]);
+
   const renameNode = useCallback(async (nodeId: string, label: string) => {
     return Boolean(await submitCommand({
       type: "rename-node",
@@ -307,6 +354,12 @@ function ServerDataBrowser({
       structureManagedExternally
       initialSelectedPath={localSelectedPath}
       initialPageSizes={treeLoad.selection.pageSizes}
+      itemColor={(node) => pastelItemColor(
+        Object.hasOwn(pastelHuePreviews, node.id)
+          ? pastelHuePreviews[node.id]
+          : (node.data as { pastelHue?: number | null } | undefined)?.pastelHue,
+      )}
+      suppressSelectedItemId={adjustingPastelHueNodeId}
       onCreateNode={async (label, parentId, afterNodeId) => {
         const node = await createCanonicalNode(label, parentId, afterNodeId);
         return node ? toCreatedTreeNode(node) : false;
@@ -402,11 +455,15 @@ function ServerDataBrowser({
           onNameChange={(name) => renameNode(node.id, name)}
           shared={serverNode?.shared ?? false}
           shareName={serverNode?.shareName ?? null}
+          pastelHue={serverNode?.pastelHue ?? null}
           onSharingChange={(shared, shareName) => setNodeSharing(
             node.id,
             shared,
             shareName,
           )}
+          onPastelHueChange={(pastelHue) => setNodePastelHue(node.id, pastelHue)}
+          onPastelHuePreview={previewPastelHue}
+          onPastelHueAdjustingChange={setPastelHueAdjusting}
           onPageSizeChange={onPageSizeChange}
           pageSize={pageSize}
           listSizeButtonProps={treeBrowserProps.listControlProps
@@ -431,7 +488,11 @@ export function ServerDataContent({
   onNameChange,
   shared,
   shareName,
+  pastelHue = null,
   onSharingChange,
+  onPastelHueChange,
+  onPastelHuePreview,
+  onPastelHueAdjustingChange,
   onPageSizeChange,
   pageSize,
   listSizeButtonProps,
@@ -457,10 +518,17 @@ export function ServerDataContent({
   onNameChange: (name: string) => Promise<boolean>;
   shared: boolean;
   shareName: string | null;
+  pastelHue?: number | null;
   onSharingChange: (
     shared: boolean,
     shareName: string | null,
   ) => Promise<boolean>;
+  onPastelHueChange?: (pastelHue: number | null) => Promise<boolean>;
+  onPastelHuePreview?: (
+    nodeId: string,
+    pastelHue: number | null | undefined,
+  ) => void;
+  onPastelHueAdjustingChange?: (nodeId: string, adjusting: boolean) => void;
   onPageSizeChange: (pageSize: ListControlListSize) => void;
   pageSize: ListControlListSize;
   listSizeButtonProps?: Omit<
@@ -523,6 +591,15 @@ export function ServerDataContent({
         shared,
         name: shareName ?? "",
       };
+  const [pastelHueDraft, setPastelHueDraft] = useState({
+    nodeId,
+    saved: pastelHue,
+    value: pastelHue,
+  });
+  const effectivePastelHue = pastelHueDraft.nodeId === nodeId
+    && pastelHueDraft.saved === pastelHue
+    ? pastelHueDraft.value
+    : pastelHue;
   const normalizedShareName = effectiveSharingDraft.name.trim();
   const validShareName = treeNodeShareNameSchema.safeParse(
     normalizedShareName,
@@ -576,6 +653,7 @@ export function ServerDataContent({
     ? serverImageState.revision
     : 0;
   const [imageSavePending, setImageSavePending] = useState(false);
+  const [itemSavePending, setItemSavePending] = useState(false);
   const queuedImageCommand = replicaRecord?.outbox.find((entry) => (
     entry.command.type === "upload-image" && entry.command.nodeId === nodeId
   ));
@@ -590,6 +668,10 @@ export function ServerDataContent({
   useEffect(() => {
     void workspaceSyncEngine.ensureContents(replicaScope, [nodeId]);
   }, [nodeId, replicaScope]);
+  useEffect(() => () => {
+    onPastelHuePreview?.(nodeId, undefined);
+    onPastelHueAdjustingChange?.(nodeId, false);
+  }, [nodeId, onPastelHueAdjustingChange, onPastelHuePreview]);
   useEffect(() => {
     let active = true;
     const revision = imageSelectionRevision.current;
@@ -707,17 +789,152 @@ export function ServerDataContent({
     }
   }
 
+  const localIdChanged = effectiveLocalIdDraft !== localId;
+  const localIdValid = treeNodeLocalIdSchema.safeParse(effectiveLocalIdDraft).success
+    && localIdAvailable(effectiveLocalIdDraft);
+  const nameChanged = normalizedName !== name;
+  const nameValid = treeNodeLabelSchema.safeParse(normalizedName).success;
+  const resolvedRootTarget = root
+    ? resolveRootTarget(root.current, root.targets, rootValue)
+    : null;
+  const parentChanged = Boolean(root && resolvedRootTarget
+    && resolvedRootTarget.id !== root.current.id);
+  const parentValid = !root || Boolean(resolvedRootTarget);
+  const contentChanged = Boolean(document && contentHasChanges(document.content, draft));
+  const imageChanged = Boolean(imageDraft && !imageQueued);
+  const pastelHueChanged = Boolean(
+    onPastelHueChange && effectivePastelHue !== pastelHue,
+  );
+  const itemChanged = localIdChanged || nameChanged || parentChanged
+    || sharingChanged || contentChanged || imageChanged || pastelHueChanged;
+  const itemValid = (!localIdChanged || localIdValid)
+    && (!nameChanged || nameValid)
+    && parentValid
+    && (!effectiveSharingDraft.shared || validShareName);
+  const itemSaving = itemSavePending || imageSavePending || sharingSavePending;
+  const itemSaveDisabled = Boolean(inputControlProps.buttonProps?.disabled)
+    || itemSaving || !document || !itemChanged || !itemValid;
+
+  async function saveItem(content = draft) {
+    if (itemSaveDisabled || !document) return;
+    setItemSavePending(true);
+    try {
+      if (localIdChanged && onLocalIdChange
+        && await onLocalIdChange(effectiveLocalIdDraft)) {
+        setLocalIdDraft({
+          nodeId,
+          saved: effectiveLocalIdDraft,
+          value: effectiveLocalIdDraft,
+        });
+      }
+      if (nameChanged && await onNameChange(normalizedName)) {
+        setNameDraft({ nodeId, saved: normalizedName, value: normalizedName });
+      }
+      if (parentChanged && root && resolvedRootTarget
+        && await root.onChange(resolvedRootTarget.id)) {
+        setRootDraft({
+          nodeId,
+          currentId: resolvedRootTarget.id,
+          currentPath: resolvedRootTarget.path,
+          value: resolvedRootTarget.path,
+        });
+      }
+      if (sharingChanged) {
+        await saveSharing(effectiveSharingDraft.shared, normalizedShareName || null);
+      }
+      if (pastelHueChanged && onPastelHueChange
+        && await onPastelHueChange(effectivePastelHue)) {
+        setPastelHueDraft({
+          nodeId,
+          saved: effectivePastelHue,
+          value: effectivePastelHue,
+        });
+        onPastelHuePreview?.(nodeId, undefined);
+      }
+      if (contentHasChanges(document.content, content)) {
+        const record = await workspaceSyncEngine.submit(replicaScope, {
+          type: "update-content",
+          nodeId,
+          input: {
+            requestId: crypto.randomUUID(),
+            content,
+            expectedRevision: document.revision,
+          },
+        });
+        const current = record.contents[nodeId];
+        if (current) {
+          setContentDraft({
+            nodeId,
+            revision: current.revision,
+            value: current.content,
+          });
+        }
+      }
+      await saveImage();
+    } catch (error) {
+      onSynchronizationError(error);
+    } finally {
+      setItemSavePending(false);
+    }
+  }
+
   return (
     <div className={styles.content} style={{ minHeight: height }}>
-      <ListControlButton
-        {...inputControlProps.buttonProps}
-        aria-expanded={detailsOpen}
-        width="100%"
-        onClick={() => setDetailsOpen((open) => !open)}
-      >
-        {detailsOpen ? "Hide details" : "Details"}
-      </ListControlButton>
+      <div>
+        <ListControlButton
+          {...inputControlProps.buttonProps}
+          aria-expanded={detailsOpen}
+          width="100%"
+          onClick={() => setDetailsOpen((open) => !open)}
+        >
+          {detailsOpen ? "Hide details" : "Details"}
+        </ListControlButton>
+      </div>
       {detailsOpen && <div className={styles.details}>
+      {onPastelHueChange ? <label className={styles.pastelSliderRow}>
+        <span>Color</span>
+        <input
+          aria-label="Item color"
+          className={styles.pastelSlider}
+          type="range"
+          min="0"
+          max="360"
+          step="1"
+          value={effectivePastelHue ?? 360}
+          style={{
+            "--pastel-thumb": pastelItemColor(effectivePastelHue)
+              ?? "var(--color-surface)",
+          } as CSSProperties}
+          onChange={(event) => {
+            const value = Number(event.currentTarget.value);
+            const nextPastelHue = value === 360 ? null : value;
+            setPastelHueDraft({
+              nodeId,
+              saved: pastelHue,
+              value: nextPastelHue,
+            });
+            onPastelHuePreview?.(
+              nodeId,
+              nextPastelHue === pastelHue ? undefined : nextPastelHue,
+            );
+          }}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            onPastelHueAdjustingChange?.(nodeId, true);
+          }}
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+            onPastelHueAdjustingChange?.(nodeId, false);
+          }}
+          onPointerCancel={() => onPastelHueAdjustingChange?.(nodeId, false)}
+          onLostPointerCapture={() => (
+            onPastelHueAdjustingChange?.(nodeId, false)
+          )}
+          onBlur={() => onPastelHueAdjustingChange?.(nodeId, false)}
+        />
+      </label> : null}
       <NodeIdInput
         {...inputControlProps}
         {...nodeIdInputProps}
@@ -732,31 +949,24 @@ export function ServerDataContent({
           ...nodeIdInputProps?.inputProps,
         }}
         disabled={!onLocalIdChange}
+        actionEnabled={!itemSaveDisabled}
+        keyboardSaveVisible={false}
         savedValue={localId}
         onChange={(value) => setLocalIdDraft({
           nodeId,
           saved: localId,
           value,
         })}
-        onSave={async (value) => {
-          if (!onLocalIdChange) return;
-          const confirmed = await onLocalIdChange(value);
-          if (confirmed) setLocalIdDraft({
-            nodeId,
-            saved: value,
-            value,
-          });
-        }}
+        onSave={() => saveItem()}
       />
       <InputControl
         {...inputControlProps}
         buttonProps={{
           ...inputControlProps.buttonProps,
-          disabled: inputControlProps.buttonProps?.disabled
-            || !treeNodeLabelSchema.safeParse(normalizedName).success
-            || normalizedName === name,
+          disabled: itemSaveDisabled,
         }}
         control="input"
+        keyboardSaveVisible={false}
         inputProps={{
           ...inputControlProps.inputProps,
           "aria-label": "Item name",
@@ -767,17 +977,7 @@ export function ServerDataContent({
         keyboardLayout="block"
         value={effectiveNameDraft}
         onChange={(value) => setNameDraft({ nodeId, saved: name, value })}
-        onSend={async () => {
-          if (!treeNodeLabelSchema.safeParse(normalizedName).success
-            || normalizedName === name) return;
-          if (await onNameChange(normalizedName)) {
-            setNameDraft({
-              nodeId,
-              saved: normalizedName,
-              value: normalizedName,
-            });
-          }
-        }}
+        onSend={() => void saveItem()}
       />
       {root && (
         <ParentInput
@@ -811,6 +1011,7 @@ export function ServerDataContent({
       <InputControl
         {...inputControlProps}
         control="input"
+        keyboardSaveVisible={false}
         controlLeading={(
           <Checkbox
             {...inputControlProps.buttonProps}
@@ -825,9 +1026,6 @@ export function ServerDataContent({
                 shared: nextShared,
                 name: nextName ?? "",
               });
-              if (!nextShared || validShareName) {
-                void saveSharing(nextShared, nextName);
-              }
             }}
           >
             {effectiveSharingDraft.shared ? "Shared" : "Share"}
@@ -835,10 +1033,7 @@ export function ServerDataContent({
         )}
         buttonProps={{
           ...inputControlProps.buttonProps,
-          disabled: inputControlProps.buttonProps?.disabled
-            || sharingSavePending
-            || !sharingChanged
-            || (effectiveSharingDraft.shared && !validShareName),
+          disabled: itemSaveDisabled,
         }}
         inputProps={{
           ...inputControlProps.inputProps,
@@ -856,12 +1051,7 @@ export function ServerDataContent({
           ...effectiveSharingDraft,
           name: value,
         })}
-        onSend={async () => {
-          if (!sharingChanged
-            || (effectiveSharingDraft.shared && !validShareName)) return;
-          const nextName = normalizedShareName || null;
-          await saveSharing(effectiveSharingDraft.shared, nextName);
-        }}
+        onSend={() => void saveItem()}
       />
       </div>}
       <div className={styles.contentEditorArea}>
@@ -902,14 +1092,10 @@ export function ServerDataContent({
         buttonProps={{
           ...inputControlProps.buttonProps,
           ...contentEditorProps?.buttonProps,
-          disabled: inputControlProps.buttonProps?.disabled
-            || contentEditorProps?.buttonProps?.disabled
-            || !document
-            || imageSavePending
-            || (!contentHasChanges(document.content, draft)
-              && (!imageDraft || imageQueued)),
+          disabled: itemSaveDisabled || contentEditorProps?.buttonProps?.disabled,
         }}
         height="auto"
+        keyboardSaveVisible={false}
         textareaProps={{
           ...inputControlProps.textareaProps,
           ...contentEditorProps?.textareaProps,
@@ -918,6 +1104,8 @@ export function ServerDataContent({
             contentEditorProps?.textareaProps?.className,
             styles.contentTextarea,
           ].filter(Boolean).join(" "),
+          "aria-label": "Content input",
+          label: contentEditorProps?.textareaProps?.label,
           onPaste: (event) => {
             inputControlProps.textareaProps?.onPaste?.(event);
             contentEditorProps?.textareaProps?.onPaste?.(event);
@@ -934,34 +1122,17 @@ export function ServerDataContent({
           revision: document?.revision,
           value,
         })}
-        onSend={async (content) => {
-          if (!document) return;
-          try {
-            if (contentHasChanges(document.content, content)) {
-              const record = await workspaceSyncEngine.submit(replicaScope, {
-                type: "update-content",
-                nodeId,
-                input: {
-                  requestId: crypto.randomUUID(),
-                  content,
-                  expectedRevision: document.revision,
-                },
-              });
-              const current = record.contents[nodeId];
-              if (current) {
-                setContentDraft({
-                  nodeId,
-                  revision: current.revision,
-                  value: current.content,
-                });
-              }
-            }
-            await saveImage();
-          } catch (error) {
-            onSynchronizationError(error);
-          }
-        }}
+        onSend={(content) => void saveItem(content)}
         />
+        <Button
+          {...inputControlProps.buttonProps}
+          aria-label="Save item"
+          disabled={itemSaveDisabled}
+          width="100%"
+          onClick={() => void saveItem()}
+        >
+          Save
+        </Button>
       </div>
       <DataListSizeControl
         buttonProps={inputControlProps.buttonProps}
@@ -1014,6 +1185,12 @@ export function ServerDataContent({
 
 export function contentHasChanges(savedContent: string, draftContent: string) {
   return savedContent !== draftContent;
+}
+
+export function pastelItemColor(pastelHue?: number | null) {
+  return pastelHue === null || pastelHue === undefined
+    ? undefined
+    : `hsl(${pastelHue} 65% 88%)`;
 }
 
 function DataListSizeControl({
@@ -1134,6 +1311,7 @@ function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
           ? false
           : node.capabilities.listEditable,
         listItemLimit: node.capabilities.listItemLimit ?? undefined,
+        data: { pastelHue: node.pastelHue },
         children: build(node.id),
       }));
   }
@@ -1181,6 +1359,7 @@ function toCreatedTreeNode(node: TreeNodeDto) {
     contentEditable: node.capabilities.contentEditable,
     listEditable: node.capabilities.listEditable,
     listItemLimit: node.capabilities.listItemLimit ?? undefined,
+    data: { pastelHue: node.pastelHue },
     children: [],
   };
 }

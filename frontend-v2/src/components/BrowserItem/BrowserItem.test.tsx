@@ -26,4 +26,18 @@ describe("BrowserItem", () => {
     expect(markup).not.toContain("DeleteButton");
     expect(markup).not.toContain("BrowserItemModeButton");
   });
+
+  it("applies an item color only to its two button surfaces", () => {
+    const markup = renderToStaticMarkup(
+      <BrowserItem
+        checked={false}
+        label="USER"
+        itemNumber={1}
+        background="hsl(210 65% 88%)"
+        onCheckedChange={() => undefined}
+      />,
+    );
+
+    expect(markup.match(/background:hsl\(210 65% 88%\)/g)).toHaveLength(2);
+  });
 });

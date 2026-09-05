@@ -16,6 +16,7 @@ type NodeIdInputControlProps = Omit<
 >;
 
 export type NodeIdInputProps = NodeIdInputControlProps & {
+  actionEnabled?: boolean;
   available: (value: string) => boolean;
   disabled?: boolean;
   savedValue: string;
@@ -29,6 +30,7 @@ export function normalizeNodeId(value: string) {
 }
 
 export function NodeIdInput({
+  actionEnabled,
   available,
   buttonProps,
   disabled = false,
@@ -50,7 +52,9 @@ export function NodeIdInput({
         disabled: disabled
           || buttonProps?.disabled
           || !valid
-          || value === savedValue,
+          || (actionEnabled === undefined
+            ? value === savedValue
+            : !actionEnabled),
       }}
       componentName="NodeIdInput"
       control="input"
@@ -64,7 +68,7 @@ export function NodeIdInput({
       value={value}
       onChange={(nextValue) => onChange(normalizeNodeId(nextValue))}
       onSend={(nextValue) => {
-        if (!disabled && valid && nextValue !== savedValue) {
+        if (!disabled && valid && (actionEnabled ?? nextValue !== savedValue)) {
           void onSave(nextValue);
         }
       }}

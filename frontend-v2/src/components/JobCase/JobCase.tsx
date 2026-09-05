@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  createTreeNodeLocalId,
   treeNodeLabelSchema,
   type JobConfigDto,
   type JobSnapshotDto,
@@ -28,9 +29,34 @@ import {
   workspaceSyncEngine,
   type WorkspaceReplicaScope,
 } from "../../replica";
+import {
+  isStringRecord,
+  useClientStateSlice,
+  type ClientStateSlice,
+} from "../../state";
 import styles from "./JobCase.module.css";
 
-type JobTab = "MEMO" | "DATA" | "PRMPT" | "FUNC";
+type JobTab = "MEMO" | "DATA" | "PRMPT" | "IMPRT";
+
+export type TreeImportNode = {
+  depth: number;
+  label: string;
+  content: string;
+};
+
+const jobMemoryDraftsSlice: ClientStateSlice<Record<string, string>> = {
+  name: "agent.jobMemoryDrafts",
+  version: 1,
+  defaultValue: {},
+  validate: isStringRecord,
+};
+
+const jobImportSourcesSlice: ClientStateSlice<Record<string, string>> = {
+  name: "agent.jobImportSources",
+  version: 1,
+  defaultValue: {},
+  validate: isStringRecord,
+};
 
 export type JobCaseStyleProps = BaseStyleProps & {
   buttonProps?: Omit<ButtonProps, "children" | "onClick">;
@@ -92,7 +118,8 @@ export function JobCase({
   const [cancelPending, setCancelPending] = useState(false);
   const ignoredRunIds = useRef(new Set<string>());
   const [promptDraft, setPromptDraft] = useState({ nodeId, saved: "", value: "" });
-  const [memoryDraft, setMemoryDraft] = useState({ nodeId, saved: "", value: "" });
+  const [memoryDrafts, setMemoryDrafts] = useClientStateSlice(jobMemoryDraftsSlice);
+  const [importSources, setImportSources] = useClientStateSlice(jobImportSourcesSlice);
   const [dataSourcesDraft, setDataSourcesDraft] = useState({
     nodeId, saved: "", value: "",
   });
@@ -102,6 +129,15 @@ export function JobCase({
     nodeId, currentId: root?.current.id, currentPath: root?.current.path,
     value: root?.current.path ?? "",
   });
+  const [importParent, setImportParent] = useState({ nodeId, value: "" });
+  const [importPreview, setImportPreview] = useState<{
+    nodeId: string;
+    source: string;
+    nodes: TreeImportNode[] | null;
+    error: string | null;
+  }>({ nodeId, source: "", nodes: null, error: null });
+  const [importPending, setImportPending] = useState(false);
+  const [importResult, setImportResult] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -142,9 +178,8 @@ export function JobCase({
   const effectivePrompt = promptDraft.nodeId === nodeId
     && promptDraft.saved === (config?.prompt ?? "")
     ? promptDraft.value : config?.prompt ?? "";
-  const effectiveMemory = memoryDraft.nodeId === nodeId
-    && memoryDraft.saved === (config?.memory ?? "")
-    ? memoryDraft.value : config?.memory ?? "";
+  const effectiveMemory = Object.hasOwn(memoryDrafts, nodeId)
+    ? memoryDrafts[nodeId] : config?.memory ?? "";
   const effectiveDataSources = dataSourcesDraft.nodeId === nodeId
     && dataSourcesDraft.saved === (config?.dataSources ?? "")
     ? dataSourcesDraft.value : config?.dataSources ?? "";
@@ -156,6 +191,50 @@ export function JobCase({
     && parentDraft.currentId === root?.current.id
     && parentDraft.currentPath === root?.current.path
     ? parentDraft.value : root?.current.path ?? "";
+  const effectiveImportSource = importSources[nodeId] ?? "";
+  const effectiveImportParent = importParent.nodeId === nodeId
+    ? importParent.value : "";
+  const importParentNode = effectiveImportParent.trim()
+    ? resolveDataSource(tree.document.nodes, effectiveImportParent)
+    : null;
+  const importParentValid = !effectiveImportParent.trim() || Boolean(importParentNode);
+  const currentImportPreview = importPreview.nodeId === nodeId
+    && importPreview.source === effectiveImportSource
+    ? importPreview : null;
+
+  function setLocalMemoryDraft(value: string) {
+    setMemoryDrafts((current) => ({ ...current, [nodeId]: value }));
+  }
+
+  function clearLocalMemoryDraft() {
+    setMemoryDrafts((current) => {
+      const next = { ...current };
+      delete next[nodeId];
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (!effectiveImportSource.trim()) return;
+    const timer = window.setTimeout(() => {
+      try {
+        setImportPreview({
+          nodeId,
+          source: effectiveImportSource,
+          nodes: parseTreeImport(effectiveImportSource),
+          error: null,
+        });
+      } catch (cause) {
+        setImportPreview({
+          nodeId,
+          source: effectiveImportSource,
+          nodes: null,
+          error: cause instanceof Error ? cause.message : "Parser error",
+        });
+      }
+    }, 2_000);
+    return () => window.clearTimeout(timer);
+  }, [effectiveImportSource, nodeId]);
 
   async function updateConfig(change: (current: JobConfigDto) => JobConfigDto) {
     if (!config || editingLocked) return false;
@@ -218,7 +297,7 @@ export function JobCase({
         .map((section) => section.trim())
         .filter(Boolean)
         .join("\n\n");
-      setMemoryDraft({ nodeId, saved: config?.memory ?? "", value: memory });
+      setLocalMemoryDraft(memory);
     } catch { /* Keep JobCase errors out of the content layout. */ }
   }
 
@@ -229,7 +308,7 @@ export function JobCase({
       if (await updateConfig((current) => ({
         ...current, memory: value, memoryNodeIds: [],
       }))) {
-        setMemoryDraft({ nodeId, saved: value, value });
+        clearLocalMemoryDraft();
       }
     }
     if (tab === "DATA" && config && effectiveDataSources !== config.dataSources) {
@@ -278,6 +357,75 @@ export function JobCase({
         value,
       });
     } catch { /* Keep JobCase errors out of the content layout. */ }
+  }
+
+  async function importDataTree() {
+    if (importPending || !currentImportPreview?.nodes || !importParentValid) return;
+    setImportPending(true);
+    setImportResult("");
+    try {
+      await workspaceSyncEngine.flush(scope);
+      let record = await workspaceReplica.load(scope);
+      const currentNodes = record?.tree?.document.nodes ?? tree.document.nodes;
+      const parentId = importParentNode?.id ?? null;
+      assertImportCapacity(currentNodes, parentId, currentImportPreview.nodes);
+      const siblingLocalIds = new Map<string, string[]>();
+      const lastChildIds = new Map<string, string | null>();
+      for (const currentNode of [...currentNodes].sort(compareTreeNodes)) {
+        const key = currentNode.parentId ?? "";
+        siblingLocalIds.set(key, [...(siblingLocalIds.get(key) ?? []), currentNode.localId]);
+        lastChildIds.set(key, currentNode.id);
+      }
+      const parentsByDepth = new Map<number, string | null>([[0, parentId]]);
+      const commandId = crypto.randomUUID();
+      for (const entry of currentImportPreview.nodes) {
+        if (!parentsByDepth.has(entry.depth - 1)) throw new Error("Import depth has no parent");
+        const actualParentId = parentsByDepth.get(entry.depth - 1) ?? null;
+        const parentKey = actualParentId ?? "";
+        const siblingIds = siblingLocalIds.get(parentKey) ?? [];
+        const localId = createTreeNodeLocalId(entry.label, siblingIds);
+        const createdId = crypto.randomUUID();
+        record = await workspaceSyncEngine.submit(scope, {
+          type: "create-node",
+          input: {
+            requestId: crypto.randomUUID(),
+            nodeId: createdId,
+            parentId: actualParentId,
+            afterNodeId: lastChildIds.get(parentKey) ?? null,
+            kind: "data-file",
+            label: entry.label,
+            localId,
+            expectedTreeRevision: record?.tree?.document.revision
+              ?? tree.document.revision,
+          },
+        }, commandId);
+        siblingLocalIds.set(parentKey, [...siblingIds, localId]);
+        lastChildIds.set(parentKey, createdId);
+        parentsByDepth.set(entry.depth, createdId);
+        for (const depth of [...parentsByDepth.keys()]) {
+          if (depth > entry.depth) parentsByDepth.delete(depth);
+        }
+        if (entry.content) {
+          record = await workspaceSyncEngine.submit(scope, {
+            type: "update-content",
+            nodeId: createdId,
+            input: {
+              requestId: crypto.randomUUID(),
+              content: entry.content,
+              expectedRevision: 0,
+            },
+          }, commandId);
+        }
+      }
+      const saved = await workspaceSyncEngine.flush(scope);
+      setImportResult(saved
+        ? `${currentImportPreview.nodes.length} items imported`
+        : "Import is queued for synchronization");
+    } catch (cause) {
+      setImportResult(cause instanceof Error ? cause.message : "Import failed");
+    } finally {
+      setImportPending(false);
+    }
   }
 
   async function start() {
@@ -411,10 +559,13 @@ export function JobCase({
         </div>
       ) : null}
       <div className={styles.tabs} role="tablist" aria-label="Job settings">
-        {(["MEMO", "DATA", "PRMPT", "FUNC"] as const).map((item) => (
+        {(["MEMO", "DATA", "PRMPT", "IMPRT"] as const).map((item) => (
           <Button
             {...buttonProps}
             key={item}
+            activeColor={item === "IMPRT"
+              ? "COLOR_SUCCESS"
+              : buttonProps?.activeColor}
             role="tab"
             aria-selected={tab === item}
             selected={tab === item}
@@ -444,14 +595,12 @@ export function JobCase({
                 height: "26rem",
                 readOnly: editingLocked,
               }}
-              onChange={(value) => setMemoryDraft({
-                nodeId, saved: config?.memory ?? "", value,
-              })}
+              onChange={setLocalMemoryDraft}
               onSend={async (value) => {
                 if (await updateConfig((current) => ({
                   ...current, memory: value, memoryNodeIds: [],
                 }))) {
-                  setMemoryDraft({ nodeId, saved: value, value });
+                  clearLocalMemoryDraft();
                 }
               }}
             />
@@ -586,28 +735,91 @@ export function JobCase({
             ) : null}
           </>
         )}
+        {tab === "IMPRT" && (
+          <div className={styles.importFields}>
+            <InputControl
+              {...inputControlProps}
+              control="textarea"
+              keyboardActions={<></>}
+              keyboardLayout="block"
+              value={effectiveImportSource}
+              textareaProps={{
+                ...inputControlProps?.textareaProps,
+                "aria-label": "Import source",
+                label: "Import source",
+                height: "18rem",
+                readOnly: importPending,
+              }}
+              onChange={(value) => {
+                setImportResult("");
+                setImportSources((current) => ({ ...current, [nodeId]: value }));
+              }}
+            />
+            <InputControl
+              {...inputControlProps}
+              control="input"
+              keyboardActions={<></>}
+              keyboardLayout="block"
+              value={effectiveImportParent}
+              inputProps={{
+                ...inputControlProps?.inputProps,
+                "aria-label": "Import parent",
+                label: "setParent",
+                color: importParentValid ? "COLOR_SUCCESS" : "COLOR_ERROR",
+                placeholder: "empty = DATA root",
+                readOnly: importPending,
+              }}
+              onChange={(value) => setImportParent({ nodeId, value })}
+            />
+            <div
+              className={styles.importPreview}
+              aria-live="polite"
+              aria-label="Import preview"
+            >
+              {!effectiveImportSource.trim() ? "Paste import source" : null}
+              {effectiveImportSource.trim() && !currentImportPreview
+                ? "Generating preview …" : null}
+              {currentImportPreview?.error ? (
+                <p className={styles.importError}>Parser error: {currentImportPreview.error}</p>
+              ) : null}
+              {currentImportPreview?.nodes ? (
+                <pre>{formatTreeImportPreview(currentImportPreview.nodes)}</pre>
+              ) : null}
+            </div>
+            <Button
+              {...buttonProps}
+              disabled={importPending || !importParentValid || !currentImportPreview?.nodes}
+              onClick={() => void importDataTree()}
+            >
+              {importPending ? "Importing …" : "Import"}
+            </Button>
+            {importResult ? <p className={styles.status}>{importResult}</p> : null}
+          </div>
+        )}
       </div>
-      <div className={styles.actions}>
-        <Button
-          {...buttonProps}
-          activeColor="COLOR_SUCCESS"
-          disabled={!config || busy || cancelPending || tab === "FUNC"}
-          onClick={() => void start()}
-        >
-          {cancelPending ? "Stopping …" : "Start"}
-        </Button>
-        {busy || cancelPending ? (
+      {tab !== "IMPRT" ? (
+        <div className={styles.actions}>
           <Button
             {...buttonProps}
-            activeColor="COLOR_SPEECH"
-            disabled={!busy || cancelPending}
-            selected
-            onClick={() => void cancel()}
+            activeColor="COLOR_SUCCESS"
+            disabled={!config || busy || cancelPending}
+            onClick={() => void start()}
           >
-            {cancelPending ? "Stopping …" : "Cancel"}
+            {cancelPending ? "Stopping …" : "Start"}
           </Button>
-        ) : null}
-      </div>
+          {busy || cancelPending ? (
+            <Button
+              {...buttonProps}
+              activeColor="COLOR_SPEECH"
+              disabled={!busy || cancelPending}
+              selected
+              onClick={() => void cancel()}
+            >
+              {cancelPending ? "Stopping …" : "Cancel"}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {children}
     </Base>
   );
@@ -795,6 +1007,72 @@ export function serializeDataSources(
     if (root) visit(root, 0);
   }
   return lines.join("\n");
+}
+
+export function parseTreeImport(source: string): TreeImportNode[] {
+  const nodes: TreeImportNode[] = [];
+  for (const rawLine of source.replace(/\r\n?/g, "\n").split("\n")) {
+    const match = rawLine.match(/^((?:\|-)+)[ \t]*(.*)$/);
+    if (match) {
+      const depth = match[1].length / 2;
+      const label = match[2].trim();
+      if (!treeNodeLabelSchema.safeParse(label).success) {
+        throw new Error("Every tree line needs a valid item name");
+      }
+      if (depth !== 1 && depth > (nodes.at(-1)?.depth ?? 0) + 1) {
+        throw new Error("A tree level cannot skip its parent");
+      }
+      nodes.push({ depth, label, content: "" });
+      continue;
+    }
+    if (!nodes.length) {
+      if (rawLine.trim()) throw new Error("Content needs a tree item first");
+      continue;
+    }
+    nodes[nodes.length - 1].content += `${
+      nodes[nodes.length - 1].content ? "\n" : ""
+    }${rawLine}`;
+  }
+  for (const node of nodes) node.content = node.content.trim();
+  if (!nodes.length) throw new Error("Import contains no tree items");
+  return nodes;
+}
+
+export function formatTreeImportPreview(nodes: readonly TreeImportNode[]) {
+  return nodes.flatMap((node) => [
+    `${"  ".repeat(node.depth - 1)}${node.label}`,
+    ...node.content.split("\n").filter(Boolean).map((line) => (
+      `${"  ".repeat(node.depth)}${line}`
+    )),
+  ]).join("\n");
+}
+
+function assertImportCapacity(
+  currentNodes: readonly TreeNodeDto[],
+  parentId: string | null,
+  imported: readonly TreeImportNode[],
+) {
+  const rootAdditions = imported.filter(({ depth }) => depth === 1).length;
+  const existingChildren = currentNodes.filter((node) => node.parentId === parentId).length;
+  if (existingChildren + rootAdditions > 99) {
+    throw new Error("Import would exceed the 99-item limit");
+  }
+  const childCounts = new Map<number, number>();
+  const parentIndexByDepth = new Map<number, number>();
+  imported.forEach((node, index) => {
+    if (node.depth > 1) {
+      const importedParent = parentIndexByDepth.get(node.depth - 1);
+      if (importedParent === undefined) throw new Error("Import depth has no parent");
+      childCounts.set(importedParent, (childCounts.get(importedParent) ?? 0) + 1);
+    }
+    parentIndexByDepth.set(node.depth, index);
+    for (const depth of [...parentIndexByDepth.keys()]) {
+      if (depth > node.depth) parentIndexByDepth.delete(depth);
+    }
+  });
+  if ([...childCounts.values()].some((count) => count > 99)) {
+    throw new Error("Import would exceed the 99-item limit");
+  }
 }
 
 function compareTreeNodes(left: TreeNodeDto, right: TreeNodeDto) {

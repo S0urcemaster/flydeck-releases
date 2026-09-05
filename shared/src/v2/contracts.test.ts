@@ -15,6 +15,7 @@ import {
   treeNodeContentDtoSchema,
   treeNodeDtoSchema,
   treeNodeLocalIdSchema,
+  treeNodePastelHueSchema,
 } from "./index.js";
 
 const firstId = "00000000-0000-4000-8000-000000000001";
@@ -43,6 +44,12 @@ describe("V2 network contracts", () => {
 
   it("accepts manually chosen tree IDs longer than the generated default", () => {
     expect(treeNodeLocalIdSchema.safeParse("haushaltsbuch").success).toBe(true);
+  });
+
+  it("accepts only nullable hue degrees", () => {
+    expect(treeNodePastelHueSchema.safeParse(null).success).toBe(true);
+    expect(treeNodePastelHueSchema.safeParse(359).success).toBe(true);
+    expect(treeNodePastelHueSchema.safeParse(360).success).toBe(false);
   });
 
   it("accepts a compact flat initial tree document", () => {
@@ -102,6 +109,7 @@ describe("V2 network contracts", () => {
       requestId: firstId,
       shared: true,
       shareName: null,
+      pastelHue: 210,
       expectedRevision: 2,
     }).success).toBe(false);
     expect(setTreeNodeSharingRequestSchema.parse({

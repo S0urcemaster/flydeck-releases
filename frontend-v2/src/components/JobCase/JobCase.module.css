@@ -5,6 +5,7 @@
 .panel,
 .memoryFields,
 .dataFields,
+.importFields,
 .modelControls,
 .timeFields {
   display: grid;
@@ -36,6 +37,25 @@
   margin: 0;
   padding: var(--space-xs);
   overflow-wrap: anywhere;
+}
+
+.importPreview {
+  min-height: 16rem;
+  padding: var(--space-xs);
+  overflow: auto;
+  border: var(--border-standard);
+  color: var(--color-text-muted);
+}
+
+.importPreview pre,
+.importPreview p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.importError {
+  color: var(--color-error);
 }
 
 .status {

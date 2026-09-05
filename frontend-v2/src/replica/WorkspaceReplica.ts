@@ -6,6 +6,7 @@ import {
   renameTreeNodeRequestSchema,
   reparentTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
+  setTreeNodePastelHueRequestSchema,
   setTreeNodeSharingRequestSchema,
   setTreeSelectionRequestSchema,
   treeLoadDtoSchema,
@@ -21,6 +22,7 @@ import {
   type ReparentTreeNodeRequest,
   type SetTreeNodeEnabledRequest,
   type SetTreeNodeEnabledResponse,
+  type SetTreeNodePastelHueRequest,
   type SetTreeNodeSharingRequest,
   type SetTreeSelectionRequest,
   type TreeLoadDto,
@@ -47,6 +49,7 @@ export type WorkspaceDataCommand =
   | { type: "delete-node"; nodeId: string; input: DeleteTreeNodeRequest }
   | { type: "set-node-enabled"; nodeId: string; input: SetTreeNodeEnabledRequest }
   | { type: "set-node-sharing"; nodeId: string; input: SetTreeNodeSharingRequest }
+  | { type: "set-node-pastel-hue"; nodeId: string; input: SetTreeNodePastelHueRequest }
   | { type: "set-selection"; input: SetTreeSelectionRequest }
   | {
       type: "upload-image";
@@ -546,7 +549,8 @@ function mergeServerResult(
         },
       }));
     }
-    case "set-node-sharing": {
+    case "set-node-sharing":
+    case "set-node-pastel-hue": {
       const confirmed = result as CreateTreeNodeResponse;
       return updateDocument(current, (tree) => ({
         ...tree,
@@ -623,6 +627,7 @@ function equivalentTreeState(left: TreeLoadDto, right: TreeLoadDto) {
       && node.revision === confirmed.revision
       && node.shared === confirmed.shared
       && node.shareName === confirmed.shareName
+      && node.pastelHue === confirmed.pastelHue
       && node.capabilities.contentEditable === confirmed.capabilities.contentEditable
       && node.capabilities.listEditable === confirmed.capabilities.listEditable
       && node.capabilities.listItemLimit === confirmed.capabilities.listItemLimit;
@@ -868,6 +873,8 @@ function isWorkspaceDataCommand(value: unknown): value is WorkspaceDataCommand {
       && setTreeNodeEnabledRequestSchema.safeParse(command.input).success;
     case "set-node-sharing": return hasNodeId
       && setTreeNodeSharingRequestSchema.safeParse(command.input).success;
+    case "set-node-pastel-hue": return hasNodeId
+      && setTreeNodePastelHueRequestSchema.safeParse(command.input).success;
     case "set-selection": return setTreeSelectionRequestSchema.safeParse(command.input).success;
     case "upload-image": return hasNodeId && isUploadImageInput(command.input);
     case "update-content": return hasNodeId
@@ -911,7 +918,8 @@ function rebaseCommand(
       } as WorkspaceDataCommand : command;
     case "rename-node":
     case "update-local-id":
-    case "set-node-sharing": {
+    case "set-node-sharing":
+    case "set-node-pastel-hue": {
       const revision = tree?.document.nodes.find(
         ({ id }) => id === command.nodeId,
       )?.revision;
@@ -1006,6 +1014,20 @@ function applyOptimisticCommand(
         },
       };
     });
+    case "set-node-pastel-hue": return updateDocument(current, (tree) => ({
+      ...tree,
+      document: {
+        ...tree.document,
+        revision: tree.document.revision + 1,
+        nodes: tree.document.nodes.map((node) => node.id === command.nodeId
+          ? {
+            ...node,
+            pastelHue: command.input.pastelHue,
+            revision: command.input.expectedRevision + 1,
+          }
+          : node),
+      },
+    }));
     case "reparent-node": return updateDocument(current, (tree) => {
       const position = tree.document.nodes.filter(
         ({ parentId }) => parentId === command.input.parentId,

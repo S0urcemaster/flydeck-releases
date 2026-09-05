@@ -12,6 +12,60 @@
   min-width: 0;
 }
 
+.pastelSliderRow {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.pastelSlider {
+  appearance: none;
+  width: 100%;
+  height: 0.8rem;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  border: var(--border-standard);
+  border-radius: 999px;
+  accent-color: var(--pastel-thumb);
+  background: linear-gradient(
+    90deg,
+    hsl(0 65% 88%),
+    hsl(60 65% 88%),
+    hsl(120 65% 88%),
+    hsl(180 65% 88%),
+    hsl(240 65% 88%),
+    hsl(300 65% 88%),
+    hsl(359 65% 88%) 99.5%,
+    var(--color-surface) 100%
+  );
+}
+
+.pastelSlider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: var(--border-standard);
+  border-radius: 50%;
+  background: var(--pastel-thumb);
+}
+
+.pastelSlider::-moz-range-track {
+  height: 0.8rem;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.pastelSlider::-moz-range-thumb {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: var(--border-standard);
+  border-radius: 50%;
+  background: var(--pastel-thumb);
+}
+
 .listSizeControl {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

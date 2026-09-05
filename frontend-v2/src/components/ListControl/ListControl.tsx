@@ -248,6 +248,7 @@ export function ListControl({
 
 export type ListControlInputProps = {
   activeColor?: string;
+  checkboxColor?: string;
   background?: string;
   buttonProps?: ListControlProps["buttonProps"];
   checked?: boolean;
@@ -278,6 +279,7 @@ export type ListControlInputProps = {
 
 export function ListControlInput({
   activeColor,
+  checkboxColor,
   background,
   buttonProps,
   checked,
@@ -350,7 +352,7 @@ export function ListControlInput({
         && onCheckedChange ? (
           <Checkbox
             {...checkboxProps}
-            activeColor={activeColor}
+            activeColor={checkboxColor ?? activeColor}
             background={background}
             checked={checked}
             label={`${checked ? "Deselect" : "Select"} ${selectedName} for actions`}
@@ -399,7 +401,7 @@ export function ListControlInput({
             onPointerDown={(event) => event.preventDefault()}
             onClick={createItem}
           >
-            NEW
+            +
           </ListControlButton>
       )}
     />

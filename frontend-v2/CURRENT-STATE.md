@@ -81,29 +81,42 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `SettingsModule` remains an empty migration target. `AgentModule` owns
   subordinate `JOBS` and `MEMO` navigation. Both use persistent workspace-tree
   projections and suppress the complete global TreeBrowser path/search
-  menu. `MEMO` starts as an empty server-backed `_system/agnt/memo` root and
-  edits real workspace nodes through the replica. There is no bundled default
-  memory document; future defaults are introduced only with the jobs that need
-  them. `JOBS` uses `_system/agnt/jobs` without a separate type
+  menu. `MEMO` is the server-backed `_system/agnt/memo` root and edits real
+  workspace nodes through the replica. Its default system-memory branch is
+  `_system/formatting/output/treebrowser`; the leaf tells agents to produce a
+  structured tree list using repeated `|-` indentation. `JOBS` uses
+  `_system/agnt/jobs` without a separate type
   switch. Adding a manual child makes an unsaved item a group; saving JobCase
   fixes it as a job, whose children are then reserved for run dates and runs.
   A group can expose JobCase again only after its manual child list is empty.
   A job's ID, Name, and Parent remain collapsed behind the full-width `Details`
-  control. The always-visible `JobCase` has MEMORY, DATA, PROMPT, and TIME tabs,
-  followed by Start at its lower edge directly before the always-rendered Runs
+  control. The always-visible `JobCase` has `MEMO`, `DATA`, `PRMPT`, and
+  `IMPRT` tabs, followed by Start at its lower edge directly before the
+  always-rendered Runs
   browser, including when it has no entries. MEMORY is an editable textarea.
   The persistent explicit multi-selection in the MEMO browser has no implicit
   descendants; `Set Memory` snapshots the currently checked MEMO nodes into
   an ordered textarea draft, which can then be edited independently and saved
-  through that field's keyboard action. MEMORY, DATA, and PROMPT use editable
+  through that field's keyboard action. The per-job MEMORY draft uses the
+  scoped client-state store, so a newly assembled or edited value survives tab
+  switches and reloads until it has been saved successfully. MEMORY, DATA, and PROMPT use editable
   textareas; `Set Datasources` snapshots every selected DATA root together with
   its ordered descendant structure and contents using repeated `|-` indentation.
   MEMORY and DATA use double-height
   textareas. All textareas initially select the keyboard's `S` font stage.
   DATA also retains its one-level four-item source list resolving
   only normal DATA-tree IDs/paths. PROMPT owns the keyboard Save action and the
-  persisted model/effort cycles. TIME stores one UTC instant plus its IANA time
-  zone and enables or disables the one-shot schedule. JobCase ignores the
+  persisted model/effort cycles and the one-shot schedule. `IMPRT` accepts a
+  repeated-`|-` tree, validates it after a two-second edit pause, and shows
+  either a local preview or the parser error. Its source text is retained per
+  job in scoped client storage across tabs, jobs, and browser reloads. Its
+  red/green `setParent` field
+  resolves a DATA UUID, globally unique local ID, or path; an empty value means
+  the DATA root. Import then creates the previewed nodes and their plain-line
+  contents recursively through the normal optimistic DATA command queue. Its
+  preview has a 16rem minimum height, its selected `IMPRT` tab is success-green,
+  and the unrelated job Start action is hidden while this tab is active.
+  JobCase ignores the
   outer TreeBrowser's dynamic content height and top-aligns its rows, so tabs
   cannot stretch Details or their controls to different heights.
   Runs are persisted as `job → YYYY-MM-DD → HH:mm · status` tree nodes. Start
@@ -193,7 +206,8 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `listItemLimit` is absent or larger.
   ListControl page and page-size changes never alter `selectedPath`; an active
   item and its descendant list/content remain active even while another page
-  of the owning list is visible.
+  of the owning list is visible. ListControl button surfaces carry a fine,
+  low-contrast 8px square grid over their normal background and active colors.
 - `DataBrowser` and `FunctionBrowser` specialize `TreeBrowser` and are shown
   in DATA and FUNC. `DataBrowser` renders the workspace replica's canonical
   DATA tree. Its item content keeps the content editor permanently visible and
@@ -201,9 +215,15 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   The content textarea has a 13em minimum height (twice its previous minimum),
   while the TreeBrowser-derived item height is now only a minimum rather than
   a fixed cap, so content and opened details can expand naturally.
+  The first Details row is a one-dimensional 0–359-degree pastel rainbow
+  slider with a final neutral position. Its nullable hue is canonical node
+  state and is committed only by the common item Save. Slider changes preview
+  immediately on the item's label and checkbox button surfaces. While the
+  pointer holds the slider, the item's normal selected accent is suppressed so
+  that preview remains visible; releasing it restores selection without losing
+  the draft. A saved hue replaces those buttons' normal gray background.
   Sharing is workspace-canonical DATA state: its wider leading checkbox and
-  form save the active flag and public share name atomically. A checkbox change
-  persists Share or Unshare immediately without requiring the input keyboard;
+  form save the active flag and public share name with the common item Save;
   Unshare retains the name for later reuse. Sharing a child disables shared
   ancestors, while sharing a parent disables every shared descendant. The
   server performs that exclusivity change atomically and the optimistic replica
@@ -213,12 +233,17 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `Share` and `Shared`. System/trash branches cannot be shared.
   Selecting, capturing, or pasting an image while the item Content textarea is
   focused creates the same local image draft and preview. The normal Content
-  keyboard `Save` enqueues changed text and the image through the existing DATA
-  write queue; there is no separate image Save control. The original Blob
+  keyboard `Save`, every Save action in the item's detail fields, and the
+  permanently visible item `Save` all commit the complete valid item draft:
+  ID, Name, Parent, Sharing, Content, and image. Selecting or pasting an image
+  activates the visible item Save immediately, without requiring textarea
+  focus. DATA-item inputs suppress the optional keyboard Save action, leaving
+  that row available to the keyboard's other controls. Save is disabled once
+  no unsaved item change remains. Changed text and
+  images use the existing DATA write queue. The original Blob
   remains in the separate IndexedDB image store until server confirmation.
   There is no waiting dialog; a dialog with Retry appears only after queue
-  failure. Content Save is enabled when either text or image has an unsaved
-  change.
+  failure.
   Removing an image uses the shared armed `DeleteButton`: the first press arms
   it for the configured timeout and only the second press deletes. DeleteButton
   uses the orange `COLOR_SPEECH` background at rest and the configured error

@@ -96,6 +96,8 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   contentHeightScale?: number;
   contentPageSize?: ListControlListSize;
   checkedNodeIds?: readonly string[];
+  itemColor?: (node: TreeBrowserNode<TContent>) => string | undefined;
+  suppressSelectedItemId?: string | null;
   browserItemProps?: Omit<
     BrowserItemProps,
     | "checked"
@@ -215,6 +217,8 @@ export function TreeBrowser<TContent = unknown>({
   contentHeightScale = 1,
   contentPageSize,
   checkedNodeIds,
+  itemColor,
+  suppressSelectedItemId,
   browserItemProps,
   renderContent,
   renderRootContent,
@@ -697,7 +701,12 @@ export function TreeBrowser<TContent = unknown>({
       <ListControlInput
         key={`list-input-${parentId}`}
         activeColor={activeColorForDepth(depth)}
-        background={browserItemProps?.background}
+        background={selectedBrowserNode
+          ? itemColor?.(selectedBrowserNode) ?? browserItemProps?.background
+          : browserItemProps?.background}
+        checkboxColor={selectedBrowserNode
+          ? itemColor?.(selectedBrowserNode)
+          : undefined}
         buttonProps={listControlProps?.buttonProps}
         checked={selectedNode
           ? controlledCheckedNodeIds?.has(selectedNode.id)
@@ -875,6 +884,12 @@ export function TreeBrowser<TContent = unknown>({
                 {visibleNodes.map((node) => {
                   const checked = controlledCheckedNodeIds?.has(node.id)
                     ?? actionSelectedSet.has(node.id);
+                  const renderedNode = toTreeBrowserNode(
+                    node,
+                    enabledByNodeId,
+                    contentVisibleByNodeId,
+                  );
+                  const resolvedItemColor = itemColor?.(renderedNode);
                   if (node.id === selectedId && !inlineContentVisible
                     && itemRenameVisible && canRenameNode(node)) {
                     return listInput;
@@ -882,20 +897,19 @@ export function TreeBrowser<TContent = unknown>({
                   const browserItem = (
                     <BrowserItem
                       {...browserItemProps}
+                      background={resolvedItemColor ?? browserItemProps?.background}
+                      checkboxColor={resolvedItemColor}
                       checked={checked}
                       key={node.id}
                       label={node.label}
                       itemNumber={nodes.findIndex(({ id }) => id === node.id) + 1}
-                      selected={node.id === selectedId}
+                      selected={node.id === selectedId
+                        && node.id !== suppressSelectedItemId}
                       activeColor={activeColorForDepth(depth)}
                       onCheckedChange={(nextChecked) => {
                         if (onNodeCheckedChange) {
                           void onNodeCheckedChange(
-                            toTreeBrowserNode(
-                              node,
-                              enabledByNodeId,
-                              contentVisibleByNodeId,
-                            ),
+                            renderedNode,
                             nextChecked,
                           );
                           if (nextChecked) void selectNode(depth, node.id);

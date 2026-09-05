@@ -5,6 +5,22 @@
   border-radius: var(--radius-control);
 }
 
+.root button {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, currentColor 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, currentColor 6%, transparent) 1px,
+      transparent 1px
+    ) !important;
+  background-position: 0 0 !important;
+  background-size: 8px 8px !important;
+}
+
 .label {
   min-width: 0;
 }

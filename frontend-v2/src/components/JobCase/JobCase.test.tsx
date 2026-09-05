@@ -7,6 +7,8 @@ import {
   dataSourceSubtreeIds,
   resolveDataSource,
   serializeDataSources,
+  formatTreeImportPreview,
+  parseTreeImport,
 } from "./JobCase";
 
 describe("JobCase", () => {
@@ -41,9 +43,10 @@ describe("JobCase", () => {
     expect(markup).toContain(">Details</button>");
     expect(markup).not.toContain('aria-label="Job name"');
     expect(markup).toContain(">Start</button>");
-    for (const tab of ["MEMO", "DATA", "PRMPT", "FUNC"]) {
+    for (const tab of ["MEMO", "DATA", "PRMPT", "IMPRT"]) {
       expect(markup).toContain(`>${tab}</button>`);
     }
+    expect(markup).not.toContain(">FUNC</button>");
     expect(markup).toContain(">Set Memory</button>");
     expect(markup).toMatch(/<button(?![^>]*disabled)[^>]*>Set Memory<\/button>/);
     expect(markup).toContain('aria-label="Job memory"');
@@ -53,6 +56,37 @@ describe("JobCase", () => {
       markup.indexOf(">Start</button>"),
     );
     expect(markup).not.toContain('aria-label="Tree browser menu"');
+  });
+});
+
+describe("tree import", () => {
+  it("parses nested items and assigns following plain lines as content", () => {
+    const parsed = parseTreeImport([
+      "|- Parent",
+      "Parent content",
+      "|-|- Child",
+      "First line",
+      "Second line",
+      "|- Sibling",
+    ].join("\n"));
+    expect(parsed).toEqual([
+      { depth: 1, label: "Parent", content: "Parent content" },
+      { depth: 2, label: "Child", content: "First line\nSecond line" },
+      { depth: 1, label: "Sibling", content: "" },
+    ]);
+    expect(formatTreeImportPreview(parsed)).toBe([
+      "Parent",
+      "  Parent content",
+      "  Child",
+      "    First line",
+      "    Second line",
+      "Sibling",
+    ].join("\n"));
+  });
+
+  it("rejects orphan content and skipped levels", () => {
+    expect(() => parseTreeImport("orphan\n|- Item")).toThrow(/tree item first/);
+    expect(() => parseTreeImport("|- Parent\n|-|-|- Child")).toThrow(/cannot skip/);
   });
 });
 

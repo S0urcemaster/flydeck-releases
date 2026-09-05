@@ -11,8 +11,11 @@ to Flydon.
 4. Run `npm run migrate` from the release with that environment loaded.
 5. Install and enable `relayone.service`.
 6. Add `Caddyfile.relay-one` to Caddy and reload it.
-7. Verify `/api/health/ready`; then configure Flydon with the same secret and
-   `RELAY_INGEST_URL=https://relay-one.de/ingest/v1`.
+7. Verify `/api/health/ready`; then configure Flydon's deploy-persistent
+   `/home/flydon/.config/flydeck-v2-relay.env` with the same secret and
+   `RELAY_INGEST_URL=https://relay-one.de/ingest/v1`. The normal Flydon deploy
+   environment is replaced on every deploy; the separate Relay environment is
+   deliberately retained.
 8. Run `npm run relay:sync-all --workspace flydeck-backend-v2` once on Flydon.
 
 After the one-time host setup, deploy from the repository root with:

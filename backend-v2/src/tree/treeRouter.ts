@@ -12,6 +12,7 @@ import {
   renameTreeNodeRequestSchema,
   setTreeNodeEnabledRequestSchema,
   setTreeNodeEnabledResponseSchema,
+  setTreeNodePastelHueRequestSchema,
   setTreeNodeSharingRequestSchema,
   setTreeSelectionRequestSchema,
   treeSelectionDtoSchema,
@@ -252,6 +253,23 @@ export function createTreeRouter(
         workspaceId, userId, input.requestId, "tree.sharing",
         createTreeNodeResponseSchema,
         (transactionTrees) => transactionTrees.setSharing(
+          workspaceId, nodeId, input,
+        ),
+      ),
+    ));
+  });
+
+  router.put("/nodes/:nodeId/pastel-hue", async (request, response) => {
+    const { workspaceId, userId } = await requireWorkspaceAccess(
+      sessions, request, workspaceIdParameter(request), true,
+    );
+    const nodeId = uuidSchema.parse(request.params.nodeId);
+    const input = setTreeNodePastelHueRequestSchema.parse(request.body);
+    response.json(createTreeNodeResponseSchema.parse(
+      await trees.executeIdempotent(
+        workspaceId, userId, input.requestId, "tree.pastel-hue",
+        createTreeNodeResponseSchema,
+        (transactionTrees) => transactionTrees.setPastelHue(
           workspaceId, nodeId, input,
         ),
       ),

@@ -31,6 +31,7 @@ export type InputControlProps = BaseStyleProps & {
   inputProps?: Omit<InputProps, "controlRef" | "onChange" | "value">;
   keyboardActions?: ReactNode;
   keyboardLayout?: "inline" | "block";
+  keyboardSaveVisible?: boolean;
   onChange?: (value: string) => void;
   onEditingChange?: (editing: boolean) => void;
   onSend?: (value: string) => void;
@@ -48,6 +49,7 @@ export function InputControl({
   inputProps,
   keyboardActions,
   keyboardLayout,
+  keyboardSaveVisible = true,
   onChange,
   onEditingChange,
   onSend,
@@ -79,7 +81,7 @@ export function InputControl({
   const targetRef = (control === "input" ? inputRef : textareaRef) as RefObject<
     TextEntryElement | null
   >;
-  const actions = keyboardActions === undefined ? (
+  const actions = keyboardActions === undefined && keyboardSaveVisible ? (
     <Button
       {...buttonProps}
       aria-label="Save content"
@@ -89,7 +91,7 @@ export function InputControl({
     >
       Save
     </Button>
-  ) : keyboardActions;
+  ) : keyboardActions ?? null;
 
   function setEditing(editing: boolean) {
     if (editing) {

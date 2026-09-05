@@ -5,6 +5,7 @@ import {
   clipboardImage,
   contentHasChanges,
   DataBrowser,
+  pastelItemColor,
 } from "./DataBrowser";
 
 describe("DataBrowser", () => {
@@ -33,6 +34,9 @@ describe("DataBrowser", () => {
     expect(contentHasChanges("Saved content", "Changed content")).toBe(true);
   });
 
-
+  it("maps a stored hue to a light pastel and keeps null neutral", () => {
+    expect(pastelItemColor(210)).toBe("hsl(210 65% 88%)");
+    expect(pastelItemColor(null)).toBeUndefined();
+  });
 
 });

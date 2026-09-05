@@ -350,6 +350,10 @@ export class WorkspaceSyncEngine {
         return this.api.setDataNodeSharing(
           workspaceId, command.nodeId, command.input,
         );
+      case "set-node-pastel-hue":
+        return this.api.setDataNodePastelHue(
+          workspaceId, command.nodeId, command.input,
+        );
       case "set-selection":
         return this.api.setDataSelection(workspaceId, command.input);
       case "upload-image": {

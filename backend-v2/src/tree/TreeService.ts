@@ -8,6 +8,7 @@ import {
   type CreateTreeNodeRequest,
   type CreateTreeNodeWithContentRequest,
   type EditTreeNodeRequest,
+  type SetTreeNodePastelHueRequest,
   type SetTreeNodeSharingRequest,
   type SetTreeSelectionRequest,
   type TreePageSize,
@@ -33,6 +34,7 @@ type NodeRow = {
   list_item_limit: number | null;
   shared: boolean;
   share_name: string | null;
+  pastel_hue: number | null;
   job_configured?: boolean;
   enabled: boolean;
   enabled_revision: string | number;
@@ -110,6 +112,7 @@ export class TreeService {
           tree_nodes.revision, tree_nodes.created_at, tree_nodes.updated_at,
           tree_nodes.content_editable, tree_nodes.list_editable,
           tree_nodes.list_item_limit, tree_nodes.shared, tree_nodes.share_name,
+          tree_nodes.pastel_hue,
           (agent_jobs.job_id IS NOT NULL) AS job_configured,
           COALESCE(node_user_states.enabled, false) AS enabled,
           COALESCE(node_user_states.revision, 0) AS enabled_revision
@@ -146,6 +149,7 @@ export class TreeService {
           updatedAt: node.updated_at.toISOString(),
           shared: node.shared,
           shareName: node.share_name,
+          pastelHue: node.pastel_hue,
           jobConfigured: node.job_configured,
           capabilities: {
             contentEditable: node.content_editable,
@@ -765,6 +769,31 @@ export class TreeService {
     });
   }
 
+  async setPastelHue(
+    workspaceId: string,
+    nodeId: string,
+    input: SetTreeNodePastelHueRequest,
+  ) {
+    return this.database.transaction(async (client) => {
+      const tree = await findNodeTreeForUpdate(client, workspaceId, nodeId);
+      await assertMutableDataNode(client, tree.id, nodeId);
+      const result = await client.query<MutableNodeRow>(`
+        UPDATE tree_nodes
+        SET pastel_hue = $1, revision = revision + 1, updated_at = now()
+        WHERE id = $2 AND tree_id = $3 AND revision = $4
+        RETURNING *, false AS enabled, 0 AS enabled_revision
+      `, [input.pastelHue, nodeId, tree.id, input.expectedRevision]);
+      if (!result.rows[0]) {
+        const current = await nodeRevision(client, tree.id, nodeId);
+        throwRevisionConflict("Node", current);
+      }
+      return createTreeNodeResponseSchema.parse({
+        node: toNodeDto(result.rows[0]),
+        treeRevision: await bumpTree(client, tree.id),
+      });
+    });
+  }
+
   async setSelection(
     workspaceId: string,
     userId: string,
@@ -1239,6 +1268,7 @@ function toNodeDto(node: MutableNodeRow) {
     updatedAt: node.updated_at.toISOString(),
     shared: node.shared,
     shareName: node.share_name,
+    pastelHue: node.pastel_hue,
     jobConfigured: node.job_configured,
     capabilities: {
       contentEditable: node.content_editable,

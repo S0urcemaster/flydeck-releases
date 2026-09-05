@@ -5,6 +5,7 @@ export const treeKindSchema = z.enum(["data", "config"]);
 export const treeNodeKindSchema = z.string().trim().min(1).max(64);
 export const treeNodeLabelSchema = z.string().trim().min(1).max(200);
 export const treeNodeShareNameSchema = z.string().trim().min(1).max(200);
+export const treeNodePastelHueSchema = z.number().int().min(0).max(359).nullable();
 export const treeNodeLocalIdSchema = z.string()
   .trim()
   .min(1)
@@ -51,6 +52,7 @@ export const treeNodeDtoSchema = z.object({
   updatedAt: z.iso.datetime().optional(),
   shared: z.boolean().optional(),
   shareName: treeNodeShareNameSchema.nullable().optional(),
+  pastelHue: treeNodePastelHueSchema.optional(),
   jobConfigured: z.boolean().optional(),
   capabilities: treeNodeCapabilitiesDtoSchema,
 });
@@ -185,6 +187,12 @@ export const setTreeNodeSharingRequestSchema = z.object({
   }
 });
 
+export const setTreeNodePastelHueRequestSchema = z.object({
+  requestId: requestIdSchema,
+  pastelHue: treeNodePastelHueSchema,
+  expectedRevision: revisionSchema,
+}).strict();
+
 export const setTreeSelectionRequestSchema = z.object({
   requestId: requestIdSchema,
   selectedPath: z.array(z.uuid()),
@@ -240,6 +248,7 @@ export type DeleteTreeNodeRequest = z.infer<typeof deleteTreeNodeRequestSchema>;
 export type SetTreeNodeEnabledRequest = z.infer<typeof setTreeNodeEnabledRequestSchema>;
 export type SetTreeNodeEnabledResponse = z.infer<typeof setTreeNodeEnabledResponseSchema>;
 export type SetTreeNodeSharingRequest = z.infer<typeof setTreeNodeSharingRequestSchema>;
+export type SetTreeNodePastelHueRequest = z.infer<typeof setTreeNodePastelHueRequestSchema>;
 export type SetTreeSelectionRequest = z.infer<typeof setTreeSelectionRequestSchema>;
 export type TreeNodeContentDto = z.infer<typeof treeNodeContentDtoSchema>;
 export type UpdateTreeNodeContentRequest = z.infer<typeof updateTreeNodeContentRequestSchema>;

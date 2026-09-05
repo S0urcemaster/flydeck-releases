@@ -11,6 +11,7 @@ import styles from "./BrowserItem.module.css";
 
 export type BrowserItemProps = BaseStyleProps & {
   activeColor?: string;
+  checkboxColor?: string;
   checked: boolean;
   label: string;
   itemNumber: number;
@@ -30,6 +31,7 @@ export type BrowserItemProps = BaseStyleProps & {
 
 export function BrowserItem({
   activeColor = "COLOR_ACCENT_ONE",
+  checkboxColor,
   checked,
   label,
   itemNumber,
@@ -54,7 +56,6 @@ export function BrowserItem({
           className={styles.root}
           componentName="BrowserItem"
           color={color}
-          background={background}
           border={border}
           onClick={(event) => {
             if ((event.target as Element).closest("button")) return;
@@ -64,7 +65,7 @@ export function BrowserItem({
           <div onClick={stopRowClick}>
             <Checkbox
               {...checkboxProps}
-              activeColor={activeColor}
+              activeColor={checkboxColor ?? activeColor}
               background={background}
               checked={checked}
               label={`${checked ? "Deselect" : "Select"} ${label} for actions`}
