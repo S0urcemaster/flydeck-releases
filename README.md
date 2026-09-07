@@ -8,7 +8,7 @@ Your agent should be able to connect it
 
 ## Releases
 
-### 05.09.026 14:00 V2 Beta2 (b28ae4550ab0)
+### 07.09.026 22:30 V2 Beta2 (b28ae4550ab0)
 - Bluesky exporter app Alpha
 Now you can store your data at home and publish to Bluesky what you want
 

@@ -103,6 +103,39 @@ export interface WorkspaceReplicaStorage {
   ): Promise<WorkspaceReplicaRecord>;
 }
 
+export interface WorkspaceTreeCache {
+  read(scope: WorkspaceReplicaScope): TreeLoadDto | null;
+  write(scope: WorkspaceReplicaScope, tree: TreeLoadDto): void;
+}
+
+export class LocalStorageWorkspaceTreeCache implements WorkspaceTreeCache {
+  private readonly prefix = `flydeck-v2-tree-${workspaceReplicaSchemaVersion}:`;
+
+  read(scope: WorkspaceReplicaScope) {
+    try {
+      const raw = localStorage.getItem(this.key(scope));
+      if (!raw) return null;
+      const parsed = treeLoadDtoSchema.safeParse(JSON.parse(raw));
+      if (!parsed.success || parsed.data.document.workspaceId !== scope.workspaceId) return null;
+      return parsed.data;
+    } catch {
+      return null;
+    }
+  }
+
+  write(scope: WorkspaceReplicaScope, tree: TreeLoadDto) {
+    try {
+      localStorage.setItem(this.key(scope), JSON.stringify(tree));
+    } catch {
+      // IndexedDB remains authoritative when synchronous browser storage is unavailable.
+    }
+  }
+
+  private key(scope: WorkspaceReplicaScope) {
+    return `${this.prefix}${replicaKey(scope)}`;
+  }
+}
+
 export function emptyWorkspaceReplicaRecord(): WorkspaceReplicaRecord {
   return {
     schemaVersion: workspaceReplicaSchemaVersion,
@@ -248,23 +281,28 @@ export class IndexedDbWorkspaceReplicaStorage implements WorkspaceReplicaStorage
 export class WorkspaceReplica {
   private readonly snapshots = new Map<string, WorkspaceReplicaRecord | null>();
   private readonly hydration = new Map<string, Promise<WorkspaceReplicaRecord | null>>();
+  private readonly hydratedScopes = new Set<string>();
   private readonly listeners = new Map<string, Set<() => void>>();
 
   constructor(
     private readonly storage: WorkspaceReplicaStorage,
     private readonly now: () => Date = () => new Date(),
+    private readonly treeCache?: WorkspaceTreeCache,
   ) {}
 
   load(scope: WorkspaceReplicaScope) {
     const key = replicaKey(scope);
-    if (this.snapshots.has(key)) {
+    if (this.hydratedScopes.has(key)) {
       return Promise.resolve(clone(this.snapshots.get(key) ?? null));
     }
     const running = this.hydration.get(key);
     if (running) return running.then((record) => clone(record));
+    const bootstrap = this.getSnapshot(scope);
     const operation = this.storage.read(scope).then((record) => {
-      this.publish(scope, record);
-      return record;
+      this.hydratedScopes.add(key);
+      const hydrated = record ?? bootstrap;
+      this.publish(scope, hydrated);
+      return hydrated;
     }).finally(() => {
       this.hydration.delete(key);
     });
@@ -273,7 +311,18 @@ export class WorkspaceReplica {
   }
 
   getSnapshot(scope: WorkspaceReplicaScope) {
-    return this.snapshots.get(replicaKey(scope)) ?? null;
+    const key = replicaKey(scope);
+    if (!this.snapshots.has(key)) {
+      const tree = this.treeCache?.read(scope) ?? null;
+      if (tree) {
+        this.snapshots.set(key, {
+          ...emptyWorkspaceReplicaRecord(),
+          confirmedTree: tree,
+          tree,
+        });
+      }
+    }
+    return this.snapshots.get(key) ?? null;
   }
 
   subscribe(scope: WorkspaceReplicaScope, listener: () => void) {
@@ -500,6 +549,7 @@ export class WorkspaceReplica {
       contents: preserve.preserveContents ? previous.contents : record.contents,
     } : record;
     this.snapshots.set(key, snapshot);
+    if (snapshot?.tree) this.treeCache?.write(scope, snapshot.tree);
     for (const listener of this.listeners.get(key) ?? []) listener();
   }
 }
@@ -670,6 +720,8 @@ function recordEqual<T>(
 
 export const workspaceReplica = new WorkspaceReplica(
   new IndexedDbWorkspaceReplicaStorage(),
+  undefined,
+  new LocalStorageWorkspaceTreeCache(),
 );
 
 function replicaKey(scope: WorkspaceReplicaScope) {

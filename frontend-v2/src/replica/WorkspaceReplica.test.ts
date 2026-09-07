@@ -207,6 +207,36 @@ describe("MemoryWorkspaceReplicaStorage", () => {
     unsubscribe();
   });
 
+  it("exposes the compact tree cache before asynchronous replica hydration", async () => {
+    const storage = new MemoryWorkspaceReplicaStorage();
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const scope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    const treeCache = {
+      read: vi.fn(() => tree),
+      write: vi.fn(),
+    };
+    const replica = new WorkspaceReplica(storage, undefined, treeCache);
+
+    expect(replica.getSnapshot(scope)?.tree).toEqual(tree);
+    expect((await replica.load(scope))?.tree).toEqual(tree);
+    expect(treeCache.read).toHaveBeenCalledOnce();
+  });
+
+  it("updates the compact tree cache whenever the visible tree changes", async () => {
+    const storage = new MemoryWorkspaceReplicaStorage();
+    const tree = emptyTree("00000000-0000-4000-8000-000000000002");
+    const scope = { ...firstScope, workspaceId: tree.document.workspaceId };
+    const treeCache = {
+      read: vi.fn(() => null),
+      write: vi.fn(),
+    };
+    const replica = new WorkspaceReplica(storage, undefined, treeCache);
+
+    await replica.replaceTree(scope, tree);
+
+    expect(treeCache.write).toHaveBeenLastCalledWith(scope, tree);
+  });
+
   it("persists an equivalent confirmed tree without replacing the visible tree", async () => {
     const storage = new MemoryWorkspaceReplicaStorage();
     const replica = new WorkspaceReplica(storage);
