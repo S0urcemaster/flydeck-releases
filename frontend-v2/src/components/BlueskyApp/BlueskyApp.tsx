@@ -275,6 +275,7 @@ export function BlueskyTransformer({
             get current() { return controls.current[index]; },
             set current(value) { controls.current[index] = value; },
           }}
+          height="13rem"
           key={`${sourceNodeId}-${index}`}
           keyboardSaveVisible={false}
           textareaProps={{
