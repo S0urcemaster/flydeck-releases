@@ -46,8 +46,14 @@ source_revision="$(git -C "$source_root" rev-parse --short=12 HEAD)"
 file_list="$(mktemp)"
 trap 'rm -f -- "$file_list"' EXIT
 
-# Include tracked files and non-ignored additions from the current working tree.
-git -C "$source_root" ls-files -co --exclude-standard -z >"$file_list"
+# Include existing tracked files and non-ignored additions from the current
+# working tree. Deleted tracked files must not be handed to rsync; the cleanup
+# below already propagates their deletion to the public checkout.
+while IFS= read -r -d '' source_path; do
+  if [[ -e "$source_root/$source_path" || -L "$source_root/$source_path" ]]; then
+    printf '%s\0' "$source_path"
+  fi
+done < <(git -C "$source_root" ls-files -co --exclude-standard -z) >"$file_list"
 
 echo "Publishing Flydeck $source_revision to $public_root ($public_branch)..."
 
