@@ -9,7 +9,7 @@ import {
   type WorkspaceReplicaScope,
 } from "../../replica";
 import { AppView, type AppViewProps } from "../AppView";
-import { Textarea, type TextareaProps } from "../Textarea";
+import type { TextareaProps } from "../Textarea";
 import { Button, type ButtonProps } from "../Button";
 import { InputControl, type InputControlProps } from "../InputControl";
 import {
@@ -269,18 +269,21 @@ export function BlueskyTransformer({
         </div>
       ) : null}
       {posts.map((post, index) => (
-        <Textarea
-          {...textareaProps}
-          aria-label={`Bluesky post ${index + 1}`}
+        <InputControl
+          control="textarea"
           controlRef={{
             get current() { return controls.current[index]; },
             set current(value) { controls.current[index] = value; },
           }}
           key={`${sourceNodeId}-${index}`}
-          label={`${index + 1}/${posts.length} · ${graphemeLength(post)}/${blueskyPostLength}`}
+          keyboardSaveVisible={false}
+          textareaProps={{
+            ...textareaProps,
+            "aria-label": `Bluesky post ${index + 1}`,
+            label: `${index + 1}/${posts.length} · ${graphemeLength(post)}/${blueskyPostLength}`,
+          }}
           value={post}
-          onChange={(event) => {
-            const nextValue = event.currentTarget.value;
+          onChange={(nextValue) => {
             if (nextValue.length > blueskyPostLength) {
               pendingFocus.current = index + 1;
             }

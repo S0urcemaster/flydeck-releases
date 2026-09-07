@@ -31,6 +31,7 @@ export type InputControlProps = BaseStyleProps & {
   control?: "input" | "textarea";
   controlActions?: ReactNode;
   controlLeading?: ReactNode;
+  controlRef?: RefObject<TextEntryElement | null>;
   initialValue?: string;
   inputProps?: Omit<InputProps, "controlRef" | "onChange" | "value">;
   keyboardActions?: ReactNode;
@@ -49,6 +50,7 @@ export function InputControl({
   control = "textarea",
   controlActions,
   controlLeading,
+  controlRef,
   initialValue = "",
   inputProps,
   keyboardActions,
@@ -84,9 +86,7 @@ export function InputControl({
   const layout = keyboardLayout ?? configuredProps?.keyboardLayout ?? "inline";
   const keyboardProps = configuredProps?.keyboardProps;
   const keyboardExpandsControl = keyboardVisible && layout === "inline";
-  const targetRef = (control === "input" ? inputRef : textareaRef) as RefObject<
-    TextEntryElement | null
-  >;
+  const targetRef = controlRef ?? (control === "input" ? inputRef : textareaRef);
   const actions = keyboardActions === undefined && keyboardSaveVisible ? (
     <Button
       {...buttonProps}
