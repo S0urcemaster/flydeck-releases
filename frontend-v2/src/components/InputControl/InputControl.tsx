@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -20,6 +21,9 @@ import {
 } from "../Keyboard";
 import { Textarea, type TextareaProps } from "../Textarea";
 import styles from "./InputControl.module.css";
+
+let activeKeyboardOwner: symbol | null = null;
+let closeActiveKeyboard: (() => void) | null = null;
 
 export type InputControlProps = BaseStyleProps & {
   buttonProps?: Omit<ButtonProps, "children" | "onClick">;
@@ -71,6 +75,8 @@ export function InputControl({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const keyboardOwner = useRef(Symbol("InputControl"));
+  const closeKeyboardRef = useRef<() => void>(() => undefined);
   const smartphoneKeyboardRequest = useRef(false);
   const currentValue = value ?? uncontrolledValue;
   const configuredProps = control === "input" ? inputProps : textareaProps;
@@ -95,17 +101,34 @@ export function InputControl({
 
   function setEditing(editing: boolean) {
     if (editing) {
+      if (activeKeyboardOwner !== keyboardOwner.current) closeActiveKeyboard?.();
+      activeKeyboardOwner = keyboardOwner.current;
+      closeActiveKeyboard = () => closeKeyboardRef.current();
       const measuredHeight = targetRef.current?.getBoundingClientRect().height;
       if (measuredHeight && measuredHeight > 0) {
         setControlHeight(`${measuredHeight}px`);
       }
     } else {
+      if (activeKeyboardOwner === keyboardOwner.current) {
+        activeKeyboardOwner = null;
+        closeActiveKeyboard = null;
+      }
       setControlHeight(undefined);
     }
     setKeyboardVisible(editing);
     if (!editing) setSmartphoneKeyboardEnabled(false);
     onEditingChange?.(editing);
   }
+
+  useEffect(() => {
+    closeKeyboardRef.current = () => setEditing(false);
+  });
+  useEffect(() => () => {
+    if (activeKeyboardOwner === keyboardOwner.current) {
+      activeKeyboardOwner = null;
+      closeActiveKeyboard = null;
+    }
+  }, []);
 
   function toggleSmartphoneKeyboard() {
     const enabled = !smartphoneKeyboardEnabled;
@@ -123,7 +146,14 @@ export function InputControl({
       smartphoneKeyboardRequest.current = false;
       return;
     }
-    if (!event.currentTarget.contains(event.relatedTarget)) setEditing(false);
+    const nextTarget = event.relatedTarget;
+    if (
+      !event.currentTarget.contains(nextTarget)
+      && nextTarget instanceof HTMLElement
+      && (nextTarget.matches("input, textarea, select") || nextTarget.isContentEditable)
+    ) {
+      setEditing(false);
+    }
   }
 
   function changeValue(nextValue: string) {
@@ -175,7 +205,7 @@ export function InputControl({
           onChange={(event) => changeValue(event.currentTarget.value)}
           onFocus={(event) => {
             inputProps?.onFocus?.(event);
-            setEditing(true);
+            if (!inputProps?.readOnly && !inputProps?.disabled) setEditing(true);
           }}
         />
       ) : (
@@ -199,7 +229,7 @@ export function InputControl({
           onChange={(event) => changeValue(event.currentTarget.value)}
           onFocus={(event) => {
             textareaProps?.onFocus?.(event);
-            setEditing(true);
+            if (!textareaProps?.readOnly && !textareaProps?.disabled) setEditing(true);
           }}
         />
       )}

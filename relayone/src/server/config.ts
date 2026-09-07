@@ -18,6 +18,11 @@ const envSchema = z.object({
   RELAY_DATA_SOURCE: z.enum(["legacy", "projection"]).default("legacy"),
   PUBLIC_CACHE_SECONDS: z.coerce.number().int().min(0).max(300).default(15),
   FRONTEND_DIST: z.string().trim().default("dist"),
+  OAUTH_BROKER_SECRET: z.string().min(32).optional(),
+  OAUTH_ENCRYPTION_KEY: z.string().min(43).optional(),
+  OAUTH_CLIENT_PRIVATE_JWK: z.string().optional(),
+  OAUTH_PUBLIC_ORIGIN: z.url().optional(),
+  OAUTH_FLYDECK_RETURN_URL: z.url().optional(),
 });
 
 export type RelayConfig = {
@@ -34,6 +39,11 @@ export type RelayConfig = {
   dataSource: "legacy" | "projection";
   publicCacheSeconds: number;
   frontendDist: string;
+  oauthBrokerSecret?: string | null;
+  oauthEncryptionKey?: string | null;
+  oauthClientPrivateJwk?: string | null;
+  oauthPublicOrigin?: string | null;
+  oauthFlydeckReturnUrl?: string | null;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): RelayConfig {
@@ -52,5 +62,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): RelayConfig {
     dataSource: parsed.RELAY_DATA_SOURCE,
     publicCacheSeconds: parsed.PUBLIC_CACHE_SECONDS,
     frontendDist: path.resolve(parsed.FRONTEND_DIST),
+    oauthBrokerSecret: parsed.OAUTH_BROKER_SECRET ?? null,
+    oauthEncryptionKey: parsed.OAUTH_ENCRYPTION_KEY ?? null,
+    oauthClientPrivateJwk: parsed.OAUTH_CLIENT_PRIVATE_JWK ?? null,
+    oauthPublicOrigin: parsed.OAUTH_PUBLIC_ORIGIN?.replace(/\/$/, "") ?? null,
+    oauthFlydeckReturnUrl: parsed.OAUTH_FLYDECK_RETURN_URL ?? null,
   };
 }

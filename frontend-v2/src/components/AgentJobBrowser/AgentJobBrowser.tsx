@@ -256,17 +256,6 @@ export function AgentJobBrowser({
                   treeBrowserProps={treeBrowserProps}
                   workspaceId={workspaceId}
                   contents={workspace.record?.contents ?? {}}
-                  onSaveRun={async (runNodeId, value) => {
-                    const content = workspace.record?.contents[runNodeId];
-                    if (!content) return;
-                    await submit({
-                      type: "update-content", nodeId: runNodeId,
-                      input: {
-                        requestId: crypto.randomUUID(), content: value,
-                        expectedRevision: content.revision,
-                      },
-                    });
-                  }}
                 />
               </JobCase>
             );
@@ -274,22 +263,11 @@ export function AgentJobBrowser({
           if (node.kind === "agent-job-run") {
             const content = workspace.record?.contents[node.id];
             return (
-              <PersistentContentEditor
+              <RunContent
                 content={content?.content ?? ""}
-                disabled={node.contentEditable === false}
                 height={renderProps.height}
                 inputControlProps={inputControlProps}
                 label={node.contentEditable === false ? "Run running" : "Run response"}
-                onSave={async (value) => {
-                  if (!content || node.contentEditable === false) return;
-                  await submit({
-                    type: "update-content", nodeId: node.id,
-                    input: {
-                      requestId: crypto.randomUUID(), content: value,
-                      expectedRevision: content.revision,
-                    },
-                  });
-                }}
               />
             );
           }
@@ -362,6 +340,7 @@ export function AgentMemoBrowser({
       browserLabel="Memo browser"
       checkedNodeIds={checkedNodeIds}
       componentName="TreeBrowser"
+      itemRenameVisible={false}
       menuVisible={false}
       model={model}
       rootLabel="Memo"
@@ -668,7 +647,6 @@ function JobRunsBrowser({
   initialTree,
   inputControlProps,
   jobId,
-  onSaveRun,
   treeBrowserProps,
   workspaceId,
 }: {
@@ -676,7 +654,6 @@ function JobRunsBrowser({
   initialTree: TreeBrowserInitialNode<JobNodeData>[];
   inputControlProps?: InputControlProps;
   jobId: string;
-  onSaveRun: (nodeId: string, value: string) => void | Promise<void>;
   treeBrowserProps?: AgentJobBrowserProps["treeBrowserProps"];
   workspaceId: string;
 }) {
@@ -700,14 +677,12 @@ function JobRunsBrowser({
       canMoveNode={() => false}
       canRenameNode={() => false}
       renderContent={({ height, node }) => node.kind === "agent-job-run" ? (
-        <PersistentContentEditor
+        <RunContent
           content={contents[node.id]?.content ?? ""}
-          disabled={(node.data as JobNodeData | undefined)?.runContentEditable === false}
           height={height}
           inputControlProps={inputControlProps}
           label={(node.data as JobNodeData | undefined)?.runContentEditable === false
             ? "Run running" : "Run response"}
-          onSave={(value) => onSaveRun(node.id, value)}
         />
       ) : null}
     />
@@ -809,39 +784,28 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Agent workspace synchronization failed";
 }
 
-function PersistentContentEditor({
+function RunContent({
   content,
-  disabled = false,
   height,
   inputControlProps,
   label,
-  onSave,
 }: {
   content: string;
-  disabled?: boolean;
   height?: string;
   inputControlProps?: InputControlProps;
   label: string;
-  onSave: (value: string) => void | Promise<void>;
 }) {
-  const [draft, setDraft] = useState({ saved: content, value: content });
-  const value = draft.saved === content ? draft.value : content;
   return (
     <ContentEditor
       {...inputControlProps}
-      height={height}
-      value={value}
-      onChange={(next) => setDraft({ saved: content, value: next })}
-      onSend={async (next) => {
-        if (disabled) return;
-        await onSave(next);
-        setDraft({ saved: next, value: next });
-      }}
+      height={height ? `calc(${height} * 2)` : "26rem"}
+      keyboardSaveVisible={false}
+      value={content}
       textareaProps={{
         ...inputControlProps?.textareaProps,
         "aria-label": label,
         label,
-        readOnly: disabled,
+        readOnly: true,
       }}
     />
   );

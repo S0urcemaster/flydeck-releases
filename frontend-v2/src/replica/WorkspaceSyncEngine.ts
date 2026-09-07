@@ -43,13 +43,13 @@ export class WorkspaceSyncEngine {
     void this.replica.load(scope).catch(() => undefined);
     if (registered) return;
     if (typeof navigator === "undefined" || navigator.onLine) {
-      void this.flush(scope);
+      void this.flush(scope, true);
     }
   }
 
   retryRegistered() {
     for (const scope of this.scopes.values()) {
-      void this.flush(scope);
+      void this.flush(scope, true);
       void this.hydrateDesiredContents(scope);
     }
   }
@@ -112,7 +112,10 @@ export class WorkspaceSyncEngine {
     return optimistic;
   }
 
-  flush(scope: WorkspaceReplicaScope): Promise<boolean> {
+  flush(
+    scope: WorkspaceReplicaScope,
+    respectWriteDelay = false,
+  ): Promise<boolean> {
     const key = scopeKey(scope);
     const scheduled = this.scheduledFlushes.get(key);
     if (scheduled) {
@@ -128,18 +131,23 @@ export class WorkspaceSyncEngine {
           const pending = (await this.replica.load(scope))?.outbox.length ?? 0;
           // An SSE event can arrive while a sync is active without adding an
           // outbox command. Preserve that request as a trailing server refresh.
-          return pending > 0 || externalRefreshRequested ? this.flush(scope) : true;
+          return pending > 0 || externalRefreshRequested
+            ? this.flush(scope, respectWriteDelay)
+            : true;
         });
       });
     }
-    const operation = this.flushCommands(scope).finally(() => {
+    const operation = this.flushCommands(scope, respectWriteDelay).finally(() => {
       this.active.delete(key);
     });
     this.active.set(key, operation);
     return operation;
   }
 
-  private async flushCommands(scope: WorkspaceReplicaScope) {
+  private async flushCommands(
+    scope: WorkspaceReplicaScope,
+    respectWriteDelay: boolean,
+  ) {
     let record = await this.replica.load(scope);
     const key = scopeKey(scope);
     this.status.setPendingCount(key, record?.outbox.length ?? 0);
@@ -153,12 +161,24 @@ export class WorkspaceSyncEngine {
     const conflictsByCommand = new Map<string, number>();
 
     while (record.outbox.length > 0) {
-      this.status.setStatus({ state: "syncing", pending: record.outbox.length });
       const entry = record.outbox[0];
       if (entry.blocked) {
         this.status.markError(entry.blocked.message, record.outbox.length);
         return false;
       }
+      const remainingDelay = Date.parse(entry.createdAt)
+        + this.writeDelayMs - Date.now();
+      if (respectWriteDelay && remainingDelay > 0) {
+        const pendingCount = record.outbox.length;
+        this.scheduleFlush(scope, (error) => {
+          this.status.markError(
+            error instanceof Error ? error.message : "Workspace synchronization failed",
+            pendingCount,
+          );
+        }, remainingDelay);
+        return true;
+      }
+      this.status.setStatus({ state: "syncing", pending: record.outbox.length });
       await this.replica.recordAttempt(scope, entry.id);
       try {
         const result = await this.dispatch(scope, entry.command);
@@ -267,14 +287,15 @@ export class WorkspaceSyncEngine {
   private scheduleFlush(
     scope: WorkspaceReplicaScope,
     onError: (error: unknown) => void,
+    delayMs = this.writeDelayMs,
   ) {
     const key = scopeKey(scope);
     const scheduled = this.scheduledFlushes.get(key);
-    if (scheduled) clearTimeout(scheduled);
+    if (scheduled) return;
     const timeout = setTimeout(() => {
       this.scheduledFlushes.delete(key);
-      void this.flush(scope).catch(onError);
-    }, this.writeDelayMs);
+      void this.flush(scope, true).catch(onError);
+    }, Math.max(0, delayMs));
     this.scheduledFlushes.set(key, timeout);
   }
 

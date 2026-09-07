@@ -1,23 +1,18 @@
 # Flydeck Manual
 
-Welcome to Flydeck V2 by Digi Craft
+Welcome to Flydeck by Digi Craft
 Created by Sebastian Teister, Germany
 
 Manual by Sebastian Teister in English
 
-Work in Progress :
-- AGNT Don,t know what for atm
-- DATA Module pretty functional
-- APPS need a rework
-
 ## General
 
 You are reading the Flydeck V2 manual
-There are 2 ways you may have come here by yourself : You are reading the source code - or you already have Flydeck installed (by someone)
+There are 2 ways you may have come here by yourself: You are reading the source code or you already have Flydeck installed (by someone)
 
-The following manual is intended for those : who don,t have a clue about anything
+The following manual is intended for those who don,t have a clue about anything
 All others will find their way through just by trial and error
-The UI is designed to be self-explaining + This cannot always be fully achieved - so there will be some explanation needed (Sorry my German English - I,m a little DJ)
+The UI is designed to be self-explaining. This cannot always be fully achieved, so there will be some explanation needed
 
 Work in progress ! Things might not function as intended
 --------------------------------------------------------

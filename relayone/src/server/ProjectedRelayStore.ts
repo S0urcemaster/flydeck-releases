@@ -88,6 +88,20 @@ export class ProjectedRelayStore implements RelayReader {
     };
   }
 
+  async loadNodeByPath(localIds: readonly string[]): Promise<RelayNodePage | null> {
+    if (localIds.length === 0) return null;
+    const site = await this.loadSite();
+    let summary = site.roots.find((root) => root.localId === localIds[0]);
+    if (!summary) return null;
+    let page = await this.loadNode(summary.id);
+    for (const localId of localIds.slice(1)) {
+      summary = page?.post.children.find((child) => child.localId === localId);
+      if (!summary) return null;
+      page = await this.loadNode(summary.id);
+    }
+    return page;
+  }
+
   // Kept only while the legacy /api/images route exists during cutover.
   async readImage(_nodeId: string): Promise<RelayImage | null> {
     return null;

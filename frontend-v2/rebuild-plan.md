@@ -19,6 +19,14 @@ boundaries explicit:
 3. small device-local UI state and unsent drafts owned by one client store;
 4. transient interaction state owned by the nearest React component.
 
+Across these boundaries the application is cache-first: every screen renders
+its last valid local projection before network reconciliation, and ordinary
+edits become locally visible before transport. Server-authoritative changes
+retain revision checks and durable synchronization; external side effects such
+as starting an agent are confirmed by the server but expose local pending state
+immediately. A feature must not introduce a network-first loading or editing
+path merely because its backend endpoint is separate from the DATA tree API.
+
 ## How the V2 client currently works
 
 ### Boot and application composition
@@ -49,6 +57,14 @@ Visible application components compose `Base`, directly or through an
 application base component. CSS Modules own local styling. Shared controls such
 as `Button`, `BrowserItem`, `ListControl`, `Textarea`, `InputControl`, and the
 dial controls supply reusable behavior without reaching into child markup.
+
+Functional specialization does not create a separate visual implementation.
+When a feature component embeds an established component such as `TreeBrowser`
+or `Textarea`, its public contract forwards the embedded component's
+configuration props. `App` resolves and supplies the same component-family
+configuration used by existing instances; the feature adds only its semantic
+data, renderer, and explicit capability restrictions. A nested component must
+not accidentally acquire a different appearance by receiving naked defaults.
 
 The dial implementation is already farther along than the old prompt assumed:
 

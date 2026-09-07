@@ -85,6 +85,34 @@ describe("MemoryWorkspaceReplicaStorage", () => {
     expect(pending.outbox).toHaveLength(1);
   });
 
+  it("repairs legacy server selection commands after paths became local", () => {
+    const queued = outboxEntry("legacy-selection");
+    if (queued.command.type !== "set-selection") throw new Error("Unexpected fixture");
+    queued.command.input.selectedPath = [
+      "00000000-0000-4000-8000-000000000099",
+    ];
+    queued.blocked = {
+      code: "INVALID_REQUEST",
+      message: "Selected path is not a valid tree path",
+      at: "2026-09-05T12:00:00.000Z",
+    };
+
+    const upgraded = upgradeWorkspaceReplicaRecord({
+      schemaVersion: 5,
+      confirmedTree: null,
+      tree: emptyTree("00000000-0000-4000-8000-000000000002"),
+      confirmedContents: {},
+      contents: {},
+      outbox: [queued],
+      lastServerSyncAt: null,
+    }) as WorkspaceReplicaRecord;
+
+    expect(upgraded.outbox[0]).toMatchObject({
+      command: { type: "set-selection", input: { selectedPath: [] } },
+    });
+    expect(upgraded.outbox[0].blocked).toBeUndefined();
+  });
+
   it("isolates replicas by user and workspace", async () => {
     const storage = new MemoryWorkspaceReplicaStorage();
 

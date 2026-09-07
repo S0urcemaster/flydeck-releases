@@ -79,18 +79,14 @@ PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId/content
 PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId/enabled
 PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/nodes/:nodeId/sharing
 PUT /flydeck/api/v2/workspaces/:workspaceId/trees/data/selection
-GET /flydeck/api/v2/workspaces/:workspaceId/cron
-POST /flydeck/api/v2/workspaces/:workspaceId/cron
-PUT /flydeck/api/v2/workspaces/:workspaceId/cron/:timerId
-DELETE /flydeck/api/v2/workspaces/:workspaceId/cron/:timerId
 GET /flydeck/api/v2/workspaces/:workspaceId/backup
 POST /flydeck/api/v2/workspaces/:workspaceId/backup
 ```
 
-All workspace routes require the opaque session cookie. Viewers can load DATA,
-content, and CRON; mutations require `owner` or `editor`. Tree, node content,
+All workspace routes require the opaque session cookie. Viewers can load DATA
+and content; mutations require `owner` or `editor`. Tree, node content,
 per-user enabled state, workspace sharing state, selection, list page sizes,
-and CRON mutations use
+mutations use
 expected revisions. Selection and page sizes share the per-user tree-state
 revision and are cached optimistically by the V2 frontend. Creation requests
 are idempotent for 24 hours via their UUID request ID.

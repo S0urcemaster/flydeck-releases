@@ -23,6 +23,7 @@ rsync -az --delete \
 
 ssh "${ssh_options[@]}" "$deploy_host" \
   "set -eu
+   export PATH=/opt/relayone/runtime/node-v22.23.2/bin:/usr/bin:/bin
    cd '$release_dir'
    npm ci --omit=dev --no-audit --no-fund
    while IFS='=' read -r key value; do

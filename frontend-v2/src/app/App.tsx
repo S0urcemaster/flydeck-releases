@@ -245,6 +245,10 @@ export function App() {
     properties.DataTree.base,
   );
   const appViewBase = resolveBaseProperties(properties.AppView.base);
+  const blueskyAppBase = resolveDerivedBaseProperties(
+    appViewBase,
+    properties.BlueskyApp.base,
+  );
   const compassAppBase = resolveDerivedBaseProperties(
     appViewBase,
     properties.CompassApp.base,
@@ -720,12 +724,6 @@ export function App() {
               activeColor: "COLOR_ACCENT_TWO",
             },
           }}
-          appViewConfigButtonProps={{
-            ...configModuleButtonBase,
-            activeColor: properties.Button.activeColor,
-            symbolTop: properties.SymbolButton.symbolTop,
-            symbolLeft: properties.SymbolButton.symbolLeft,
-          }}
           appViewConfigEditorProps={{
             ...configEditorBase,
             dataSourceButtonProps: {
@@ -738,6 +736,16 @@ export function App() {
           appViewButtonProps={{
             ...buttonBase,
             activeColor: properties.Button.activeColor,
+          }}
+          blueskyAppProps={{
+            ...blueskyAppBase,
+            connectionInputProps: sharedInputControlProps,
+            textareaProps: configuredTextareaProps,
+            treeBrowserProps: {
+              ...treeBrowserBase,
+              rowGap: properties.TreeBrowser.rowGap,
+              ...sharedTreeChildProps,
+            },
           }}
           compassAppBaseProps={compassAppBase}
           deviceInfoProps={{

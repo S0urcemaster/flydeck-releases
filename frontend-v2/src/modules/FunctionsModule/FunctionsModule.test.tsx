@@ -11,8 +11,12 @@ describe("FunctionsModule", () => {
     expect(markup).toContain('aria-label="Submodule panel"');
     expect(markup).toContain("BROWSER");
     expect(markup).toContain('data-component-name="AppBrowser"');
-    expect(markup).toContain("System");
-    expect(markup).toContain("User");
+    expect(markup).toContain("Compass");
+    expect(markup).toContain("Inventory");
+    expect(markup).toContain("ShoppingList");
+    expect(markup).toContain("Bluesky");
+    expect(markup).not.toContain(">Widgets</button>");
+    expect(markup).not.toContain(">User</button>");
     expect(markup).not.toContain('aria-label="DeviceInfo result"');
   });
 });

@@ -71,6 +71,29 @@ describe("Relay One app", () => {
     expect(response.body.levels[0].nodes[0]).not.toHaveProperty("content");
   });
 
+  it("loads a publication by its current local-id path", async () => {
+    const response = await request(createApp(config, reader()))
+      .get("/api/path?value=posts");
+
+    expect(response.status).toBe(200);
+    expect(response.body.post.id).toBe(page.post.id);
+  });
+
+  it("returns 404 HTML for a public path absent from the current tree", async () => {
+    const frontendDist = await mkdtemp(path.join(os.tmpdir(), "relay-frontend-"));
+    try {
+      await writeFile(path.join(frontendDist, "index.html"), "<!doctype html><main>Relay</main>");
+      const response = await request(createApp({ ...config, frontendDist }, reader()))
+        .get("/posts/old-location")
+        .set("Accept", "text/html");
+
+      expect(response.status).toBe(404);
+      expect(response.text).toContain("Relay");
+    } finally {
+      await rm(frontendDist, { recursive: true, force: true });
+    }
+  });
+
   it("does not expose images rejected by the publication reader", async () => {
     const response = await request(createApp(config, reader()))
       .get("/api/images/00000000-0000-4000-8000-000000000099");
@@ -107,6 +130,9 @@ function reader(overrides: Partial<RelayReader> = {}): RelayReader {
   return {
     loadSite: async () => site,
     loadNode: async (nodeId) => nodeId === page.post.id ? page : null,
+    loadNodeByPath: async (localIds) => (
+      localIds.join("/") === "posts" ? page : null
+    ),
     readImage: async () => null,
     isReady: async () => true,
     ...overrides,

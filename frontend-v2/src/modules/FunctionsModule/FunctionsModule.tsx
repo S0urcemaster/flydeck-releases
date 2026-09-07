@@ -8,14 +8,14 @@ import {
   type ClientStateSlice,
 } from "../../state";
 import { CompassApp } from "../../components/CompassApp";
-import type { ConfigModuleButtonProps } from "../../components/ConfigModuleButton";
-import type { AppViewProps } from "../../components/AppView";
+import type { AppSettingsProps } from "../../components/AppView";
 import type { BaseStyleProps } from "../../components/Base";
 import type { ButtonProps } from "../../components/Button";
 import type { DeviceInfoProps } from "../../components/DeviceInfo";
 import { DeviceInfoView } from "../../components/DeviceInfoView";
 import { InventoryApp, type InventoryAppProps } from "../../components/InventoryApp";
 import { ShoppingListView } from "../../components/ShoppingListView";
+import { BlueskyApp, type BlueskyAppProps } from "../../components/BlueskyApp";
 import {
   AppBrowser,
   type AppBrowserOutputState,
@@ -29,6 +29,7 @@ import {
 
 export type FunctionsAppTab =
   | "BROWSER"
+  | "BLUESKY"
   | "DEVICE INFO"
   | "COMPASS"
   | "INVENTORY"
@@ -40,12 +41,9 @@ export type FunctionsModuleProps = ModuleProps & {
     SubmodulePanelProps<FunctionsAppTab>,
     "activeItem" | "items" | "onChange"
   >;
-  appViewConfigButtonProps?: Omit<
-    ConfigModuleButtonProps,
-    "symbol" | "onClick"
-  >;
-  appViewConfigEditorProps?: AppViewProps["configEditorProps"];
+  appViewConfigEditorProps?: AppSettingsProps["configEditorProps"];
   appViewButtonProps?: Omit<ButtonProps, "aria-label" | "children" | "onClick">;
+  blueskyAppProps?: Omit<BlueskyAppProps, "workspaceId">;
   compassAppBaseProps?: BaseStyleProps;
   deviceInfoProps?: DeviceInfoProps;
   deviceInfoViewBaseProps?: BaseStyleProps;
@@ -66,9 +64,9 @@ export type FunctionsModuleProps = ModuleProps & {
 export function FunctionsModule({
   appBrowserProps,
   appTabPanelProps,
-  appViewConfigButtonProps,
   appViewConfigEditorProps,
   appViewButtonProps,
+  blueskyAppProps,
   compassAppBaseProps,
   deviceInfoProps,
   deviceInfoViewBaseProps,
@@ -89,6 +87,7 @@ export function FunctionsModule({
   const { userId } = useClientStateScope();
   const [activeTab, setActiveTab] = useClientStateSlice(functionsAppTabSlice);
   const [output, setOutput] = useState<AppBrowserOutputState>({
+    blueskyActive: false,
     categories: [],
     compassActive: false,
     deviceInfoActive: false,
@@ -128,10 +127,7 @@ export function FunctionsModule({
         <DeviceInfoView
           {...deviceInfoViewBaseProps}
           key="device-info-view"
-          configButtonProps={appViewConfigButtonProps}
-          configEditorProps={appViewConfigEditorProps}
           deviceInfoProps={deviceInfoProps}
-          validateDataSource={validateDataSource}
         />
       ) : null}
       {visibleActiveTab === "COMPASS"
@@ -140,10 +136,7 @@ export function FunctionsModule({
               {...compassAppBaseProps}
               key="compass-view"
               categories={output.categories}
-              configButtonProps={appViewConfigButtonProps}
-              configEditorProps={appViewConfigEditorProps}
               reorderButtonProps={appViewButtonProps}
-              validateDataSource={validateDataSource}
             />
           )
         : null}
@@ -152,11 +145,9 @@ export function FunctionsModule({
             <InventoryApp
               {...inventoryAppBaseProps}
               key="inventory-view"
-              configButtonProps={appViewConfigButtonProps}
               buttonProps={appViewButtonProps}
               breadcrumbProps={inventoryBreadcrumbProps}
               compactButtonProps={inventoryCompactButtonProps}
-              configEditorProps={appViewConfigEditorProps}
               formProps={inventoryFormProps}
               formRowProps={inventoryFormRowProps}
               formRowButtonProps={appViewButtonProps}
@@ -165,7 +156,6 @@ export function FunctionsModule({
               nodeIdInputProps={inventoryNodeIdInputProps}
               parentInputProps={inventoryParentInputProps}
               textareaProps={inventoryTextareaProps}
-              validateDataSource={validateDataSource}
               workspaceId={workspaceId}
             />
           )
@@ -176,17 +166,24 @@ export function FunctionsModule({
               {...shoppingListViewBaseProps}
               key="shopping-list-view"
               categories={output.shoppingCategories}
-              configButtonProps={appViewConfigButtonProps}
-              configEditorProps={appViewConfigEditorProps}
-              validateDataSource={validateDataSource}
             />
           )
         : null}
+      {visibleActiveTab === "BLUESKY" ? (
+        <BlueskyApp
+          {...blueskyAppProps}
+          buttonProps={blueskyAppProps?.buttonProps ?? appViewButtonProps}
+          key="bluesky-view"
+          workspaceId={workspaceId}
+        />
+      ) : null}
       {visibleActiveTab === "BROWSER" ? (
         <AppBrowser
           {...appBrowserProps}
           key="function-browser"
+          appSettingsEditorProps={appViewConfigEditorProps}
           onOutputChange={setOutput}
+          validateDataSource={validateDataSource}
           workspaceId={workspaceId}
         />
       ) : null}
@@ -198,6 +195,7 @@ export function getVisibleFunctionsAppTabs(
   output: AppBrowserOutputState,
 ): FunctionsAppTab[] {
   const tabs: FunctionsAppTab[] = ["BROWSER"];
+  if (output.blueskyActive) tabs.push("BLUESKY");
   if (output.deviceInfoActive) tabs.push("DEVICE INFO");
   if (output.compassActive) tabs.push("COMPASS");
   if (output.inventoryActive) tabs.push("INVENTORY");
@@ -228,6 +226,7 @@ const functionsAppTabSlice: ClientStateSlice<FunctionsAppTab> = {
   defaultValue: "BROWSER",
   validate: (value): value is FunctionsAppTab => (
     value === "BROWSER"
+    || value === "BLUESKY"
     || value === "DEVICE INFO"
     || value === "COMPASS"
     || value === "INVENTORY"

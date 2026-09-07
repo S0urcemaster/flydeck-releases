@@ -4,6 +4,14 @@
 
 Build the interface like Lego: every visible whole is composed from smaller, reusable, self-contained parts.
 
+Production interaction is cache-first. Reads render the last valid local
+projection immediately and reconcile with the server in the background.
+Edits update local UI state before transport and use the established
+replica/outbox or an equally explicit revisioned synchronization boundary;
+ordinary navigation and editing must never wait for network latency. Actions
+with irreversible external effects still require server confirmation, while
+their pending state is represented locally without freezing unrelated UI.
+
 Components must explain themselves through their names, public contracts,
 composition, and catalog examples. Before implementing a component, control,
 interaction, or visual pattern from scratch, search the existing project for
@@ -47,6 +55,12 @@ solution only when no suitable precedent exists.
 ## Composition
 
 - Prefer small primitives and controls over feature-specific copies.
+- A composite component that embeds an established application component must
+  expose and forward that child's public configuration props. New features may
+  constrain behavior through explicit capability props, but must not silently
+  fall back to the child's naked defaults or recreate a local visual variant.
+  The application composition root supplies the same resolved component-family
+  configuration used by equivalent existing instances.
 - Prefer children and focused variants over large configuration objects.
 - Keep state at the lowest level that can own it correctly.
 - Put reusable state transitions in hooks or controls.

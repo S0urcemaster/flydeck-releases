@@ -43,6 +43,7 @@ export type RelayAsset = {
 export interface RelayReader {
   loadSite(): Promise<RelaySite | null>;
   loadNode(nodeId: string): Promise<RelayNodePage | null>;
+  loadNodeByPath(localIds: readonly string[]): Promise<RelayNodePage | null>;
   readImage(nodeId: string): Promise<RelayImage | null>;
   readAsset?(sha256: string): Promise<RelayAsset | null>;
   isReady(): Promise<boolean>;
@@ -101,6 +102,20 @@ export class RelayStore implements RelayReader {
         children,
       },
     };
+  }
+
+  async loadNodeByPath(localIds: readonly string[]): Promise<RelayNodePage | null> {
+    if (localIds.length === 0) return null;
+    const site = await this.loadSite();
+    let summary = site?.roots.find((root) => root.localId === localIds[0]);
+    if (!summary) return null;
+    let page = await this.loadNode(summary.id);
+    for (const localId of localIds.slice(1)) {
+      summary = page?.post.children.find((child) => child.localId === localId);
+      if (!summary) return null;
+      page = await this.loadNode(summary.id);
+    }
+    return page;
   }
 
   async readImage(nodeId: string): Promise<RelayImage | null> {

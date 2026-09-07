@@ -102,6 +102,9 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   switches and reloads until it has been saved successfully. MEMORY, DATA, and PROMPT use editable
   textareas; `Set Datasources` snapshots every selected DATA root together with
   its ordered descendant structure and contents using repeated `|-` indentation.
+  `Set Memory` and `Set Datasources` consume available replica contents
+  immediately; missing content hydrates in the background without blocking the
+  control, and a later hydration never overwrites a draft edited in the meantime.
   MEMORY and DATA use double-height
   textareas. All textareas initially select the keyboard's `S` font stage.
   DATA also retains its one-level four-item source list resolving
@@ -131,6 +134,14 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   ContentEditor. Job deletion is immediate because the normal TreeService
   operation first moves the complete branch to `_trash`, from which it can be
   reparented.
+  Job snapshots (configuration plus active/latest run state) are cached in the
+  scoped client state and rendered immediately when a JobCase opens. REST and
+  SSE refresh that visible snapshot in the background. Configuration edits are
+  applied optimistically to the same cache, no longer perform a preliminary
+  blocking GET, and tab navigation does not wait for their server round trip.
+  Datasource resolution uses the current optimistic tree directly, and DATA
+  import enqueues its local create/content commands without a preliminary
+  network flush.
   `HelpModule` renders `src/assets/manual.md`.
   `HelpModule` and `SettingsModule` are connected to the HELP and CONFIG title
   actions respectively.
@@ -206,7 +217,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   `listItemLimit` is absent or larger.
   ListControl page and page-size changes never alter `selectedPath`; an active
   item and its descendant list/content remain active even while another page
-  of the owning list is visible. ListControl button surfaces carry a fine,
+  of the owning list is visible. Page-size synchronization sends an empty
+  server path because DATA navigation is client-local; replica schema V6 also
+  repairs and retries legacy selection commands blocked by a stale server path.
+  ListControl button surfaces carry a fine,
   low-contrast 8px square grid over their normal background and active colors.
 - `DataBrowser` and `FunctionBrowser` specialize `TreeBrowser` and are shown
   in DATA and FUNC. `DataBrowser` renders the workspace replica's canonical
@@ -215,6 +229,11 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   the common item Save share the fixed top row, so keyboard opening cannot move
   Save vertically. Save is orange while the item is dirty and remains the
   normal pale yellow while disabled after all changes have been persisted.
+- Composite features forward the complete public configuration of established
+  child components. The read-only Bluesky transformer therefore uses the
+  standard configured `TreeBrowser`, `BrowserItem`, `Checkbox`, `ListControl`,
+  and `Textarea` families; it changes capabilities and data renderers, not
+  their visual implementation.
   The content textarea has a 13em minimum height (twice its previous minimum),
   while the TreeBrowser-derived item height is now only a minimum rather than
   a fixed cap, so content and opened details can expand naturally.
@@ -251,8 +270,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   it for the configured timeout and only the second press deletes. DeleteButton
   uses the orange `COLOR_SPEECH` background at rest and the configured error
   color while armed.
-  `FunctionBrowser` starts with `Widgets`, `System`, and `User`; `System`
-  contains a `DeviceInfo` item. `Widgets → Compass` builds category lists from
+  `AppBrowser` has a flat root containing `Compass`, `Inventory`,
+  `ShoppingList`, and `_system`; the former `Widgets` and `User` grouping rows
+  no longer exist. `_system` contains `DeviceInfo`, `Maintenance`, and `Backup`
+  with their dedicated content renderers. `Compass` builds category lists from
   `assets/sayings.json`, with the matching sayings below every category; the
   JSON is temporary frontend data until the backend supplies it. Widget nodes
   compose `InputControl` in content mode; saying leaves initialize its textarea
@@ -294,9 +315,10 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 - `WorkspaceSyncEngine` now owns serialized per-workspace replay, dispatches
   every typed DATA command through `V2ApiClient`, retains failed entries,
   records attempts, acknowledges confirmed responses, and refreshes the tree
-  after a drained queue. Normal writes use a five-second trailing write-behind
-  window: every action is durable and visible locally at once, while server
-  replay starts only after five quiet seconds. Commands atomically rebase their
+  after a drained queue. Normal writes use a fixed five-second write-behind:
+  every action is durable and visible locally at once and becomes eligible for
+  server replay five seconds after its own creation. New writes never postpone
+  older deadlines, and a flush never sends younger commands early. Commands atomically rebase their
   expected tree/node/content revision when entering the replica, so rapid
   ordered actions cannot share a stale component revision. App startup
   registers the last confirmed workspace;
@@ -369,23 +391,24 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   optional `listItemLimit`; equivalent root-list props cover the invisible
   root. Locked lists disable their mutating controls, limits block additional
   children, and the mode button is disabled when its target mode is locked.
-  FUNC fixes its three-entry root plus the `Widgets` and `System` child lists.
-- List editability does not disable checkboxes: checkboxes extend the local
-  action selection even in locked lists. The older semantic enabled state
-  remains in `TreeBrowserModel` snapshots for compatibility, but is no longer
-  controlled by the TreeBrowser row checkbox.
+  APPS permits user-created app entries directly at the root while the
+  `_system` child list remains locked.
+- AppBrowser owns a persistent checked-node selection. Checking a normal root
+  app exposes its app tab next to Browser; changing tabs swaps AppBrowser for
+  that app's content. `_system` and all system descendants have disabled
+  checkboxes and can never create top tabs.
   Stable sibling keys ensure inserting or removing an output view never
   remounts the state-owning FunctionBrowser.
   The Compass data attachment is tagged as a `view-generator`; its output is
-  produced only when `Widgets`, `Compass`, the category, and the saying are all
-  locally enabled. DeviceInfo likewise requires both `System` and `DeviceInfo`.
+  produced only when `Compass`, the category, and the saying are all checked.
+  DeviceInfo remains available only through `_system`'s own renderer.
 - `shopping-list.json` is a second server-response prototype attached at
-  `Widgets → ShoppingList`. It is projected into supermarket categories and
+  root `ShoppingList`. It is projected into supermarket categories and
   article leaves, tagged as a separate view generator, and evaluated through
-  the complete `Widgets → ShoppingList → category → article` visibility path.
+  the complete `ShoppingList → category → article` checked path.
   Active results render in `ShoppingListView → FunctionView → Base`.
   CompassView and ShoppingListView appear as soon as their view root and
-  `Widgets` are enabled, even with no enabled category or leaf; deeper flags
+  app roots are checked, even with no checked category or leaf; deeper flags
   determine content only and an empty result no longer removes the view.
 - `FunctionView` is the shared base for both `CompassView` and
   `DeviceInfoView`. It owns their fixed minimum/maximum height, stationary

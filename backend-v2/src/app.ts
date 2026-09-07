@@ -10,8 +10,6 @@ import type { AppConfig } from "./config.js";
 import { BackupService } from "./backup/BackupService.js";
 import { createBackupRouter } from "./backup/backupRouter.js";
 import { SessionService, sessionCookieName } from "./auth/SessionService.js";
-import { CronService } from "./cron/CronService.js";
-import { createCronRouter } from "./cron/cronRouter.js";
 import type { Database } from "./db/database.js";
 import { errorHandler } from "./http/errorHandler.js";
 import { HttpError } from "./http/HttpError.js";
@@ -22,17 +20,22 @@ import { createTreeRouter } from "./tree/treeRouter.js";
 import { JobService } from "./jobs/JobService.js";
 import { JobStore } from "./jobs/JobStore.js";
 import { createJobRouter } from "./jobs/jobRouter.js";
+import { createIntegrationRouter } from "./integrations/integrationRouter.js";
+import { RelayOAuthClient, type OAuthBroker } from "./integrations/RelayOAuthClient.js";
 
 export function createApp(
   config: AppConfig,
   database: Database,
   providedJobs?: JobService,
+  providedOAuthBroker?: OAuthBroker,
 ) {
   const app = express();
   const backups = new BackupService(config);
   const sessions = new SessionService(database, config);
-  const cron = new CronService(database);
   const jobs = providedJobs ?? new JobService(new JobStore(database));
+  const oauthBroker = providedOAuthBroker ?? (config.relayBrokerUrl && config.relayBrokerSecret
+    ? new RelayOAuthClient(config.relayBrokerUrl, config.relayBrokerSecret)
+    : undefined);
   const trees = new TreeService(database);
   const images = new NodeImageService(
     database,
@@ -103,9 +106,9 @@ export function createApp(
     `${apiPath}/workspaces/:workspaceId/trees/data`,
     createTreeRouter(sessions, trees, images),
   );
-  app.use(
-    `${apiPath}/workspaces/:workspaceId/cron`,
-    createCronRouter(sessions, cron),
+  if (oauthBroker) app.use(
+    `${apiPath}/workspaces/:workspaceId/integrations`,
+    createIntegrationRouter(sessions, oauthBroker, images),
   );
   app.use(
     `${apiPath}/workspaces/:workspaceId/jobs`,

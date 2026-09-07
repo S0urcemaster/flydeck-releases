@@ -132,6 +132,7 @@ export type ComponentPropertiesConfig = {
   DataSourceInput: { base: StoredBaseProperties };
   ContentEditor: { base: StoredBaseProperties };
   AppView: { base: StoredBaseProperties };
+  BlueskyApp: { base: StoredBaseProperties };
   CompassApp: { base: StoredBaseProperties };
   ConfigEditor: { base: StoredBaseProperties };
   DeviceInfoView: { base: StoredBaseProperties };
@@ -266,6 +267,7 @@ export function parseComponentPropertiesConfig(
   const dataSourceInput = input.DataSourceInput;
   const contentEditor = input.ContentEditor;
   const appView = input.AppView;
+  const blueskyApp = input.BlueskyApp;
   const compassApp = input.CompassApp;
   const configEditor = input.ConfigEditor;
   const deviceInfoView = input.DeviceInfoView;
@@ -355,6 +357,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(dataSourceInput)
     || !isRecord(contentEditor)
     || !isRecord(appView)
+    || !isRecord(blueskyApp)
     || !isRecord(compassApp)
     || !isRecord(configEditor)
     || !isRecord(deviceInfoView)
@@ -446,6 +449,7 @@ export function parseComponentPropertiesConfig(
   const dataSourceInputBase = parseStoredBaseProperties(dataSourceInput.base);
   const contentEditorBase = parseStoredBaseProperties(contentEditor.base);
   const appViewBase = parseStoredBaseProperties(appView.base);
+  const blueskyAppBase = parseStoredBaseProperties(blueskyApp.base);
   const compassAppBase = parseStoredBaseProperties(compassApp.base);
   const configEditorBase = parseStoredBaseProperties(configEditor.base);
   const deviceInfoViewBase = parseStoredBaseProperties(deviceInfoView.base);
@@ -541,6 +545,7 @@ export function parseComponentPropertiesConfig(
     || !dataSourceInputBase
     || !contentEditorBase
     || !appViewBase
+    || !blueskyAppBase
     || !compassAppBase
     || !configEditorBase
     || !deviceInfoViewBase
@@ -828,6 +833,7 @@ export function parseComponentPropertiesConfig(
     DataSourceInput: { base: dataSourceInputBase },
     ContentEditor: { base: contentEditorBase },
     AppView: { base: appViewBase },
+    BlueskyApp: { base: blueskyAppBase },
     CompassApp: { base: compassAppBase },
     ConfigEditor: { base: configEditorBase },
     DeviceInfoView: { base: deviceInfoViewBase },

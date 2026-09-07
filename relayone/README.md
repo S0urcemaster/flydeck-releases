@@ -80,3 +80,19 @@ Relay One, deploys their separate releases, and refreshes both Tailscale
 publication layers. Flydeck V2 is served at the Flydon hostname root; Relay One
 continues to use its isolated Funnel identity. The script also disables the old
 V1 service but deliberately does not delete its releases or workspace sources.
+# Bluesky OAuth broker
+
+Relay One can keep Bluesky credentials outside Flydeck and Flydon. The feature is
+disabled unless all five settings are present:
+
+- `OAUTH_BROKER_SECRET`: shared secret (at least 32 characters) for Flydon's private broker calls
+- `OAUTH_ENCRYPTION_KEY`: 32 random bytes encoded as base64url
+- `OAUTH_CLIENT_PRIVATE_JWK`: a private OAuth signing JWK encoded as base64url
+- `OAUTH_PUBLIC_ORIGIN`: public HTTPS origin, normally `https://relay-one.de`
+- `OAUTH_FLYDECK_RETURN_URL`: fixed Flydeck URL used after the OAuth callback
+
+Flydon needs the matching `RELAY_BROKER_URL` (the private WireGuard address of
+Relay One) and `RELAY_BROKER_SECRET`. Run Relay One migration `0002_oauth_broker.sql`
+before enabling the variables. OAuth state, access and refresh material are
+AES-256-GCM encrypted in Relay One's database. Flydon and the browser only see
+connection metadata and the one-time authorization URL.

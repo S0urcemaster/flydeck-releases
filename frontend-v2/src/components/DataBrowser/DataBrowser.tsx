@@ -417,7 +417,7 @@ function ServerDataBrowser({
           type: "set-selection",
           input: {
             requestId: crypto.randomUUID(),
-            selectedPath: treeLoad.selection.selectedPath,
+            selectedPath: [],
             pageSizes: nextPageSizes,
             expectedRevision: selectionRevision.current,
           },

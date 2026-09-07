@@ -18,6 +18,12 @@ to Flydon.
    deliberately retained.
 8. Run `npm run relay:sync-all --workspace flydeck-backend-v2` once on Flydon.
 
+For Bluesky OAuth, additionally configure all five `OAUTH_*` values shown in
+the Relay environment example and run the migrations again. Configure Flydon
+with `RELAY_BROKER_URL` and the matching `RELAY_BROKER_SECRET`; prefer Relay
+One's future private WireGuard address when that link exists. Until then the
+HTTPS endpoint is separately protected by the broker secret.
+
 After the one-time host setup, deploy from the repository root with:
 
 ```bash

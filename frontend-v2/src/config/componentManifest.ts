@@ -66,6 +66,7 @@ export const componentManifest = defineComponentManifest({
   AppShell: { parent: "Base", source: "components/AppShell/AppShell.tsx", labGroup: "individual" },
   AppTitle: { parent: "Base", source: "components/AppTitle/AppTitle.tsx", labGroup: "individual" },
   AppView: { parent: "Base", source: "components/AppView/AppView.tsx", labGroup: "individual" },
+  BlueskyApp: { parent: "AppView", source: "components/BlueskyApp/BlueskyApp.tsx", labGroup: "individual" },
   BackgroundLogo: { parent: "Base", source: "components/BackgroundLogo/BackgroundLogo.tsx", labGroup: "browser" },
   Block: { parent: "Base", source: "components/Block/Block.tsx", labGroup: "individual" },
   BlockingDialog: { parent: "Base", source: "components/BlockingDialog/BlockingDialog.tsx", labGroup: "browser" },

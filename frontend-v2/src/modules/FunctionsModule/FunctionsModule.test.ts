@@ -43,6 +43,7 @@ describe("dataSourceBranchExists", () => {
 describe("getVisibleFunctionsAppTabs", () => {
   it("keeps the browser available and only exposes enabled app tabs", () => {
     expect(getVisibleFunctionsAppTabs({
+      blueskyActive: false,
       categories: [],
       compassActive: true,
       deviceInfoActive: false,

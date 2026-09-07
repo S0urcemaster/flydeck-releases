@@ -267,7 +267,7 @@ describe("WorkspaceSyncEngine", () => {
     await expect(draining).resolves.toBe(true);
   });
 
-  it("waits for five quiet seconds after the latest cached write", async () => {
+  it("keeps each cached write for five seconds without extending older writes", async () => {
     vi.useFakeTimers();
     try {
       const replica = new WorkspaceReplica(new MemoryWorkspaceReplicaStorage());
@@ -308,8 +308,14 @@ describe("WorkspaceSyncEngine", () => {
           expectedRevision: 0,
         },
       });
-      await vi.advanceTimersByTimeAsync(4_999);
+      await vi.advanceTimersByTimeAsync(999);
       expect(renameDataNode).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(renameDataNode).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(3_999);
+      expect(renameDataNode).toHaveBeenCalledTimes(1);
 
       await vi.advanceTimersByTimeAsync(1);
       expect(renameDataNode).toHaveBeenCalledTimes(2);

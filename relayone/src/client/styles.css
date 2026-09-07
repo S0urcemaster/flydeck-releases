@@ -180,13 +180,16 @@ textarea {
   line-height: 0.98;
 }
 
-.postHeader time,
-.postCard time {
+.dateRange {
   display: block;
   margin-top: 1.25rem;
   color: #849087;
   font-size: 0.78rem;
   letter-spacing: 0.04em;
+}
+
+.dateRange time {
+  color: inherit;
 }
 
 .imageTrigger {
@@ -322,7 +325,7 @@ textarea {
   text-decoration: none;
 }
 
-.postCardBody time {
+.postCardBody .dateRange {
   margin: 0;
 }
 

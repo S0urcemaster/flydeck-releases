@@ -19,6 +19,8 @@ const envSchema = z.object({
   RELAY_INGEST_URL: z.url().optional(),
   RELAY_INGEST_SECRET: z.string().min(32).optional(),
   RELAY_SYNC_INTERVAL_MS: z.coerce.number().int().min(1_000).max(300_000).default(5_000),
+  RELAY_BROKER_URL: z.url().optional(),
+  RELAY_BROKER_SECRET: z.string().min(32).optional(),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   FRONTEND_DIST: z.string().trim().optional(),
   FRONTEND_BASE_PATH: z.string().default("/v2"),
@@ -42,6 +44,8 @@ export type AppConfig = {
   relayIngestUrl?: string;
   relayIngestSecret?: string;
   relaySyncIntervalMs: number;
+  relayBrokerUrl?: string;
+  relayBrokerSecret?: string;
   sessionTtlDays: number;
   frontendDist?: string;
   frontendBasePath: string;
@@ -49,6 +53,9 @@ export type AppConfig = {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = envSchema.parse(env);
+  if (Boolean(parsed.RELAY_BROKER_URL) !== Boolean(parsed.RELAY_BROKER_SECRET)) {
+    throw new Error("RELAY_BROKER_URL and RELAY_BROKER_SECRET must be configured together");
+  }
   return {
     port: parsed.PORT,
     basePath: normalizeBasePath(parsed.BASE_PATH),
@@ -67,6 +74,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     relayIngestUrl: parsed.RELAY_INGEST_URL,
     relayIngestSecret: parsed.RELAY_INGEST_SECRET,
     relaySyncIntervalMs: parsed.RELAY_SYNC_INTERVAL_MS,
+    relayBrokerUrl: parsed.RELAY_BROKER_URL?.replace(/\/$/, ""),
+    relayBrokerSecret: parsed.RELAY_BROKER_SECRET,
     sessionTtlDays: parsed.SESSION_TTL_DAYS,
     frontendDist: parsed.FRONTEND_DIST
       ? path.resolve(parsed.FRONTEND_DIST)

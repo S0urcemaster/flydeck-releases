@@ -19,6 +19,13 @@ never exposed by public endpoints. Unpublishing removes the publication from
 the public projection; unreferenced assets are garbage-collected separately
 after a retention period.
 
+Public browser URLs use the current root-to-node `localId` chain. Relay One
+stores no former paths, aliases, or redirects. Moving a node or changing its
+`localId` makes the former URL return 404; only the current active publication
+tree determines which readable paths exist. Internal navigation updates these
+paths through the browser History API without reloading the document; direct
+requests, reloads, new tabs, and browser back/forward remain server-resolvable.
+
 ## Trust boundary
 
 The public API and frontend use only Netcup PostgreSQL and the Netcup asset

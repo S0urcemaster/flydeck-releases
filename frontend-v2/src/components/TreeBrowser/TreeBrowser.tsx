@@ -124,6 +124,7 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     node: TreeBrowserNode<TContent>,
     checked: boolean,
   ) => void | Promise<void>;
+  canCheckNode?: (node: TreeBrowserNode<TContent>) => boolean;
   canCreateNode?: (parentId: string) => boolean;
   canDeleteNode?: (
     node: TreeBrowserModelNode<TContent>,
@@ -219,6 +220,7 @@ export function TreeBrowser<TContent = unknown>({
   checkedNodeIds,
   itemColor,
   suppressSelectedItemId,
+  canCheckNode,
   browserItemProps,
   renderContent,
   renderRootContent,
@@ -542,6 +544,7 @@ export function TreeBrowser<TContent = unknown>({
     listItemLimit?: number,
   ) {
     const {
+      deleteButtonProps: configuredDeleteButtonProps,
       inputProps: configuredListInputProps,
       newButtonProps: configuredNewButtonProps,
       ...configuredListControlProps
@@ -713,7 +716,7 @@ export function TreeBrowser<TContent = unknown>({
             ?? actionSelectedSet.has(selectedNode.id)
           : undefined}
         checkboxProps={browserItemProps?.checkboxProps}
-        deleteButtonProps={listControlProps?.deleteButtonProps}
+        deleteButtonProps={configuredDeleteButtonProps}
         deleteEnabled={selectedNodeDeletable}
         deleteLabel={selectedNode?.label}
         editable={listEditable}
@@ -724,7 +727,8 @@ export function TreeBrowser<TContent = unknown>({
         itemNumber={selectedNode ? selectedIndex + 1 : undefined}
         newButtonProps={configuredNewButtonProps}
         onNew={listEditable && canCreateNode(parentId) ? addNode : undefined}
-        onCheckedChange={selectedNode ? (nextChecked) => {
+        onCheckedChange={selectedNode && canCheckNode?.(selectedBrowserNode!) !== false
+          ? (nextChecked) => {
           if (onNodeCheckedChange) {
             void onNodeCheckedChange(selectedBrowserNode!, nextChecked);
             return;
@@ -736,7 +740,7 @@ export function TreeBrowser<TContent = unknown>({
             selectedNode,
             nextChecked,
           ));
-        } : undefined}
+          } : undefined}
         onDelete={selectedNode
           ? () => removeNodes([selectedNode.id])
           : undefined}
@@ -899,6 +903,11 @@ export function TreeBrowser<TContent = unknown>({
                       {...browserItemProps}
                       background={resolvedItemColor ?? browserItemProps?.background}
                       checkboxColor={resolvedItemColor}
+                      checkboxProps={{
+                        ...browserItemProps?.checkboxProps,
+                        disabled: browserItemProps?.checkboxProps?.disabled
+                          || canCheckNode?.(renderedNode) === false,
+                      }}
                       checked={checked}
                       key={node.id}
                       label={node.label}
@@ -936,7 +945,7 @@ export function TreeBrowser<TContent = unknown>({
                         {browserItem}
                         <DeleteButton
                           {...listControlProps?.buttonProps}
-                          {...listControlProps?.deleteButtonProps}
+                          {...configuredDeleteButtonProps}
                           disabled={!selectedNodeDeletable}
                           label={node.label}
                           onDelete={() => removeNodes([node.id])}

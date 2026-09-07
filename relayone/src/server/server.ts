@@ -7,6 +7,7 @@ import { RelayStore } from "./RelayStore.js";
 import { ProjectedRelayStore } from "./ProjectedRelayStore.js";
 import { AssetStore } from "./ingest/AssetStore.js";
 import { PublicationIngestService } from "./ingest/PublicationIngestService.js";
+import { createBlueskyOAuthBroker } from "./oauth/BlueskyOAuthBroker.js";
 
 const config = loadConfig();
 const database = createDatabase(config);
@@ -16,7 +17,8 @@ const relay = config.dataSource === "projection"
 const ingest = config.ingestSecret
   ? new PublicationIngestService(database, new AssetStore(config.assetDirectory))
   : undefined;
-const app = createApp(config, relay, ingest);
+const oauthBroker = await createBlueskyOAuthBroker(config, database);
+const app = createApp(config, relay, ingest, oauthBroker);
 const server = app.listen(config.port, config.host, () => {
   console.info(`Relay One listening on http://${config.host}:${config.port}`);
 });

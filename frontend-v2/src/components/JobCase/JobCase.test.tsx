@@ -42,7 +42,7 @@ describe("JobCase", () => {
 
     expect(markup).toContain(">Details</button>");
     expect(markup).not.toContain('aria-label="Job name"');
-    expect(markup).toContain(">Start</button>");
+    expect(markup).not.toContain(">Start</button>");
     for (const tab of ["MEMO", "DATA", "PRMPT", "IMPRT"]) {
       expect(markup).toContain(`>${tab}</button>`);
     }
@@ -52,9 +52,6 @@ describe("JobCase", () => {
     expect(markup).toContain('aria-label="Job memory"');
     expect(markup).toContain('height:26rem');
     expect(markup).not.toContain('data-component-name="MemoryBrowser"');
-    expect(markup.indexOf('role="tabpanel"')).toBeLessThan(
-      markup.indexOf(">Start</button>"),
-    );
     expect(markup).not.toContain('aria-label="Tree browser menu"');
   });
 });

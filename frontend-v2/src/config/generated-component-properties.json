@@ -601,6 +601,17 @@
       "height": "unset"
     }
   },
+  "BlueskyApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "CompassApp": {
     "base": {
       "color": "inherit",

@@ -1,10 +1,12 @@
 import {
   apiErrorDtoSchema,
+  blueskyConnectionDtoSchema,
+  connectBlueskyResponseSchema,
+  disconnectBlueskyResponseSchema,
+  publishBlueskyThreadResponseSchema,
   backupStatusDtoSchema,
   deleteTreeNodeImageResponseSchema,
   createTreeNodeResponseSchema,
-  cronTimerDtoSchema,
-  cronTimerListDtoSchema,
   mutationRevisionDtoSchema,
   logoutResponseSchema,
   sessionDtoSchema,
@@ -14,9 +16,7 @@ import {
   treeNodeImageDtoSchema,
   treeSelectionDtoSchema,
   type ApiErrorDto,
-  type CreateCronTimerRequest,
   type CreateTreeNodeRequest,
-  type DeleteCronTimerRequest,
   type DeleteTreeNodeRequest,
   type MoveTreeNodeRequest,
   type ReparentTreeNodeRequest,
@@ -26,7 +26,6 @@ import {
   type SetTreeNodeSharingRequest,
   type SetTreeNodePastelHueRequest,
   type SetTreeSelectionRequest,
-  type UpdateCronTimerRequest,
   type UpdateTreeNodeContentRequest,
   type UpdateTreeNodeLocalIdRequest,
 } from "@flydeck/shared/v2";
@@ -228,29 +227,28 @@ export class V2ApiClient {
     });
   }
 
-  listCron(workspaceId: string) {
-    return this.request(this.cronPath(workspaceId), cronTimerListDtoSchema);
+  blueskyConnection(workspaceId: string) {
+    return this.request(this.integrationPath(workspaceId), blueskyConnectionDtoSchema);
   }
 
-  createCron(workspaceId: string, input: CreateCronTimerRequest) {
-    return this.request(this.cronPath(workspaceId), cronTimerDtoSchema, {
-      method: "POST", body: input,
+  connectBluesky(workspaceId: string, handle: string) {
+    return this.request(this.integrationPath(workspaceId), connectBlueskyResponseSchema, {
+      method: "POST", body: { handle },
     });
   }
 
-  updateCron(workspaceId: string, timerId: string, input: UpdateCronTimerRequest) {
-    return this.request(`${this.cronPath(workspaceId)}/${encodeURIComponent(timerId)}`, cronTimerDtoSchema, {
-      method: "PUT", body: input,
+  disconnectBluesky(workspaceId: string) {
+    return this.request(this.integrationPath(workspaceId), disconnectBlueskyResponseSchema, {
+      method: "DELETE",
     });
   }
 
-  async deleteCron(workspaceId: string, timerId: string, input: DeleteCronTimerRequest) {
-    const result = await this.request(
-      `${this.cronPath(workspaceId)}/${encodeURIComponent(timerId)}`,
-      { parse: parseDeletedResource },
-      { method: "DELETE", body: input },
+  publishBlueskyThread(workspaceId: string, posts: readonly string[], imageNodeId?: string) {
+    return this.request(
+      `${this.integrationPath(workspaceId)}/posts`,
+      publishBlueskyThreadResponseSchema,
+      { method: "POST", body: { posts, ...(imageNodeId ? { imageNodeId } : {}) } },
     );
-    return result;
   }
 
   private dataTreePath(workspaceId: string) {
@@ -261,12 +259,12 @@ export class V2ApiClient {
     return `${this.dataTreePath(workspaceId)}/nodes/${encodeURIComponent(nodeId)}`;
   }
 
-  private cronPath(workspaceId: string) {
-    return `/workspaces/${encodeURIComponent(workspaceId)}/cron`;
-  }
-
   private backupPath(workspaceId: string) {
     return `/workspaces/${encodeURIComponent(workspaceId)}/backup`;
+  }
+
+  private integrationPath(workspaceId: string) {
+    return `/workspaces/${encodeURIComponent(workspaceId)}/integrations/bluesky`;
   }
 
   private async request<TResult>(
@@ -325,13 +323,6 @@ function invalidJsonResponse(response: Response, body: string) {
     message: `The server returned ${responseKind} response (HTTP ${response.status}) : please retry`,
     requestId: response.headers.get("X-Request-ID") ?? "unknown",
   });
-}
-
-function parseDeletedResource(value: unknown) {
-  if (!value || typeof value !== "object" || typeof (value as { id?: unknown }).id !== "string") {
-    throw new Error("Invalid delete response");
-  }
-  return { id: (value as { id: string }).id };
 }
 
 function parseReadiness(value: unknown) {

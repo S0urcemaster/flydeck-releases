@@ -71,7 +71,7 @@ describe("Keyboard", () => {
     expect(markup.match(/lucide-space/g)).toHaveLength(1);
     expect(markup).toContain('aria-label="Comma, double quote, or single quote"');
     expect(markup).toContain('aria-label="Space"');
-    expect(markup).toContain('aria-label="Period, hyphen, or colon"');
+    expect(markup).toContain('aria-label="Period, hyphen, colon, or slash"');
     expect(markup).toContain('aria-label="Enter"');
     expect(markup).toContain('aria-label="Start dictation"');
     expect(markup).toContain('background:var(--color-speech)');
@@ -80,10 +80,11 @@ describe("Keyboard", () => {
     expect(markup).toContain(">ä</small>");
     expect(markup).toContain(">ö</small>");
     expect(markup).toContain(">ü</small>");
+    expect(markup).toContain(">ß</small>");
     expect(markup).toContain('aria-label="l or ! or ?"');
     expect(markup).toContain(">! ?</small>");
     expect(markup).toContain(">&quot; &#x27;</small>");
-    expect(markup).toContain(">- :</small>");
+    expect(markup).toContain(">- : /</small>");
     expect(markup).toContain("gap:3px");
   });
 
@@ -215,7 +216,7 @@ describe("Keyboard", () => {
 
   it("defines the punctuation multi-tap order", () => {
     expect(commaDialCharacters).toEqual([",", '"', "'"]);
-    expect(periodDialCharacters).toEqual([".", "-", ":"]);
+    expect(periodDialCharacters).toEqual([".", "-", ":", "/"]);
   });
 
   it("defines the symbol DialButtons without exclamation and question marks", () => {
@@ -228,12 +229,13 @@ describe("Keyboard", () => {
 
   it("maps umlaut DialButtons in lower and uppercase layouts", () => {
     expect(keyboardLetterDialOptions("11", "lower")).toEqual(["a", "ä"]);
+    expect(keyboardLetterDialOptions("12", "lower")).toEqual(["s", "ß"]);
+    expect(keyboardLetterDialOptions("12", "upper")).toEqual(["S", "ẞ"]);
     expect(keyboardLetterDialOptions("19", "lower")).toEqual(["l", "!", "?"]);
     expect(keyboardLetterDialOptions("19", "upper")).toEqual(["L", "!", "?"]);
     expect(keyboardLetterDialOptions("09", "upper")).toEqual(["O", "Ö"]);
     expect(keyboardLetterDialOptions("07", "upper")).toEqual(["U", "Ü"]);
     expect(keyboardLetterDialOptions("11", "symbols")).toBeNull();
-    expect(keyboardLetterDialOptions("12", "lower")).toBeNull();
   });
 
   it("cycles lowercase, uppercase, and symbol layouts", () => {

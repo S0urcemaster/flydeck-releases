@@ -79,7 +79,7 @@ export const symbolKeyboardCharacters = [
   "@", "#", "&", "*", "§", "+", "=", "(", ")", "_", "€", "%", "24", "25", "26", ";",
 ];
 export const commaDialCharacters = [",", '"', "'"] as const;
-export const periodDialCharacters = [".", "-", ":"] as const;
+export const periodDialCharacters = [".", "-", ":", "/"] as const;
 export const COMMA_DIAL_QUEUE_GAP = "3px";
 export const symbolDialCharacters = {
   "24": ["/", "\\", "|"],
@@ -463,8 +463,8 @@ export function Keyboard({
             {...dialButtonProps}
             aria-label={segment === 1
               ? "Comma, double quote, or single quote"
-              : "Period, hyphen, or colon"}
-            className={dialKeyClassName}
+              : "Period, hyphen, colon, or slash"}
+            className={`${dialKeyClassName} ${styles.punctuationKey}`}
             data-key-id={key.id}
             data-key-segment={segment}
             data-position={key.position}
@@ -705,10 +705,13 @@ export function keyboardLetterDialOptions(
       ? ["o", "ö"] as const
       : keyId === "11"
         ? ["a", "ä"] as const
+        : keyId === "12"
+          ? ["s", "ß"] as const
         : keyId === "19"
           ? ["l", "!", "?"] as const
         : null;
   if (!options || layout === "lower") return options;
+  if (keyId === "12") return ["S", "ẞ"];
   return options.map((option) => option.toLocaleUpperCase());
 }
 

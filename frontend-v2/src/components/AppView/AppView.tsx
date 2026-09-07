@@ -1,11 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { useClientStateSlice, type ClientStateSlice } from "../../state";
 import { Base, type BaseStyleProps } from "../Base";
-import {
-  ConfigModuleButton,
-  type ConfigModuleButtonProps,
-} from "../ConfigModuleButton";
 import { ConfigEditor, type ConfigEditorProps } from "./ConfigEditor";
 import styles from "./AppView.module.css";
 
@@ -21,14 +17,8 @@ export type AppViewProps = BaseStyleProps & {
   accessMode?: AppAccessMode;
   children?: React.ReactNode;
   componentName?: string;
-  configButtonProps?: Omit<ConfigModuleButtonProps, "symbol" | "onClick">;
-  configEditorProps?: Omit<
-    ConfigEditorProps,
-    "dataSource" | "dataSourceStatus" | "onDataSourceChange"
-  >;
   dataSource?: string;
   defaultDataSource?: string;
-  onConfig?: () => void;
   onDataSourceChange?: (dataSource: string) => void;
   onDataSourceResolved?: (dataSource: string) => void;
   title: string;
@@ -39,21 +29,13 @@ export function AppView({
   accessMode = "read",
   children,
   componentName = "AppView",
-  configButtonProps,
-  configEditorProps,
   dataSource,
   defaultDataSource,
-  onConfig,
-  onDataSourceChange,
   onDataSourceResolved,
   title,
-  validateDataSource,
   ...baseProps
 }: AppViewProps) {
-  const [configurationVisible, setConfigurationVisible] = useState(false);
-  const [persistedAppViews, setPersistedAppViews] = useClientStateSlice(
-    appViewsSlice,
-  );
+  const [persistedAppViews] = useClientStateSlice(appViewsSlice);
   const persistedAppView = persistedAppViews[componentName];
   const currentDataSource = dataSource
     ?? persistedAppView?.dataSource
@@ -72,36 +54,44 @@ export function AppView({
     >
       <div className={styles.titleBar}>
         <div className={styles.title} data-access-mode={accessMode}>{title}</div>
-        <ConfigModuleButton
-          {...configButtonProps}
-          aria-label={`Configure ${title}`}
-          selected={configurationVisible}
-          symbol=""
-          onClick={() => {
-            setConfigurationVisible((current) => !current);
-            onConfig?.();
-          }}
-        />
       </div>
-      <div className={styles.content}>
-        {configurationVisible ? (
-          <ConfigEditor
-            {...configEditorProps}
-            dataSource={currentDataSource}
-            validateDataSource={validateDataSource}
-            onDataSourceChange={(nextDataSource) => {
-              setPersistedAppViews((current) => ({
-                ...current,
-                [componentName]: {
-                  dataSource: nextDataSource,
-                },
-              }));
-              onDataSourceChange?.(nextDataSource);
-            }}
-          />
-        ) : children}
-      </div>
+      <div className={styles.content}>{children}</div>
     </Base>
+  );
+}
+
+export type AppSettingsProps = {
+  componentName: string;
+  configEditorProps?: Omit<
+    ConfigEditorProps,
+    "dataSource" | "dataSourceStatus" | "onDataSourceChange"
+  >;
+  defaultDataSource?: string;
+  validateDataSource?: (dataSource: string) => boolean;
+};
+
+export function AppSettings({
+  componentName,
+  configEditorProps,
+  defaultDataSource = "",
+  validateDataSource,
+}: AppSettingsProps) {
+  const [persistedAppViews, setPersistedAppViews] = useClientStateSlice(
+    appViewsSlice,
+  );
+  const currentDataSource = persistedAppViews[componentName]?.dataSource
+    ?? defaultDataSource;
+
+  return (
+    <ConfigEditor
+      {...configEditorProps}
+      dataSource={currentDataSource}
+      validateDataSource={validateDataSource}
+      onDataSourceChange={(dataSource) => setPersistedAppViews((current) => ({
+        ...current,
+        [componentName]: { dataSource },
+      }))}
+    />
   );
 }
 

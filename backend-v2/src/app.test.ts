@@ -69,6 +69,12 @@ describe("backend-v2 HTTP foundation", () => {
     expect(response.headers["x-request-id"]).toBeTruthy();
   });
 
+  it("does not expose the retired CRON API", async () => {
+    await request(createApp(config, database()))
+      .get(`/flydeck/api/v2/workspaces/${workspaceId}/cron`)
+      .expect(404);
+  });
+
   it("reports readiness only when PostgreSQL responds", async () => {
     await request(createApp(config, database()))
       .get("/flydeck/api/v2/health/ready")

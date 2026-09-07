@@ -7,11 +7,14 @@ import type { RelayConfig } from "./config.js";
 import type { RelayReader } from "./RelayStore.js";
 import { createIngestRouter } from "./ingest/router.js";
 import type { PublicationIngestService } from "./ingest/PublicationIngestService.js";
+import type { BlueskyOAuthBrokerApi } from "./oauth/BlueskyOAuthBroker.js";
+import { createOAuthRouters } from "./oauth/router.js";
 
 export function createApp(
   config: RelayConfig,
   relay: RelayReader,
   ingest?: PublicationIngestService,
+  oauthBroker?: BlueskyOAuthBrokerApi,
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -37,6 +40,11 @@ export function createApp(
     });
     next();
   });
+  if (oauthBroker && config.oauthBrokerSecret && config.oauthFlydeckReturnUrl) {
+    const oauth = createOAuthRouters(oauthBroker, config.oauthBrokerSecret, config.oauthFlydeckReturnUrl);
+    app.use("/oauth", oauth.publicRouter);
+    app.use("/internal", oauth.internalRouter);
+  }
 
   if (config.ingestSecret && ingest) {
     app.use("/ingest/v1", createIngestRouter(
@@ -74,6 +82,23 @@ export function createApp(
       response.status(404).json({
         error: "NODE_NOT_FOUND",
         message: "The node is not part of this publication.",
+      } satisfies RelayError);
+      return;
+    }
+    response.setHeader(
+      "Cache-Control",
+      `public, max-age=${config.publicCacheSeconds}, must-revalidate`,
+    );
+    response.json(page);
+  });
+  app.get("/api/path", async (request, response) => {
+    const value = typeof request.query.value === "string" ? request.query.value : "";
+    const localIds = value.split("/").filter(Boolean);
+    const page = localIds.length > 0 ? await relay.loadNodeByPath(localIds) : null;
+    if (!page) {
+      response.status(404).json({
+        error: "NODE_NOT_FOUND",
+        message: "The path is not part of this publication.",
       } satisfies RelayError);
       return;
     }
@@ -127,6 +152,19 @@ export function createApp(
       next();
       return;
     }
+    const localIds = request.path.split("/").filter(Boolean).map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return "";
+      }
+    });
+    if (localIds.length > 0 && (
+      localIds.some((segment) => !segment)
+      || !await relay.loadNodeByPath(localIds)
+    )) {
+      response.status(404);
+    }
     response.setHeader("Cache-Control", "no-cache");
     response.type("html").send(
       await readFile(path.join(config.frontendDist, "index.html"), "utf8"),
@@ -138,8 +176,12 @@ export function createApp(
       message: "Endpoint was not found.",
     } satisfies RelayError);
   });
-  app.use(((error, _request, response, _next) => {
-    console.error("Relay One request failed", error);
+  app.use(((error, request, response, _next) => {
+    console.error("Relay One request failed", {
+      method: request.method,
+      path: request.originalUrl,
+      error,
+    });
     response.status(500).json({
       error: "INTERNAL_ERROR",
       message: "Relay One could not complete the request.",

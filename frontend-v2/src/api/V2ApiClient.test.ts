@@ -100,7 +100,7 @@ describe("V2ApiClient", () => {
     }), { status: 409 }));
     const client = new V2ApiClient("/flydeck/api/v2", fetcher);
 
-    const result = client.listCron("00000000-0000-4000-8000-000000000002");
+    const result = client.loadDataTree("00000000-0000-4000-8000-000000000002");
 
     await expect(result).rejects.toBeInstanceOf(V2ApiError);
     await expect(result).rejects.toMatchObject({
@@ -115,7 +115,7 @@ describe("V2ApiClient", () => {
     }));
     const client = new V2ApiClient("/flydeck/api/v2", fetcher);
 
-    const result = client.listCron("00000000-0000-4000-8000-000000000002");
+    const result = client.loadDataTree("00000000-0000-4000-8000-000000000002");
 
     await expect(result).rejects.toMatchObject({
       response: {
@@ -130,7 +130,7 @@ describe("V2ApiClient", () => {
     const fetcher = vi.fn().mockResolvedValue(new Response("{", { status: 502 }));
     const client = new V2ApiClient("/flydeck/api/v2", fetcher);
 
-    const result = client.listCron("00000000-0000-4000-8000-000000000002");
+    const result = client.loadDataTree("00000000-0000-4000-8000-000000000002");
 
     await expect(result).rejects.toMatchObject({
       response: {

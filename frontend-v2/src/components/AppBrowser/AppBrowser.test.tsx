@@ -9,23 +9,24 @@ import {
 import type { TreeBrowserNode } from "../TreeBrowser";
 
 describe("AppBrowser", () => {
-  it("starts with Widgets, System, and User without rendering function results", () => {
+  it("starts with apps and _system directly in the root list", () => {
     const markup = renderToStaticMarkup(<AppBrowser rowGap="0" />);
 
     expect(markup).toContain('data-component-name="AppBrowser"');
-    expect(markup).toContain("Widgets");
-    expect(markup).toContain("System");
-    expect(markup).toContain("User");
-    expect(markup).toContain("Select Widgets for actions");
-    expect(markup).toContain("Select System for actions");
-    expect(markup).toContain("Select User for actions");
+    expect(markup).toContain("Compass");
+    expect(markup).toContain("Inventory");
+    expect(markup).toContain("ShoppingList");
+    expect(markup).toContain("Bluesky");
+    expect(markup).not.toContain(">Widgets</button>");
+    expect(markup).not.toContain(">User</button>");
     expect(markup).not.toContain('aria-label="DeviceInfo result"');
+    expect(markup).toContain('aria-label="Create child in root" disabled=""');
   });
 
   it("renders Backup inline beneath its System item", () => {
     const markup = renderToStaticMarkup(
       <AppBrowser
-        initialSelectedPath={["system", "backup"]}
+        initialSelectedPath={["_system", "backup"]}
         workspaceId="00000000-0000-4000-8000-000000000001"
       />,
     );
@@ -39,7 +40,7 @@ describe("AppBrowser", () => {
 
   it("places Maintenance directly before Backup", () => {
     const markup = renderToStaticMarkup(
-      <AppBrowser initialSelectedPath={["system"]} />,
+      <AppBrowser initialSelectedPath={["_system"]} />,
     );
 
     expect(markup).toContain(">Maintenance</button>");
@@ -47,42 +48,35 @@ describe("AppBrowser", () => {
       .toBeLessThan(markup.indexOf(">Backup</button>"));
   });
 
-  it("requires every parent visibility flag for generated output", () => {
+  it("requires the root app and its content choices to be checked", () => {
     const nodes: TreeBrowserNode<AppData>[] = [{
-      id: "widgets",
-      label: "Widgets",
+      id: "compass",
+      label: "Compass",
       enabled: false,
       contentVisible: false,
-      data: { kind: "group", groupId: "widgets" },
+      data: { kind: "view-generator", viewId: "compass" },
       children: [{
-        id: "compass",
-        label: "Compass",
+        id: "category",
+        label: "Mut",
         enabled: true,
         contentVisible: false,
-        data: { kind: "view-generator", viewId: "compass" },
+        data: { kind: "category", category: "Mut" },
         children: [{
-          id: "category",
-          label: "Mut",
+          id: "saying",
+          label: "Vollständiger Spruch",
           enabled: true,
-          contentVisible: false,
-          data: { kind: "category", category: "Mut" },
-          children: [{
-            id: "saying",
-            label: "Vollständiger Spruch",
-            enabled: true,
-            contentVisible: true,
-            data: {
-              kind: "saying",
-              saying: {
-                id: 1,
-                text: "Vollständiger Spruch",
-                categories: ["Mut"],
-                source: [],
-                rating: 0,
-              },
+          contentVisible: true,
+          data: {
+            kind: "saying",
+            saying: {
+              id: 1,
+              text: "Vollständiger Spruch",
+              categories: ["Mut"],
+              source: [],
+              rating: 0,
             },
-            children: [],
-          }],
+          },
+          children: [],
         }],
       }],
     }];
@@ -99,31 +93,24 @@ describe("AppBrowser", () => {
 
   it("generates shopping output only through the complete active path", () => {
     const nodes: TreeBrowserNode<AppData>[] = [{
-      id: "widgets",
-      label: "Widgets",
+      id: "shopping-list",
+      label: "ShoppingList",
       enabled: false,
       contentVisible: false,
-      data: { kind: "group", groupId: "widgets" },
+      data: { kind: "view-generator", viewId: "shopping-list" },
       children: [{
-        id: "shopping-list",
-        label: "ShoppingList",
+        id: "bakery",
+        label: "Backwaren",
         enabled: true,
         contentVisible: false,
-        data: { kind: "view-generator", viewId: "shopping-list" },
+        data: { kind: "shopping-category", category: "Backwaren" },
         children: [{
-          id: "bakery",
-          label: "Backwaren",
+          id: "bread",
+          label: "Brot",
           enabled: true,
-          contentVisible: false,
-          data: { kind: "shopping-category", category: "Backwaren" },
-          children: [{
-            id: "bread",
-            label: "Brot",
-            enabled: true,
-            contentVisible: true,
-            data: { kind: "shopping-item", label: "Brot" },
-            children: [],
-          }],
+          contentVisible: true,
+          data: { kind: "shopping-item", label: "Brot" },
+          children: [],
         }],
       }],
     }];

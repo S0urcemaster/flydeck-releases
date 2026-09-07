@@ -3,9 +3,6 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDatabase } from "./db/database.js";
 import { runMigrations } from "./db/migrations.js";
-import { CronService } from "./cron/CronService.js";
-import { CronScheduler } from "./cron/CronScheduler.js";
-import { NtfyNotifier } from "./cron/NtfyNotifier.js";
 import { JobStore } from "./jobs/JobStore.js";
 import { JobService } from "./jobs/JobService.js";
 import { JobScheduler } from "./jobs/JobScheduler.js";
@@ -19,12 +16,6 @@ const database = createDatabase(config);
 await runMigrations(database);
 const jobs = new JobService(new JobStore(database));
 await jobs.store.markInterrupted();
-const scheduler = new CronScheduler(
-  new CronService(database),
-  new NtfyNotifier(config),
-  config.schedulerIntervalMs,
-);
-scheduler.start();
 const jobScheduler = new JobScheduler(jobs, config.schedulerIntervalMs);
 jobScheduler.start();
 const publicationWorker = config.relayIngestUrl && config.relayIngestSecret
@@ -47,7 +38,6 @@ async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.info(`Flydeck backend-v2 received ${signal}`);
-  scheduler.stop();
   jobScheduler.stop();
   const publicationStopped = publicationWorker?.stop();
 

@@ -33,7 +33,7 @@ import {
   type UpdateTreeNodeLocalIdRequest,
 } from "@flydeck/shared/v2";
 
-export const workspaceReplicaSchemaVersion = 5;
+export const workspaceReplicaSchemaVersion = 6;
 
 export type WorkspaceReplicaScope = {
   userId: string;
@@ -716,7 +716,7 @@ export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
   const candidate = clone(record) as Record<string, unknown>;
   const sourceVersion = candidate.schemaVersion;
   if (sourceVersion !== 1 && sourceVersion !== 2 && sourceVersion !== 3
-    && sourceVersion !== 4) {
+    && sourceVersion !== 4 && sourceVersion !== 5) {
     return candidate;
   }
   let localIdByNodeId = new Map<string, string>();
@@ -759,6 +759,10 @@ export function upgradeWorkspaceReplicaRecord(record: unknown): unknown {
       if (commandRecord.type === "set-selection"
         && (!inputRecord.pageSizes || typeof inputRecord.pageSizes !== "object")) {
         inputRecord.pageSizes = {};
+      }
+      if (commandRecord.type === "set-selection") {
+        inputRecord.selectedPath = [];
+        delete (value as Record<string, unknown>).blocked;
       }
     }
   }
@@ -940,6 +944,7 @@ function rebaseCommand(
         ...command,
         input: {
           ...command.input,
+          selectedPath: [],
           expectedRevision: tree.selection.revision,
         },
       } : command;

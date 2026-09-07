@@ -2,7 +2,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { RelayPostSummary } from "../shared/contracts";
-import { normalizeRelaySite, PostNavigation } from "./App";
+import {
+  ItemDateRange,
+  normalizeRelaySite,
+  postHref,
+  PostNavigation,
+  readPath,
+} from "./App";
 import { FullscreenImage } from "./FullscreenImage";
 
 const root: RelayPostSummary = {
@@ -61,6 +67,25 @@ describe("Relay One client response", () => {
 
     expect(markup).toContain('aria-label="12 children"');
     expect(markup).toContain(">12</span>");
+    expect(markup).toContain("data-relay-navigation");
     expect(markup).not.toContain("›");
+  });
+
+  it("uses readable current tree paths without a hash or UUID", () => {
+    expect(postHref(["posts", "september", "06"])).toBe("/posts/september/06");
+    expect(readPath("/posts/september/06")).toEqual(["posts", "september", "06"]);
+  });
+
+  it("renders each item date from creation through its last change", () => {
+    const markup = renderToStaticMarkup(
+      <ItemDateRange
+        createdAt="2026-08-28T08:00:00.000Z"
+        updatedAt="2026-09-06T10:30:00.000Z"
+      />,
+    );
+
+    expect(markup).toContain('dateTime="2026-08-28T08:00:00.000Z"');
+    expect(markup).toContain('dateTime="2026-09-06T10:30:00.000Z"');
+    expect(markup).toContain(" – ");
   });
 });

@@ -1,6 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   createTreeNodeLocalId,
+  jobSnapshotDtoSchema,
   treeNodeLabelSchema,
   type JobConfigDto,
   type JobSnapshotDto,
@@ -58,6 +66,18 @@ const jobImportSourcesSlice: ClientStateSlice<Record<string, string>> = {
   validate: isStringRecord,
 };
 
+const jobSnapshotsSlice: ClientStateSlice<Record<string, JobSnapshotDto>> = {
+  name: "agent.jobSnapshots",
+  version: 1,
+  defaultValue: {},
+  validate: (value): value is Record<string, JobSnapshotDto> => (
+    Boolean(value && typeof value === "object" && !Array.isArray(value))
+    && Object.values(value as Record<string, unknown>).every(
+      (snapshot) => jobSnapshotDtoSchema.safeParse(snapshot).success,
+    )
+  ),
+};
+
 export type JobCaseStyleProps = BaseStyleProps & {
   buttonProps?: Omit<ButtonProps, "children" | "onClick">;
   fontSize?: string;
@@ -109,10 +129,25 @@ export function JobCase({
   onConfigured,
   ...baseProps
 }: JobCaseProps) {
+  const [cachedSnapshots, setCachedSnapshots] = useClientStateSlice(
+    jobSnapshotsSlice,
+  );
+  const cachedSnapshot = cachedSnapshots[nodeId] ?? null;
   const [snapshotState, setSnapshotState] = useState<{
     nodeId: string; value: JobSnapshotDto | null;
-  }>({ nodeId, value: null });
-  const snapshot = snapshotState.nodeId === nodeId ? snapshotState.value : null;
+  }>({ nodeId, value: cachedSnapshot });
+  const snapshot = snapshotState.nodeId === nodeId
+    ? snapshotState.value ?? cachedSnapshot
+    : cachedSnapshot;
+  const snapshotRef = useRef(snapshot);
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+  const publishSnapshot = useCallback((value: JobSnapshotDto) => {
+    snapshotRef.current = value;
+    setSnapshotState({ nodeId, value });
+    setCachedSnapshots((current) => ({ ...current, [nodeId]: value }));
+  }, [nodeId, setCachedSnapshots]);
   const [tab, setTab] = useState<JobTab>("MEMO");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
@@ -143,7 +178,7 @@ export function JobCase({
     let active = true;
     void jobApi.read(workspaceId, nodeId).then((value) => {
       if (active) {
-        setSnapshotState({ nodeId, value });
+        publishSnapshot(value);
       }
     }).catch(() => undefined);
     const events = new EventSource(jobApi.eventsUrl(workspaceId, nodeId));
@@ -152,12 +187,10 @@ export function JobCase({
       const value = JSON.parse((event as MessageEvent<string>).data) as JobSnapshotDto;
       const activeRun = value.activeRun && ignoredRunIds.current.has(value.activeRun.id)
         ? null : value.activeRun;
-      setSnapshotState((current) => {
-        const currentConfig = current.nodeId === nodeId ? current.value?.config : null;
-        const config = currentConfig && currentConfig.revision > value.config.revision
-          ? currentConfig : value.config;
-        return { nodeId, value: { ...value, config, activeRun } };
-      });
+      const currentConfig = snapshotRef.current?.config;
+      const config = currentConfig && currentConfig.revision > value.config.revision
+        ? currentConfig : value.config;
+      publishSnapshot({ ...value, config, activeRun });
       void workspaceSyncEngine.flush(scope).then((succeeded) => (
         succeeded && value.latestRun
           ? workspaceSyncEngine.ensureContents(scope, [value.latestRun.nodeId])
@@ -169,7 +202,7 @@ export function JobCase({
       active = false;
       events.close();
     };
-  }, [nodeId, scope, workspaceId]);
+  }, [nodeId, publishSnapshot, scope, workspaceId]);
 
   const config = snapshot?.config ?? null;
   const activeRun = snapshot?.activeRun ?? null;
@@ -238,12 +271,15 @@ export function JobCase({
 
   async function updateConfig(change: (current: JobConfigDto) => JobConfigDto) {
     if (!config || editingLocked) return false;
-    const latest = await jobApi.read(workspaceId, nodeId).catch(() => null);
-    if (!latest) return false;
-    let currentConfig = latest.config;
-    setSnapshotState({ nodeId, value: latest });
+    const previousSnapshot = snapshot;
+    let currentConfig = config;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const next = change(currentConfig);
+      publishSnapshot({
+        ...(snapshotRef.current ?? previousSnapshot!),
+        configured: true,
+        config: next,
+      });
       try {
         const saved = await jobApi.update(workspaceId, nodeId, {
           requestId: crypto.randomUUID(),
@@ -257,19 +293,27 @@ export function JobCase({
           effort: next.effort,
           schedule: next.schedule,
         });
-        setSnapshotState((current) => current.nodeId === nodeId && current.value
-          ? { nodeId, value: { ...current.value, configured: true, config: saved } }
-          : current);
+        publishSnapshot({
+          ...(snapshotRef.current ?? previousSnapshot!),
+          configured: true,
+          config: saved,
+        });
         onConfigured?.();
         return true;
       } catch (cause) {
         if (!(cause instanceof JobApiError)
           || cause.response.error !== "REVISION_CONFLICT"
-          || attempt === 2) return false;
+          || attempt === 2) {
+          publishSnapshot(previousSnapshot!);
+          return false;
+        }
         const fresh = await jobApi.read(workspaceId, nodeId).catch(() => null);
-        if (!fresh) return false;
+        if (!fresh) {
+          publishSnapshot(previousSnapshot!);
+          return false;
+        }
         currentConfig = fresh.config;
-        setSnapshotState({ nodeId, value: fresh });
+        publishSnapshot(fresh);
       }
     }
     return false;
@@ -277,9 +321,9 @@ export function JobCase({
 
   async function setMemoryFromMemo() {
     if (editingLocked || memoSelectionIds.length === 0) return;
-    try {
-      await workspaceSyncEngine.ensureContents(scope, memoSelectionIds);
-      const record = await workspaceReplica.load(scope);
+    const buildMemory = (
+      record: Awaited<ReturnType<typeof workspaceReplica.load>>,
+    ) => {
       const sections = memoSelectionIds.map((id) => {
         const node = tree.document.nodes.find((candidate) => (
           candidate.id === id && candidate.kind === "agent-memo"
@@ -290,20 +334,41 @@ export function JobCase({
           : null;
       });
       if (sections.some((section) => section === null)) {
-        return;
+        return null;
       }
       const memory = sections
         .filter((section): section is string => section !== null)
         .map((section) => section.trim())
         .filter(Boolean)
         .join("\n\n");
-      setLocalMemoryDraft(memory);
+      return memory;
+    };
+    try {
+      const priorDraft = memoryDrafts[nodeId];
+      const cached = await workspaceReplica.load(scope);
+      const cachedValue = buildMemory(cached);
+      if (cachedValue !== null) {
+        setLocalMemoryDraft(cachedValue);
+        return;
+      }
+      void workspaceSyncEngine.ensureContents(scope, memoSelectionIds)
+        .then(() => workspaceReplica.load(scope))
+        .then((hydrated) => {
+          const value = buildMemory(hydrated);
+          if (value === null) return;
+          setMemoryDrafts((current) => current[nodeId] === priorDraft
+            ? { ...current, [nodeId]: value }
+            : current);
+        })
+        .catch(() => undefined);
     } catch { /* Keep JobCase errors out of the content layout. */ }
   }
 
   async function selectTab(nextTab: JobTab) {
     if (nextTab === tab) return;
-    if (tab === "MEMO" && config && effectiveMemory !== config.memory) {
+    const previousTab = tab;
+    setTab(nextTab);
+    if (previousTab === "MEMO" && config && effectiveMemory !== config.memory) {
       const value = effectiveMemory;
       if (await updateConfig((current) => ({
         ...current, memory: value, memoryNodeIds: [],
@@ -311,25 +376,22 @@ export function JobCase({
         clearLocalMemoryDraft();
       }
     }
-    if (tab === "DATA" && config && effectiveDataSources !== config.dataSources) {
+    if (previousTab === "DATA" && config && effectiveDataSources !== config.dataSources) {
       const value = effectiveDataSources;
       if (await updateConfig((current) => ({ ...current, dataSources: value }))) {
         setDataSourcesDraft({ nodeId, saved: value, value });
       }
     }
-    if (tab === "PRMPT" && config && effectivePrompt !== config.prompt) {
+    if (previousTab === "PRMPT" && config && effectivePrompt !== config.prompt) {
       const value = effectivePrompt;
       if (await updateConfig((current) => ({ ...current, prompt: value }))) {
         setPromptDraft({ nodeId, saved: value, value });
       }
     }
-    setTab(nextTab);
   }
 
   async function resolveCurrentDataSource(value: string) {
-    await workspaceSyncEngine.flush(scope).catch(() => false);
-    const record = await workspaceReplica.load(scope).catch(() => null);
-    const nodes = record?.tree?.document.nodes ?? tree.document.nodes;
+    const nodes = tree.document.nodes;
     const source = resolveDataSource(nodes, value);
     return source ? {
       source,
@@ -340,13 +402,10 @@ export function JobCase({
   async function setDataSourcesFromSelection() {
     if (editingLocked || !config || config.dataSourceNodeIds.length === 0) return;
     try {
-      await workspaceSyncEngine.flush(scope).catch(() => false);
-      let record = await workspaceReplica.load(scope);
+      const record = await workspaceReplica.load(scope);
       const nodes = record?.tree?.document.nodes ?? tree.document.nodes;
       const nodeIds = dataSourceSubtreeIds(nodes, config.dataSourceNodeIds);
-      await workspaceSyncEngine.ensureContents(scope, nodeIds);
-      record = await workspaceReplica.load(scope);
-      const value = serializeDataSources(
+      const cachedValue = serializeDataSources(
         nodes,
         record?.contents ?? {},
         config.dataSourceNodeIds,
@@ -354,8 +413,22 @@ export function JobCase({
       setDataSourcesDraft({
         nodeId,
         saved: config.dataSources,
-        value,
+        value: cachedValue,
       });
+      void workspaceSyncEngine.ensureContents(scope, nodeIds)
+        .then(() => workspaceReplica.load(scope))
+        .then((hydrated) => {
+          const value = serializeDataSources(
+            hydrated?.tree?.document.nodes ?? nodes,
+            hydrated?.contents ?? {},
+            config.dataSourceNodeIds,
+          );
+          setDataSourcesDraft((current) => current.nodeId === nodeId
+            && current.value === cachedValue
+            ? { nodeId, saved: config.dataSources, value }
+            : current);
+        })
+        .catch(() => undefined);
     } catch { /* Keep JobCase errors out of the content layout. */ }
   }
 
@@ -364,7 +437,6 @@ export function JobCase({
     setImportPending(true);
     setImportResult("");
     try {
-      await workspaceSyncEngine.flush(scope);
       let record = await workspaceReplica.load(scope);
       const currentNodes = record?.tree?.document.nodes ?? tree.document.nodes;
       const parentId = importParentNode?.id ?? null;
@@ -429,17 +501,21 @@ export function JobCase({
   }
 
   async function start() {
-    if (!config || busy || cancelPending) return;
+    const prompt = effectivePrompt;
+    if (!config || busy || cancelPending || !prompt.trim()) return;
     try {
+      if (prompt !== config.prompt) {
+        if (!await updateConfig((current) => ({ ...current, prompt }))) return;
+        setPromptDraft({ nodeId, saved: prompt, value: prompt });
+      }
       const run = await jobApi.start(
         workspaceId,
         nodeId,
         crypto.randomUUID(),
         Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       );
-      setSnapshotState((current) => current.nodeId === nodeId && current.value
-        ? { nodeId, value: { ...current.value, activeRun: run, latestRun: run } }
-        : current);
+      const current = snapshotRef.current;
+      if (current) publishSnapshot({ ...current, activeRun: run, latestRun: run });
       void workspaceSyncEngine.flush(scope);
     } catch { /* Keep JobCase errors out of the content layout. */ }
   }
@@ -448,18 +524,18 @@ export function JobCase({
     if (!activeRun || cancelPending) return;
     ignoredRunIds.current.add(activeRun.id);
     setCancelPending(true);
-    setSnapshotState((current) => current.nodeId === nodeId && current.value
-      ? { nodeId, value: { ...current.value, activeRun: null } }
-      : current);
+    const optimistic = snapshotRef.current;
+    if (optimistic) publishSnapshot({ ...optimistic, activeRun: null });
     try {
       await jobApi.cancel(workspaceId, nodeId, activeRun.id);
       const current = await jobApi.read(workspaceId, nodeId);
-      setSnapshotState({ nodeId, value: current });
+      publishSnapshot(current);
       void workspaceSyncEngine.flush(scope);
     } catch {
       ignoredRunIds.current.delete(activeRun.id);
       const current = await jobApi.read(workspaceId, nodeId).catch(() => null);
-      if (current) setSnapshotState({ nodeId, value: current });
+      if (current) publishSnapshot(current);
+      else if (optimistic) publishSnapshot(optimistic);
     } finally {
       setCancelPending(false);
     }
@@ -797,15 +873,15 @@ export function JobCase({
           </div>
         )}
       </div>
-      {tab !== "IMPRT" ? (
+      {tab === "PRMPT" ? (
         <div className={styles.actions}>
           <Button
             {...buttonProps}
             activeColor="COLOR_SUCCESS"
-            disabled={!config || busy || cancelPending}
+            disabled={!config || busy || cancelPending || !effectivePrompt.trim()}
             onClick={() => void start()}
           >
-            {cancelPending ? "Stopping …" : "Start"}
+            Start
           </Button>
           {busy || cancelPending ? (
             <Button

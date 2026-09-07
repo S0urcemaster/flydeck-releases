@@ -17,7 +17,7 @@ export function App() {
   const [site, setSite] = useState<RelaySite | null>(null);
   const [page, setPage] = useState<RelayNodePage | null>(null);
   const [error, setError] = useState<string>();
-  const [selectedId, setSelectedId] = useState(() => readHash());
+  const [selectedPath, setSelectedPath] = useState(() => readPath());
   const navigationRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -36,15 +36,26 @@ export function App() {
     return () => controller.abort();
   }, []);
 
-  const activeNodeId = selectedId ?? site?.roots[0]?.id ?? null;
+  const activePath = selectedPath.length > 0
+    ? selectedPath
+    : site?.roots[0] ? [site.roots[0].localId] : null;
 
   useEffect(() => {
-    if (!activeNodeId) {
+    if (selectedPath.length === 0 && activePath) {
+      window.history.replaceState(null, "", postHref(activePath));
+      setSelectedPath(activePath);
+    }
+  }, [activePath?.join("/"), selectedPath.length]);
+
+  useEffect(() => {
+    if (!activePath) {
       setPage(null);
       return;
     }
     const controller = new AbortController();
-    fetch(`/api/nodes/${encodeURIComponent(activeNodeId)}`, { signal: controller.signal })
+    fetch(`/api/path?value=${encodeURIComponent(activePath.join("/"))}`, {
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Relay One returned ${response.status}.`);
         return response.json() as Promise<RelayNodePage>;
@@ -59,12 +70,34 @@ export function App() {
         }
       });
     return () => controller.abort();
-  }, [activeNodeId]);
+  }, [activePath?.join("/")]);
 
   useEffect(() => {
-    const onHashChange = () => setSelectedId(readHash());
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
+    const onPopState = () => setSelectedPath(readPath());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    const onNavigate = (event: MouseEvent) => {
+      if (event.defaultPrevented
+        || event.button !== 0
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey
+        || !(event.target instanceof Element)) return;
+      const link = event.target.closest<HTMLAnchorElement>("a[data-relay-navigation]");
+      if (!link || link.target || link.hasAttribute("download")) return;
+      const destination = new URL(link.href, window.location.href);
+      if (destination.origin !== window.location.origin) return;
+      event.preventDefault();
+      window.history.pushState(null, "", destination.pathname);
+      setSelectedPath(readPath(destination.pathname));
+      window.scrollTo({ top: 0, behavior: "instant" });
+    };
+    document.addEventListener("click", onNavigate);
+    return () => document.removeEventListener("click", onNavigate);
   }, []);
 
   useLayoutEffect(() => {
@@ -108,7 +141,12 @@ export function App() {
   return (
     <div className="siteShell">
       <header className="siteHeader">
-        <a className="brand" href="#/" aria-label={`${site.title} home`}>
+        <a
+          className="brand"
+          href="/"
+          aria-label={`${site.title} home`}
+          data-relay-navigation
+        >
           <span className="mark" aria-hidden="true">𐦍</span>
           <span>{site.title}</span>
         </a>
@@ -124,10 +162,15 @@ export function App() {
         </aside>
         <main className="postView">
           <nav className="breadcrumbs" aria-label="Breadcrumb">
-            {parents.map((parent) => (
+            {parents.map((parent, index) => (
               <span key={parent.id}>
                 {parent !== parents[0] && <span aria-hidden="true">/</span>}
-                <a href={postHref(parent.id)}>{parent.label}</a>
+                <a
+                  data-relay-navigation
+                  href={postHref(parents.slice(0, index + 1).map(({ localId }) => localId))}
+                >
+                  {parent.label}
+                </a>
               </span>
             ))}
             <span>
@@ -139,7 +182,10 @@ export function App() {
             <header className="postHeader">
               <p className="eyebrow">{parents.length === 0 ? "Publication" : "Post"}</p>
               <h1>{post.label}</h1>
-              <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
+              <ItemDateRange
+                createdAt={post.createdAt}
+                updatedAt={post.updatedAt}
+              />
             </header>
             {post.imageUrl && (
               <FullscreenImage
@@ -156,12 +202,20 @@ export function App() {
               <h2 id="more-posts">{parents.length === 0 ? "Posts" : "Continue browsing"}</h2>
               <div className="postGrid">
                 {post.children.map((child) => (
-                  <a className="postCard" href={postHref(child.id)} key={child.id}>
+                  <a
+                    className="postCard"
+                    data-relay-navigation
+                    href={postHref([...parents, post, child].map(({ localId }) => localId))}
+                    key={child.id}
+                  >
                     {child.imageUrl && (
                       <img src={child.imageUrl} alt="" loading="lazy" />
                     )}
                     <span className="postCardBody">
-                      <time dateTime={child.createdAt}>{formatDate(child.createdAt)}</time>
+                      <ItemDateRange
+                        createdAt={child.createdAt}
+                        updatedAt={child.updatedAt}
+                      />
                       <strong>{child.label}</strong>
                     </span>
                   </a>
@@ -202,7 +256,16 @@ export function PostNavigation({
                 <a
                   aria-current={node.id === selectedId ? "page" : undefined}
                   data-path-selected={node.id === level.activeId || undefined}
-                  href={postHref(node.id)}
+                  data-relay-navigation
+                  href={postHref([
+                    ...levels.slice(0, level.depth).flatMap((ancestorLevel) => {
+                      const active = ancestorLevel.nodes.find(
+                        ({ id }) => id === ancestorLevel.activeId,
+                      );
+                      return active ? [active.localId] : [];
+                    }),
+                    node.localId,
+                  ])}
                 >
                   <span>{node.label}</span>
                   {node.hasChildren && (
@@ -259,6 +322,22 @@ function withLineBreaks(value: string): ReactNode[] {
   ));
 }
 
+export function ItemDateRange({
+  createdAt,
+  updatedAt,
+}: {
+  createdAt: string;
+  updatedAt: string;
+}) {
+  return (
+    <span className="dateRange">
+      <time dateTime={createdAt}>{formatDate(createdAt)}</time>
+      <span aria-hidden="true"> – </span>
+      <time dateTime={updatedAt}>{formatDate(updatedAt)}</time>
+    </span>
+  );
+}
+
 function prettyJson(value: string) {
   try {
     return JSON.stringify(JSON.parse(value), null, 2);
@@ -267,13 +346,16 @@ function prettyJson(value: string) {
   }
 }
 
-function readHash() {
-  const match = /^#\/post\/([0-9a-f-]+)$/i.exec(window.location.hash);
-  return match?.[1] ?? null;
+export function readPath(pathname = window.location.pathname) {
+  try {
+    return pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  } catch {
+    return [];
+  }
 }
 
-function postHref(id: string) {
-  return `#/post/${encodeURIComponent(id)}`;
+export function postHref(localIds: readonly string[]) {
+  return `/${localIds.map(encodeURIComponent).join("/")}`;
 }
 
 function formatDate(value: string) {

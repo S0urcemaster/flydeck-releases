@@ -64,6 +64,23 @@ describe("TreeBrowser", () => {
     expect(markup).not.toContain("Children of plants");
   });
 
+  it("keeps edit-only delete configuration out of the normal ListControl DOM", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      renderToStaticMarkup(
+        <TreeBrowser
+          listControlProps={{ deleteButtonProps: { armedColor: "COLOR_ERROR" } }}
+          model={createModel()}
+        />,
+      );
+
+      expect(consoleError.mock.calls.flat().join(" "))
+        .not.toContain("deleteButtonProps");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("offers the content switch when the virtual root has content", () => {
     const markup = renderToStaticMarkup(
       <TreeBrowser

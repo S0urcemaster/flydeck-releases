@@ -37,6 +37,7 @@ import { PromptInput } from "../components/PromptInput";
 import { CompactButton } from "../components/CompactButton";
 import { ColorDialer } from "../components/ColorDialer";
 import { CompassApp } from "../components/CompassApp";
+import { BlueskyApp } from "../components/BlueskyApp";
 import { PointerButton, type PointerButtonProps } from "../components/PointerButton";
 import { Pointer, type PointerProps } from "../components/Pointer";
 import { CycleButton } from "../components/CycleButton";
@@ -214,6 +215,7 @@ const manifestPreviewComponentNames = [
   "MaintenanceApp",
   "Block",
   "Breadcrumb",
+  "BlueskyApp",
   "CompassApp",
   "CompactButton",
   "ConfigEditor",
@@ -237,6 +239,7 @@ const manifestPreviewComponentNames = [
 ] as const satisfies readonly AppComponentName[];
 const appViewFamilyComponentNames = [
   "AppView",
+  "BlueskyApp",
   "CompassApp",
   "ConfigEditor",
   "DeviceInfoView",
@@ -381,6 +384,7 @@ export function LabApp() {
     Record<AppViewFamilyComponentName, BaseLabValues>
   >({
     AppView: storedComponentProperties.AppView.base,
+    BlueskyApp: storedComponentProperties.BlueskyApp.base,
     CompassApp: storedComponentProperties.CompassApp.base,
     ConfigEditor: storedComponentProperties.ConfigEditor.base,
     DeviceInfoView: storedComponentProperties.DeviceInfoView.base,
@@ -772,6 +776,7 @@ export function LabApp() {
       PressButton: { base: pressButtonBaseValues },
       BackspaceButton: { base: backspaceButtonBaseValues },
       AppView: { base: appViewFamilyBaseValues.AppView },
+      BlueskyApp: { base: appViewFamilyBaseValues.BlueskyApp },
       InlineAppView: { base: inlineAppFamilyBaseValues.InlineAppView },
       BackupApp: { base: inlineAppFamilyBaseValues.BackupApp },
       MaintenanceApp: { base: inlineAppFamilyBaseValues.MaintenanceApp },
@@ -4786,6 +4791,8 @@ function renderManifestComponentPreview(
       return <AppView {...baseProps} title="APP VIEW">Application content</AppView>;
     case "BackupApp":
       return <BackupApp {...baseProps} />;
+    case "BlueskyApp":
+      return <BlueskyApp {...baseProps} />;
     case "MaintenanceApp":
       return <MaintenanceApp {...baseProps} />;
     case "Block":
