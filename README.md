@@ -8,6 +8,19 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 07.09.026 22:30 V2 Beta2 (a09d23b67a91)
+
++ Flydeck Sport App
+
+Now you can store your exercises in your data at home and publish to publish it to Relay One, which has a player
+
+- Relay Core changed
+- Trial accounts added to Relay Two
+
+Sorry: My private Relay One is still mixed in a public software release
+
+Snake3D + Exercise running is still a bit slow
+
 ### 07.09.026 22:30 V2 Beta2 (b28ae4550ab0)
 - Bluesky exporter app Alpha
 Now you can store your data at home and publish to Bluesky what you want
