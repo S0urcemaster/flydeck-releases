@@ -287,6 +287,7 @@ describe("WorkspaceSyncEngine", () => {
         api,
         new WorkspaceSyncStatusStore(false),
         false,
+        5_000,
       );
 
       await engine.submit(scope, {

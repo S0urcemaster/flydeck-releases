@@ -18,7 +18,6 @@ describe("CompassApp", () => {
     );
 
     expect(markup).toContain('data-component-name="CompassApp"');
-    expect(markup).toContain("COMPASS");
     expect(markup).toContain("Ein Spruch");
     expect(markup).toContain('aria-label="Position 1"');
     expect(markup).toContain('aria-label="Move Ein Spruch up"');

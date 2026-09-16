@@ -1,5 +1,7 @@
-relay-one.de {
+relay-one.de, www.relay-one.de {
   encode zstd gzip
+  @private_admin path /admin/*
+  respond @private_admin 404
   reverse_proxy 127.0.0.1:6060
 
   header {
@@ -9,5 +11,30 @@ relay-one.de {
 
   log {
     output file /var/log/caddy/relay-one.access.log
+  }
+}
+
+relay-two.relay-one.de {
+  encode zstd gzip
+
+  @private_admin path /admin/*
+  respond @private_admin 404
+
+  @flydeck path /flydeck /flydeck/*
+  handle @flydeck {
+    reverse_proxy 127.0.0.1:6081
+  }
+
+  handle {
+    reverse_proxy 127.0.0.1:6070
+  }
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    -Server
+  }
+
+  log {
+    output file /var/log/caddy/relay-two.access.log
   }
 }

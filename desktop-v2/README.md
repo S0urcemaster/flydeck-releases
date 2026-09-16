@@ -1,5 +1,11 @@
 # Flydeck Desktop V2
 
+Desktop V2 is a browser application. The former Tauri wrapper has been retired.
+In a Relay installation it is served at `/desktop/` and is reachable only via
+the host owner's Tailscale/WireGuard connection. Authentication is therefore a
+network boundary; the public reverse proxy must not publish `/desktop/` or the
+corresponding administration API.
+
 ## Absicht
 
 `desktop-v2` ist ein neuer, vom mobilen Flydeck getrennter Prototyp fuer

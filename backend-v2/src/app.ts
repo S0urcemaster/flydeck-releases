@@ -70,6 +70,20 @@ export function createApp(
       });
     }
   });
+  if (config.relayAdminUrl) {
+    app.use(`${apiPath}/relay-admin`, async (request, response) => {
+      const upstream = await fetch(`${config.relayAdminUrl}${request.url}`, {
+        method: request.method,
+        headers: request.body === undefined ? undefined : { "content-type": "application/json" },
+        body: request.method === "GET" || request.method === "HEAD"
+          ? undefined : JSON.stringify(request.body),
+      });
+      response.status(upstream.status);
+      const contentType = upstream.headers.get("content-type");
+      if (contentType) response.type(contentType);
+      response.send(Buffer.from(await upstream.arrayBuffer()));
+    });
+  }
   app.get(`${apiPath}/auth/session`, async (request, response) => {
     response.json(await sessions.read(request));
   });
@@ -119,6 +133,18 @@ export function createApp(
     createBackupRouter(sessions, backups),
   );
 
+  if (config.desktopDist) {
+    const desktopBasePath = config.desktopBasePath ?? "/desktop";
+    app.use(
+      desktopBasePath,
+      express.static(config.desktopDist, { index: "index.html" }),
+    );
+    app.use(desktopBasePath, (request, response, next) => {
+      if (request.method !== "GET") return next();
+      response.setHeader("Cache-Control", "no-store");
+      response.sendFile(path.join(config.desktopDist!, "index.html"));
+    });
+  }
   if (config.frontendDist) {
     app.use(
       config.frontendBasePath,

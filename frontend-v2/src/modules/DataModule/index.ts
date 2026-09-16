@@ -1,1 +1,6 @@
-export { DataModule, type DataModuleProps } from "./DataModule";
+export {
+  DataModule,
+  LensModule,
+  type DataModuleProps,
+  type LensModuleProps,
+} from "./DataModule";

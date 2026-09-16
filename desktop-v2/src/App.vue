@@ -9,6 +9,7 @@ import NodeInspector from "./components/NodeInspector.vue";
 import StatusBar from "./components/StatusBar.vue";
 import TimelineWorkspace from "./components/TimelineWorkspace.vue";
 import MindmapWorkspace from "./components/MindmapWorkspace.vue";
+import RelayWorkspace from "./components/RelayWorkspace.vue";
 import { useDataWorkspace } from "./useDataWorkspace";
 
 const workspace = useDataWorkspace();
@@ -29,7 +30,7 @@ const workspace = useDataWorkspace();
         @select="workspace.openModule"
       />
       <DataNavigator
-        v-if="workspace.activeModule.value !== 'APPS'"
+        v-if="workspace.activeModule.value !== 'APPS' && workspace.activeModule.value !== 'RELAY'"
         :active-module="workspace.activeModule.value"
         :loading="workspace.loading.value"
         :data="workspace.navigatorData.value"
@@ -38,12 +39,13 @@ const workspace = useDataWorkspace();
         @select="workspace.focusNode"
       />
       <AppsNavigator
-        v-else
+        v-else-if="workspace.activeModule.value === 'APPS'"
         :active-app-id="workspace.activeAppId.value"
         @select="workspace.selectApp"
       />
+      <RelayWorkspace v-if="workspace.activeModule.value === 'RELAY'" />
       <DataWorkspace
-        v-if="workspace.activeModule.value !== 'APPS'"
+        v-else-if="workspace.activeModule.value !== 'APPS'"
         :active-module="workspace.activeModule.value"
         :active-root="workspace.activeRoot.value"
         :section-title="workspace.sectionTitle.value"
@@ -81,7 +83,7 @@ const workspace = useDataWorkspace();
         :error="workspace.error.value"
       />
       <NodeInspector
-        v-if="workspace.activeModule.value !== 'APPS'"
+        v-if="workspace.activeModule.value !== 'APPS' && workspace.activeModule.value !== 'RELAY'"
         :active-module="workspace.activeModule.value"
         :selected="workspace.selected.value"
         :draft="workspace.editorDraft.value"

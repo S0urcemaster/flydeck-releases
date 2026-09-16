@@ -6,6 +6,105 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
 
 ## Implemented application surface
 
+- `SportApp` is a local exercise pose editor with a lazy-loaded React Three Fiber
+  figure, seven pose/view groups, and keyframes persisted together in one exercise
+  item. Its 3D view is 360px high, shows a floor and room corner, and uses a
+  camera-distance Zoom control so figure proportions remain fixed. Torso, head,
+  feet, and hands use ellipsoid geometry; the ankle angles articulate both feet
+  while the lowest foot point grounds the rig. The Space group now includes a
+  per-keyframe floor X/Y position in meters as its first two controls plus a
+  height value in centimeters. Grounding uses the lowest body
+  point after pitch/roll rotation, so the figure follows the floor when its
+  pose changes and lifts only by the selected height. Older exercise items
+  default this value to zero. The old `head` value controls
+  neck tilt; optional `headTilt` and `headTurn` values bend and rotate the head
+  independently. The neck segment is half its former length and the head has a
+  small hemispherical nose. `torsoTurn` rotates the body above the waist,
+  preserving the pelvis and legs. Both arm groups have a third Shoulder rotation slider
+  that twists the bent forearm around the fixed upper-arm axis. Older pose
+  items default this axis to zero. Each arm has optional wrist bend and elbow
+  rotation values; elbow rotation twists the forearm frame around its own long
+  axis and carries the hand, thumb, and dumbbell. A wrist joint stays fixed at the forearm endpoint while the
+  palm geometry is pivoted at that same fixed point and bends beyond it. Its
+  longitudinal rotation axis follows the forearm only; wrist bend is a
+  separate hinge rotation, so bending cannot move the rotation axis. Shoulder
+  rotation carries the palm's full orientation, thumb, and dumbbell with it. The
+  nose hemisphere is now half its first size.
+  Each knee also has a rotation axis around the lower leg itself; the ankle
+  remains fixed and the whole foot follows that axial rotation. Ankle only
+  flexes the foot.
+  Torso & head offers arm and leg symmetry switches: enabling one copies the
+  left limb to the right, then edits from either side drive both limbs. Head is
+  a separate tab with neck tilt, forward/back head tilt, side tilt, and rotation. Space
+  offers four two-press, red-when-armed pose reset buttons in one row for
+  Standing, face-up Supine, T pose, and Squat; applying one replaces the selected
+  keyframe pose.
+  The player bar now uses its trailing control as a Loop on/off toggle. Loop is
+  enabled initially. The timeline includes a final transition from the last
+  keyframe back to the first, so its wrap at the end is visually continuous;
+  the last keyframe therefore sits one transition before the slider endpoint.
+  With Loop off, playback retains the conventional stop on the last keyframe.
+  Keyframe buttons wrap onto additional rows instead of scrolling horizontally.
+  A separate Speed row below playback stores and shows the exercise-wide time
+  in seconds per keyframe; Relay One uses the same value.
+  A rectangular exercise mat, wall trim, a simple portrait poster, and two
+  small fill lights add scene depth without shadow maps or animated decoration.
+  The former floor circles/rings are removed. The Canvas renders on demand at
+  a capped 1.5 DPR, static room geometry is memoized, limb cylinders use fixed
+  unit geometry, playback follows `requestAnimationFrame`, and the large
+  exercise DataTree skips playback-only rerenders. Playback progress now lives
+  in an isolated player component whose controls are portalled back into their
+  established position below the keyframes. Animation frames therefore update
+  only the figure and timeline; tabs, joint sliders, textarea, and TreeBrowser
+  no longer rerender, and sliders keep showing the selected keyframe values.
+  The exercise mat is 2 × 1 m with its long side running toward the side wall;
+  the portrait poster moved to that wall. A Furniture tab immediately before
+  Body settings stores exercise-level (not keyframe-level) visibility for a
+  table, chair, hand-following dumbbells, wall-mounted bar, and training bench.
+  Table, chair, and bench have floor X/Y position, rotation, and color controls;
+  the table also has height, width, and depth, while the bench has a 0–90°
+  backrest control. Dumbbells sit in the palms at thumb
+  height and have their own size. The wall bar stays on the back wall and has
+  horizontal position, height, and length up to the room width. A movable
+  corner plant is also available. The formerly static mat is furniture with
+  X/Y, rotation, width, depth, and color. The poster is furniture on the side
+  wall with wall position, center height, independently adjustable width, and
+  color; its height remains fixed. Every furniture object has
+  a color picker. Older exercise items load
+  with the added settings at neutral defaults.
+- Relay One recognizes published `flydeck.sport.exercise/v1` JSON and lazy-loads
+  a direct Three.js player instead of displaying its source. The player renders
+  cyclic keyframe interpolation, exercise furniture and optional embedded body
+  metrics, with Play/Pause, timeline, Loop, and persistent horizontal drag/swipe
+  camera rotation. Its Three.js code is isolated in an exercise-only chunk, so
+  ordinary Relay pages do not load the renderer.
+- `SportApp` shows eight color-coded keyframe tabs in a wide two-row grid:
+  View, Space, Torso, and Head above the four limb tabs. A narrow, 25%-smaller
+  column beside them stacks Furniture and Body settings. Body settings
+  tab edits centimeter dimensions for height, hip-to-shoulder distance,
+  shoulder/hip widths, and upper/lower arms and legs. Arm and leg lengths are
+  paired in the two-column control grid. These values change the same fixed-proportion rig
+  in every pose and are persisted through the optimistic workspace replica in
+  the selected exercise datasource at `/_user/metrics` (local IDs). Existing
+  sources without metrics use neutral defaults until the user edits a setting.
+  Shoulder forward/back sliders span −90° to 190°, the anatomical left thumb
+  faces inward, and the editor camera frames the figure about ten percent lower.
+- The first keyframe tab is View, with orbit Angle, camera Height, and Zoom.
+  These values are stored and interpolated per keyframe, so an exercise can
+  animate its camera. Horizontal dragging edits the selected keyframe's Angle
+  directly and no longer returns after a delay. Double-clicking the view resets
+  all three camera values; Relay One resets its manual orbit offset. Older exercises receive the
+  former neutral camera defaults while parsing.
+  View also has a two-press safety reset that copies the selected keyframe's
+  three camera values to every keyframe in the exercise.
+- The shared `TreeBrowser` offers Duplicate immediately left of Delete for a
+  selected item, including its editable name row. Duplicate uses the two-press
+  arm pattern: its idle surface is the yellow theme surface, the first press
+  turns it error-red and announces confirmation, and the second press copies.
+  It creates a free `Name copy` / `Name copy 2` sibling containing the source
+  item's data or DATA source text, with an empty child list. The DATA browser
+  queues creation and content copying through the optimistic workspace replica.
+
 - `BlockingDialog` remains the reusable modal interaction boundary for initial
   session loading and login. Synchronization failures no longer open a modal or
   make `AppShell` inert; they remain visible in the noninteractive

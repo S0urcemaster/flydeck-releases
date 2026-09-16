@@ -13,6 +13,7 @@ ssh_options=(-F "$ssh_config" -o BatchMode=yes -o ConnectTimeout=8)
 cd "$project_root"
 npm test --workspace flydeck-relayone
 npm run build --workspace flydeck-relayone
+npm ci --prefix "$project_root/relayone" --omit=dev --no-audit --no-fund --dry-run --workspaces=false --loglevel=error >/dev/null
 
 ssh "${ssh_options[@]}" "$deploy_host" "test \"\$(systemctl is-active postgresql)\" = active; mkdir -p '$release_dir'"
 rsync -az --delete \
@@ -20,6 +21,13 @@ rsync -az --delete \
   --exclude='.env' \
   --exclude='node_modules/' \
   "$project_root/relayone/" "$deploy_host:$release_dir/"
+
+rsync -az -e "ssh -F $ssh_config -o BatchMode=yes -o ConnectTimeout=8" \
+  "$project_root/deploy/netcup/activate-relayone-federation.sh" \
+  "$deploy_host:/home/sntr/activate-relayone-federation.sh"
+rsync -az -e "ssh -F $ssh_config -o BatchMode=yes -o ConnectTimeout=8" \
+  "$project_root/deploy/netcup/Caddyfile.relay-one" \
+  "$deploy_host:/home/sntr/Caddyfile.relay-one"
 
 ssh "${ssh_options[@]}" "$deploy_host" \
   "set -eu

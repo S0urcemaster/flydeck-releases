@@ -14,6 +14,7 @@ export type BrowserItemProps = BaseStyleProps & {
   checkboxColor?: string;
   checked: boolean;
   label: string;
+  displayLabel?: string;
   itemNumber: number;
   selected?: boolean;
   onCheckedChange: (checked: boolean) => void;
@@ -34,6 +35,7 @@ export function BrowserItem({
   checkboxColor,
   checked,
   label,
+  displayLabel,
   itemNumber,
   selected = false,
   onCheckedChange,
@@ -80,6 +82,7 @@ export function BrowserItem({
             activeColor={activeColor}
             background={background}
             selected={selected}
+            aria-label={displayLabel && displayLabel !== label ? label : undefined}
             onPointerDown={(event) => {
               const configuredPointerDown = labelButtonProps?.onPointerDown
                 ?? buttonProps?.onPointerDown;
@@ -91,7 +94,7 @@ export function BrowserItem({
               if (!event.defaultPrevented) onSelect?.();
             }}
           >
-            {label}
+            {displayLabel ?? label}
           </BrowserItemLabelButton>
         </Base>
   );

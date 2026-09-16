@@ -1,0 +1,9 @@
+.git
+.agents
+.codex
+node_modules
+**/node_modules
+**/dist
+**/.env
+backend-v2/backups
+deploy/relay-node/.env

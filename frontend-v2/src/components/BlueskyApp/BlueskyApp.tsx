@@ -126,7 +126,6 @@ export function BlueskyApp({
       accessMode="read"
       componentName="BlueskyApp"
       onDataSourceResolved={setDataSource}
-      title="BLUESKY"
     >
       <div className={styles.connection}>
         {connection.connected ? (
@@ -196,6 +195,7 @@ export function BlueskyApp({
                 key={`${root.id}:${content?.revision ?? 0}`}
                 source={content?.content ?? ""}
                 sourceNodeId={root.id}
+                title={root.label}
                 textareaProps={textareaProps}
                 buttonProps={buttonProps}
                 workspaceId={workspaceId}
@@ -210,6 +210,7 @@ export function BlueskyApp({
                 key={`${sourceNodeId}:${content?.revision ?? 0}`}
                 source={content?.content ?? ""}
                 sourceNodeId={sourceNodeId}
+                title={node.label}
                 textareaProps={textareaProps}
                 buttonProps={buttonProps}
                 workspaceId={workspaceId}
@@ -227,18 +228,20 @@ export function BlueskyApp({
 export function BlueskyTransformer({
   source,
   sourceNodeId,
+  title,
   textareaProps,
   buttonProps,
   workspaceId,
 }: {
   source: string;
   sourceNodeId: string;
+  title: string;
   textareaProps?: TextareaProps;
   buttonProps?: Omit<ButtonProps, "children" | "onClick">;
   workspaceId?: string;
 }) {
   const [posts, setPosts] = useState(() => splitBlueskyPosts(source));
-  const [numberThread, setNumberThread] = useState(true);
+  const [titleIncluded, setTitleIncluded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState("");
   const [imageVisible, setImageVisible] = useState(true);
@@ -255,8 +258,11 @@ export function BlueskyTransformer({
 
   return (
     <div className={styles.posts} aria-label="Bluesky posts">
-      <Button {...buttonProps} selected={numberThread} onClick={() => setNumberThread((value) => !value)}>
-        Number thread
+      <Button {...buttonProps} selected={titleIncluded} onClick={() => {
+        setPosts((current) => setBlueskyTitleIncluded(current, title, !titleIncluded));
+        setTitleIncluded((value) => !value);
+      }}>
+        Include Title
       </Button>
       {workspaceId && imageVisible ? (
         <div className={styles.imagePreviewFrame}>
@@ -301,9 +307,7 @@ export function BlueskyTransformer({
         disabled={!workspaceId || submitting || posts.every((post) => !post.trim())}
         onClick={() => {
           if (!workspaceId) return;
-          const output = numberThread
-            ? createNumberedBlueskyThread(posts)
-            : posts.map((post) => post.trim()).filter(Boolean);
+          const output = posts.map((post) => post.trim()).filter(Boolean);
           setSubmitting(true); setSubmitStatus("");
           void v2Api.publishBlueskyThread(workspaceId, output, sourceNodeId).then(({ posts: published }) => {
             setSubmitStatus(`${published.length} post${published.length === 1 ? "" : "s"} submitted.`);
@@ -355,18 +359,17 @@ export function updateBlueskyPosts(
   return nonEmpty.length > 0 ? nonEmpty : [""];
 }
 
-export function createNumberedBlueskyThread(posts: readonly string[]): string[] {
-  const source = posts.map((post) => post.trim()).filter(Boolean).join("\n");
-  if (!source) return [];
-  let total = 1;
-  for (;;) {
-    const reserved = graphemeLength(` (${total}/${total})`);
-    const chunks = splitBlueskyPosts(source, blueskyPostLength - reserved);
-    if (chunks.length === total) {
-      return chunks.map((post, index) => `${post} (${index + 1}/${total})`);
-    }
-    total = chunks.length;
-  }
+export function setBlueskyTitleIncluded(
+  posts: readonly string[],
+  title: string,
+  included: boolean,
+): string[] {
+  const prefix = `${title.trim()}\n\n`;
+  if (!prefix.trim() || posts.length === 0) return [...posts];
+  const completeText = posts.map((post) => post.trim()).filter(Boolean).join(" ");
+  if (included) return splitBlueskyPosts(`${prefix}${completeText}`);
+  if (!completeText.startsWith(prefix)) return [...posts];
+  return splitBlueskyPosts(completeText.slice(prefix.length));
 }
 
 export function graphemeLength(value: string) {

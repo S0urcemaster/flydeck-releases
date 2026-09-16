@@ -21,5 +21,11 @@ export async function requireWorkspaceAccess(
   if (write && workspace.role === "viewer") {
     throw new HttpError(403, "FORBIDDEN", "Workspace is read-only for this user");
   }
-  return { workspaceId, userId: session.user.id, role: workspace.role };
+  return {
+    workspaceId,
+    userId: session.user.id,
+    accountType: session.user.accountType,
+    role: workspace.role,
+    capabilities: session.capabilities,
+  };
 }

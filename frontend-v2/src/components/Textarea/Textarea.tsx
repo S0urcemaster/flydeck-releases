@@ -28,7 +28,7 @@ export type TextareaProps = Omit<BaseProps<"textarea">, "as"> & {
     "fontStage" | "layout" | "onClose" | "onFontStageChange" | "targetRef"
   >;
   resize?: "none" | "vertical";
-  size?: "standard" | "large" | "properties" | "fill";
+  size?: "standard" | "large" | "properties" | "compact" | "fill";
 };
 
 export function Textarea({

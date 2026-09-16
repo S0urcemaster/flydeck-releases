@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -12,28 +14,40 @@ import type {
   RelayNodePage,
 } from "../shared/contracts";
 import { FullscreenImage } from "./FullscreenImage";
+import { isSportExerciseContent } from "./SportPlayerData";
+
+const SportPlayer = lazy(() => import("./SportPlayer").then((module) => ({ default: module.SportPlayer })));
 
 export function App() {
+  const initialLocation = readRelayLocation();
+  const [peerId, setPeerId] = useState<string | null>(initialLocation.peerId);
+  const [peers, setPeers] = useState<Array<{ id: string; nodeId: string; title: string }>>([]);
   const [site, setSite] = useState<RelaySite | null>(null);
   const [page, setPage] = useState<RelayNodePage | null>(null);
   const [error, setError] = useState<string>();
-  const [selectedPath, setSelectedPath] = useState(() => readPath());
+  const [selectedPath, setSelectedPath] = useState(initialLocation.path);
+  const [showcaseMode, setShowcaseMode] = useState(false);
   const navigationRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/site", { signal: controller.signal })
+    fetch(peerId ? `/api/peers/${encodeURIComponent(peerId)}/site` : "/api/site", { signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`Relay One returned ${response.status}.`);
+        if (!response.ok) throw new Error(`Relay node returned ${response.status}.`);
         return response.json() as Promise<RelaySite>;
       })
       .then((value) => setSite(normalizeRelaySite(value)))
       .catch((reason: unknown) => {
         if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : "Relay One is unavailable.");
+          setError(reason instanceof Error ? reason.message : "Relay node is unavailable.");
         }
       });
     return () => controller.abort();
+  }, [peerId]);
+
+  useEffect(() => {
+    fetch("/api/peers").then((response) => response.ok ? response.json() : [])
+      .then((value) => setPeers(value));
   }, []);
 
   const activePath = selectedPath.length > 0
@@ -41,8 +55,12 @@ export function App() {
     : site?.roots[0] ? [site.roots[0].localId] : null;
 
   useEffect(() => {
+    if (site?.title) document.title = site.title;
+  }, [site?.title]);
+
+  useEffect(() => {
     if (selectedPath.length === 0 && activePath) {
-      window.history.replaceState(null, "", postHref(activePath));
+      window.history.replaceState(null, "", postHref(activePath, peerId));
       setSelectedPath(activePath);
     }
   }, [activePath?.join("/"), selectedPath.length]);
@@ -53,11 +71,11 @@ export function App() {
       return;
     }
     const controller = new AbortController();
-    fetch(`/api/path?value=${encodeURIComponent(activePath.join("/"))}`, {
+    fetch(`${peerId ? `/api/peers/${encodeURIComponent(peerId)}` : "/api"}/path?value=${encodeURIComponent(activePath.join("/"))}`, {
       signal: controller.signal,
     })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`Relay One returned ${response.status}.`);
+        if (!response.ok) throw new Error(`Relay node returned ${response.status}.`);
         return response.json() as Promise<RelayNodePage>;
       })
       .then((value) => {
@@ -70,10 +88,12 @@ export function App() {
         }
       });
     return () => controller.abort();
-  }, [activePath?.join("/")]);
+  }, [activePath?.join("/"), peerId]);
 
   useEffect(() => {
-    const onPopState = () => setSelectedPath(readPath());
+    const onPopState = () => {
+      const location = readRelayLocation(); setPeerId(location.peerId); setSelectedPath(location.path);
+    };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -93,8 +113,8 @@ export function App() {
       if (destination.origin !== window.location.origin) return;
       event.preventDefault();
       window.history.pushState(null, "", destination.pathname);
-      setSelectedPath(readPath(destination.pathname));
-      window.scrollTo({ top: 0, behavior: "instant" });
+      const location = readRelayLocation(destination.pathname);
+      setPeerId(location.peerId); setSelectedPath(location.path);
     };
     document.addEventListener("click", onNavigate);
     return () => document.removeEventListener("click", onNavigate);
@@ -114,13 +134,13 @@ export function App() {
     return (
       <main className="statusPage">
         <span className="mark" aria-hidden="true">𐦍</span>
-        <h1>Relay One</h1>
+        <h1>{site?.title ?? "Relay Node"}</h1>
         <p>{error}</p>
       </main>
     );
   }
   if (!site) {
-    return <main className="statusPage" aria-busy="true">Loading Relay One…</main>;
+    return <main className="statusPage" aria-busy="true">Loading Relay…</main>;
   }
 
   if (site.roots.length === 0) {
@@ -140,47 +160,66 @@ export function App() {
   const { post, parents } = page;
   return (
     <div className="siteShell">
-      <header className="siteHeader">
-        <a
-          className="brand"
-          href="/"
-          aria-label={`${site.title} home`}
-          data-relay-navigation
-        >
-          <span className="mark" aria-hidden="true">𐦍</span>
-          <span>{site.title}</span>
-        </a>
+      <header className={`siteHeader${showcaseMode ? " siteHeaderShowcase" : ""}`}>
+        <div className="brand">
+          <button
+          className="mark logoToggle"
+          aria-label={showcaseMode ? "Show Relay One interface" : "Show background animation"}
+          aria-pressed={showcaseMode}
+          onClick={(event) => {
+            event.preventDefault();
+            setShowcaseMode((visible) => !visible);
+          }}
+          >
+            <span className="logoHalf logoHalfLeft" aria-hidden="true">𐦍</span>
+            <span className="logoHalf logoHalfRight" aria-hidden="true">𐦍</span>
+          </button>
+          {!showcaseMode && <a className="brandTitle" href="/" data-relay-navigation>{site.title}</a>}
+        </div>
+        {!showcaseMode && <nav className="appLinks" aria-label="Relay One apps">
+          <h3 className="appLinksLabel">Digi Craft Apps:</h3>
+          <a href="https://relay-two.relay-one.de/flydeck/" rel="noreferrer" target="_blank"><h3>Flydeck Trial</h3></a>
+          <a href="https://apps.relay-one.de/webdictate" rel="noreferrer" target="_blank"><h3>Web Dictate</h3></a>
+          <a href="https://apps.relay-one.de/textor" rel="noreferrer" target="_blank"><h3>Textor</h3></a>
+        </nav>}
+        {!showcaseMode && peers.length > 0 && <nav className="relayLinks" aria-label="Connected relays">
+          {peers.map((peer) => <a data-relay-navigation href={`/@/${encodeURIComponent(peer.id)}/`} key={peer.id}>{peer.title}</a>)}
+        </nav>}
+        {!showcaseMode && <>
+          <hr className="headerDivider" />
+          <nav className="breadcrumbs" aria-label="Breadcrumb">
+        {parents.map((parent, index) => (
+          <span key={parent.id}>
+            {parent !== parents[0] && <span aria-hidden="true">/</span>}
+            <a
+              data-relay-navigation
+              href={postHref(parents.slice(0, index + 1).map(({ localId }) => localId), peerId)}
+            >
+              {parent.label}
+            </a>
+          </span>
+        ))}
+        <span>
+          {parents.length > 0 && <span aria-hidden="true">/</span>}
+          <span aria-current="page">{post.label}</span>
+        </span>
+          </nav>
+        </>}
       </header>
+      {!showcaseMode && <>
       <div className="publication">
         <aside className="postNavigation" aria-label="Published data">
           <nav ref={navigationRef}>
             <PostNavigation
               levels={page.levels}
               selectedId={post.id}
+              peerId={peerId}
             />
           </nav>
         </aside>
         <main className="postView">
-          <nav className="breadcrumbs" aria-label="Breadcrumb">
-            {parents.map((parent, index) => (
-              <span key={parent.id}>
-                {parent !== parents[0] && <span aria-hidden="true">/</span>}
-                <a
-                  data-relay-navigation
-                  href={postHref(parents.slice(0, index + 1).map(({ localId }) => localId))}
-                >
-                  {parent.label}
-                </a>
-              </span>
-            ))}
-            <span>
-              {parents.length > 0 && <span aria-hidden="true">/</span>}
-              <span aria-current="page">{post.label}</span>
-            </span>
-          </nav>
-          <article>
+          <article data-tone={parents.length % 2 === 0 ? "green" : "blue"}>
             <header className="postHeader">
-              <p className="eyebrow">{parents.length === 0 ? "Publication" : "Post"}</p>
               <h1>{post.label}</h1>
               <ItemDateRange
                 createdAt={post.createdAt}
@@ -198,14 +237,13 @@ export function App() {
             <PostContent post={post} />
           </article>
           {post.children.length > 0 && (
-            <section className="childPosts" aria-labelledby="more-posts">
-              <h2 id="more-posts">{parents.length === 0 ? "Posts" : "Continue browsing"}</h2>
+            <section className="childPosts" aria-label="Child posts">
               <div className="postGrid">
                 {post.children.map((child) => (
                   <a
                     className="postCard"
                     data-relay-navigation
-                    href={postHref([...parents, post, child].map(({ localId }) => localId))}
+                    href={postHref([...parents, post, child].map(({ localId }) => localId), peerId)}
                     key={child.id}
                   >
                     {child.imageUrl && (
@@ -225,7 +263,8 @@ export function App() {
           )}
         </main>
       </div>
-      <footer>Relay One by Digi Craft</footer>
+      <footer>{site.title} by Digi Craft</footer>
+      </>}
     </div>
   );
 }
@@ -237,16 +276,18 @@ export function normalizeRelaySite(site: RelaySite): RelaySite {
 export function PostNavigation({
   levels,
   selectedId,
+  peerId,
 }: {
   levels: RelayNavigationLevel[];
   selectedId: string;
+  peerId?: string | null;
 }) {
   return (
     <div className="treeLevels">
       {levels.map((level) => (
         <section
           className="treeLevel"
-          data-tone={level.depth % 2 === 0 ? "green" : "orange"}
+          data-tone={level.depth % 2 === 0 ? "green" : "blue"}
           aria-label={`Data level ${level.depth + 1}`}
           key={level.depth}
         >
@@ -265,7 +306,7 @@ export function PostNavigation({
                       return active ? [active.localId] : [];
                     }),
                     node.localId,
-                  ])}
+                  ], peerId)}
                 >
                   <span>{node.label}</span>
                   {node.hasChildren && (
@@ -288,6 +329,9 @@ export function PostNavigation({
 
 function PostContent({ post }: { post: RelayPost }) {
   if (!post.content.trim()) return null;
+  if (isSportExerciseContent(post.content)) {
+    return <Suspense fallback={<div className="sportPlayerLoading" aria-busy="true">Loading exercise player…</div>}><SportPlayer content={post.content} /></Suspense>;
+  }
   if (post.format === "json") {
     return <pre className="postContent jsonContent">{prettyJson(post.content)}</pre>;
   }
@@ -347,15 +391,23 @@ function prettyJson(value: string) {
 }
 
 export function readPath(pathname = window.location.pathname) {
+  return readRelayLocation(pathname).path;
+}
+
+export function readRelayLocation(pathname = window.location.pathname) {
   try {
-    return pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    const parts = pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    return parts[0] === "@" && parts[1]
+      ? { peerId: parts[1], path: parts.slice(2) }
+      : { peerId: null, path: parts };
   } catch {
-    return [];
+    return { peerId: null, path: [] };
   }
 }
 
-export function postHref(localIds: readonly string[]) {
-  return `/${localIds.map(encodeURIComponent).join("/")}`;
+export function postHref(localIds: readonly string[], peerId?: string | null) {
+  const prefix = peerId ? `/@/${encodeURIComponent(peerId)}` : "";
+  return `${prefix}/${localIds.map(encodeURIComponent).join("/")}`;
 }
 
 function formatDate(value: string) {

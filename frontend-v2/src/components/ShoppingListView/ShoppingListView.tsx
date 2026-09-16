@@ -17,7 +17,6 @@ export function ShoppingListView({
     <AppView
       {...appViewProps}
       componentName="ShoppingListView"
-      title="SHOPPING LIST"
     >
       {categories.map((category) => (
         <div key={category.id} className={styles.category}>

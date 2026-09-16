@@ -81,13 +81,17 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
   browserLabel?: string;
   defaultPageSize?: ListControlListSize;
   rootPageSize?: ListControlListSize;
+  fixedRootPageSize?: ListControlListSize;
+  maxDepth?: number;
   model: TreeBrowserModel<TContent>;
   rootListEditable?: boolean;
   rootListItemLimit?: number;
   rootLabel?: string;
+  newNodeName?: string;
   menuVisible?: boolean;
   leafListsVisible?: boolean;
   itemRenameVisible?: boolean;
+  formatItemLabel?: (node: TreeBrowserNode<TContent>) => string;
   structureManagedExternally?: boolean;
   selectionActiveColor?: string;
   initialSelectedPath?: string[];
@@ -167,6 +171,13 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     nodeId: string,
     userCommandId?: string,
   ) => boolean | void | Promise<boolean | void>;
+  onDuplicateNode?: (
+    nodeId: string,
+    parentId: string | null,
+    afterNodeId: string | null,
+    label: string,
+  ) => TreeBrowserNode<TContent> | false | void
+    | Promise<TreeBrowserNode<TContent> | false | void>;
   onSelectedPathChange?: (
     selectedPath: string[],
   ) => boolean | void | Promise<boolean | void>;
@@ -186,6 +197,7 @@ export type TreeBrowserProps<TContent = unknown> = BaseStyleProps & {
     | "showModeButton"
     | "showPageButtons"
     | "childPageSize"
+    | "newItemName"
     | "selectedName"
   > & Pick<
     ListControlInputProps,
@@ -203,13 +215,17 @@ export function TreeBrowser<TContent = unknown>({
   browserLabel = "Tree browser",
   defaultPageSize = 4,
   rootPageSize = defaultPageSize,
+  fixedRootPageSize,
+  maxDepth,
   model,
   rootListEditable = true,
   rootListItemLimit,
   rootLabel = "root",
+  newNodeName,
   menuVisible = true,
   leafListsVisible = true,
   itemRenameVisible = true,
+  formatItemLabel,
   structureManagedExternally = false,
   selectionActiveColor,
   initialSelectedPath,
@@ -238,6 +254,7 @@ export function TreeBrowser<TContent = unknown>({
   onMoveNode,
   onReparentNode,
   onDeleteNode,
+  onDuplicateNode,
   onSelectedPathChange,
   onPageSizesChange,
   listControlProps,
@@ -558,8 +575,10 @@ export function TreeBrowser<TContent = unknown>({
       null,
       normalizedSearch,
     );
-    const pageSize = pageSizes[parentId]
-      ?? (parentId === rootId ? rootPageSize : defaultPageSize);
+    const pageSize = parentId === rootId && fixedRootPageSize
+      ? fixedRootPageSize
+      : pageSizes[parentId]
+        ?? (parentId === rootId ? rootPageSize : defaultPageSize);
     const pageCount = Math.max(1, Math.ceil(filteredNodes.length / pageSize));
     const page = Math.min(pages[parentId] ?? 0, pageCount - 1);
     const visibleNodes = filteredNodes.slice(
@@ -589,6 +608,8 @@ export function TreeBrowser<TContent = unknown>({
     const selectedNodeDeletable = Boolean(selectedNode && (
       canDeleteNode?.(selectedNode, parentNode) ?? listEditable
     ));
+    const selectedNodeDuplicable = Boolean(selectedNode && listEditable
+      && nodes.length < effectiveListItemLimit && canCreateNode(parentId));
     const selectedIndex = nodes.findIndex(({ id }) => id === selectedId);
     const canMoveUp = selectedNode ? canMoveNode(selectedNode, -1, nodes) : false;
     const canMoveDown = selectedNode ? canMoveNode(selectedNode, 1, nodes) : false;
@@ -630,6 +651,26 @@ export function TreeBrowser<TContent = unknown>({
         return;
       }
       insertNode(createNode(name, parentId));
+    }
+
+    async function duplicateSelected() {
+      if (!selectedNode || !selectedBrowserNode || !selectedNodeDuplicable) return;
+      const label = createDuplicateItemName(selectedNode.label, nodes);
+      if (onDuplicateNode) {
+        const confirmed = await onDuplicateNode(
+          selectedNode.id,
+          parentId === rootId ? null : parentId,
+          selectedNode.id,
+          label,
+        );
+        if (!confirmed) return;
+        insertNode(confirmed);
+        await selectNode(depth, confirmed.id);
+        return;
+      }
+      const copy = duplicateTreeBrowserItem(selectedBrowserNode, nodes, label);
+      insertNode(copy);
+      await selectNode(depth, copy.id);
     }
 
     function insertNode(node: TreeBrowserNode<TContent>) {
@@ -718,6 +759,7 @@ export function TreeBrowser<TContent = unknown>({
         checkboxProps={browserItemProps?.checkboxProps}
         deleteButtonProps={configuredDeleteButtonProps}
         deleteEnabled={selectedNodeDeletable}
+        duplicateEnabled={selectedNodeDuplicable}
         deleteLabel={selectedNode?.label}
         editable={listEditable}
         inputProps={configuredListInputProps}
@@ -744,6 +786,7 @@ export function TreeBrowser<TContent = unknown>({
         onDelete={selectedNode
           ? () => removeNodes([selectedNode.id])
           : undefined}
+        onDuplicate={selectedNode ? duplicateSelected : undefined}
         onRename={listEditable && selectedNode ? renameSelected : undefined}
         selectedName={selectedNode?.label}
       />
@@ -757,6 +800,7 @@ export function TreeBrowser<TContent = unknown>({
           itemLimit={effectiveListItemLimit}
           itemNames={nodes.map(({ label }) => label)}
           newItemCount={nodes.length}
+          newItemName={newNodeName}
           selectedName={ownerName}
           inputProps={configuredListInputProps}
           newButtonProps={configuredNewButtonProps}
@@ -911,6 +955,7 @@ export function TreeBrowser<TContent = unknown>({
                       checked={checked}
                       key={node.id}
                       label={node.label}
+                      displayLabel={formatItemLabel?.(renderedNode)}
                       itemNumber={nodes.findIndex(({ id }) => id === node.id) + 1}
                       selected={node.id === selectedId
                         && node.id !== suppressSelectedItemId}
@@ -943,6 +988,17 @@ export function TreeBrowser<TContent = unknown>({
                     return (
                       <div className={styles.selectedItem} key={node.id}>
                         {browserItem}
+                        <DeleteButton
+                          {...listControlProps?.buttonProps}
+                          {...configuredDeleteButtonProps}
+                          action="duplicate"
+                          armedColor="COLOR_ERROR"
+                          confirmation
+                          children={undefined}
+                          disabled={!selectedNodeDuplicable}
+                          label={node.label}
+                          onDelete={duplicateSelected}
+                        />
                         <DeleteButton
                           {...listControlProps?.buttonProps}
                           {...configuredDeleteButtonProps}
@@ -983,6 +1039,7 @@ export function TreeBrowser<TContent = unknown>({
               </div>
             </div>
             {selectedNode && !inlineContentVisible
+              && (maxDepth === undefined || depth + 1 < maxDepth)
               && (leafListsVisible || selectedNode.children.length > 0) ? (
               <div className={styles.childListFrame}>
                 {renderLevel(
@@ -1248,6 +1305,39 @@ function createNodeId(parentId: string, name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   return `${parentId}:${slug || "item"}`;
+}
+
+export function createDuplicateItemName(
+  sourceName: string,
+  siblings: readonly { label: string }[],
+): string {
+  const taken = new Set(siblings.map((node) => node.label.trim().toLocaleLowerCase()));
+  for (let number = 1; number <= 999; number += 1) {
+    const suffix = number === 1 ? " copy" : ` copy ${number}`;
+    const name = `${sourceName.trim().slice(0, 200 - suffix.length).trimEnd()}${suffix}`;
+    if (!taken.has(name.toLocaleLowerCase())) return name;
+  }
+  throw new Error("No duplicate item name is available");
+}
+
+export function duplicateTreeBrowserItem<TContent>(
+  source: TreeBrowserNode<TContent>,
+  siblings: readonly { id: string; label: string; localId?: string }[],
+  label = createDuplicateItemName(source.label, siblings),
+): TreeBrowserNode<TContent> {
+  return {
+    ...source,
+    id: globalThis.crypto.randomUUID(),
+    label,
+    localId: createTreeNodeLocalId(
+      label,
+      siblings.map((sibling) => sibling.localId ?? sibling.id),
+    ),
+    data: source.data === undefined
+      ? undefined : globalThis.structuredClone(source.data),
+    contentVisible: true,
+    children: [],
+  };
 }
 
 export function mapTree<TNode extends { id: string; children: TNode[] }>(

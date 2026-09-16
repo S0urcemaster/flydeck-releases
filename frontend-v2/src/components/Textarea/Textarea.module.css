@@ -82,6 +82,10 @@
   line-height: 1.4;
 }
 
+.root[data-size="compact"] {
+  min-height: 0;
+}
+
 .root[data-size="fill"] {
   width: 100%;
   height: 100%;

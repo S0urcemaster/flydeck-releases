@@ -16,6 +16,7 @@ import {
 } from "@flydeck/shared/v2";
 import { randomUUID } from "node:crypto";
 import type { Database, Queryable } from "../db/database.js";
+import { assertTreeItemCapacity, type AccountType } from "../auth/accountPolicy.js";
 import { HttpError } from "../http/HttpError.js";
 
 type TreeRow = { id: string; workspace_id: string; kind: "data" | "config"; revision: string | number };
@@ -203,6 +204,7 @@ export class TreeService {
       }
       const tree = await findTreeForUpdate(client, workspaceId, "data");
       assertRevision(tree.revision, input.expectedTreeRevision, "Tree");
+      await assertAccountTreeItemLimit(client, userId, tree.id);
       await assertWritableParent(client, tree.id, input.parentId);
       await assertAgentNodeParent(client, tree.id, input.kind, input.parentId);
       await assertLocalIdAvailable(
@@ -976,6 +978,32 @@ export class TreeService {
           `, [result.rows[0].id]);
         }
       }
+      const lensDirectory = await client.query<{ id: string }>(`
+        INSERT INTO tree_nodes (
+          id, tree_id, parent_id, kind, label, local_id, position,
+          content_editable, list_editable
+        )
+        SELECT $1, $2, system.id, 'system-directory', 'Lens', 'lens',
+          COALESCE((SELECT max(position) + 1 FROM tree_nodes sibling
+            WHERE sibling.parent_id = system.id), 0),
+          false, true
+        FROM tree_nodes system
+        WHERE system.tree_id = $2 AND system.parent_id IS NULL
+          AND system.kind = 'system-directory' AND system.local_id = '_system'
+          AND NOT EXISTS (
+            SELECT 1 FROM tree_nodes existing
+            WHERE existing.tree_id = $2 AND existing.parent_id = system.id
+              AND existing.local_id = 'lens'
+          )
+        RETURNING id
+      `, [randomUUID(), tree.rows[0].id]);
+      if (lensDirectory.rows[0]) {
+        changed = true;
+        await client.query(`
+          INSERT INTO node_contents (node_id, format, content)
+          VALUES ($1, 'text', '')
+        `, [lensDirectory.rows[0].id]);
+      }
       const normalized = await client.query<{ id: string }>(`
         WITH ordered AS (
           SELECT id, row_number() OVER (
@@ -1190,6 +1218,35 @@ async function insertionPosition(
       AND kind IN ('system-directory', 'trash-directory')
   `, [treeId, parentId]);
   return Math.min(position, protectedPosition.rows[0].position ?? position);
+}
+
+async function assertAccountTreeItemLimit(
+  client: Queryable,
+  userId: string,
+  treeId: string,
+) {
+  const result = await client.query<{
+    account_type: AccountType;
+    item_count: string | number;
+  }>(`
+    WITH RECURSIVE user_nodes AS (
+      SELECT id
+      FROM tree_nodes
+      WHERE tree_id = $2 AND parent_id IS NULL AND local_id <> '_system'
+      UNION ALL
+      SELECT child.id
+      FROM tree_nodes child
+      JOIN user_nodes parent ON parent.id = child.parent_id
+      WHERE child.tree_id = $2
+    )
+    SELECT users.account_type, COUNT(user_nodes.id)::integer AS item_count
+    FROM users
+    LEFT JOIN user_nodes ON true
+    WHERE users.id = $1
+    GROUP BY users.account_type
+  `, [userId, treeId]);
+  const policy = result.rows[0];
+  if (policy) assertTreeItemCapacity(policy.account_type, Number(policy.item_count));
 }
 
 async function bumpTree(client: Queryable, treeId: string) {

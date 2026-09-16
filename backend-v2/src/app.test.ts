@@ -108,6 +108,8 @@ describe("backend-v2 HTTP foundation", () => {
       rows: [{
         user_id: userId,
         display_name: "Sean",
+        account_type: "personal",
+        usage_logging: false,
         workspace_id: workspaceId,
         workspace_name: "Home",
         role: "owner",
@@ -121,7 +123,8 @@ describe("backend-v2 HTTP foundation", () => {
     expect(response.body).toEqual({
       authenticated: true,
       loginRequired: true,
-      user: { id: userId, displayName: "Sean" },
+      user: { id: userId, displayName: "Sean", accountType: "personal" },
+      capabilities: { agents: true, images: true, integrations: true, usageLogging: false },
       workspaces: [{ id: workspaceId, name: "Home", role: "owner" }],
     });
     expect(db.query).toHaveBeenCalledWith(expect.stringContaining(
@@ -135,6 +138,8 @@ describe("backend-v2 HTTP foundation", () => {
       rows: [{
         user_id: userId,
         display_name: "Sean",
+        account_type: "personal",
+        usage_logging: false,
         workspace_id: workspaceId,
         workspace_name: "Home",
         role: "owner",
@@ -164,6 +169,8 @@ describe("backend-v2 HTTP foundation", () => {
         rows: [{
           user_id: userId,
           display_name: "Sean",
+          account_type: "personal",
+          usage_logging: false,
           workspace_id: workspaceId,
           workspace_name: "Home",
           role: "owner",

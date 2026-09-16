@@ -22,6 +22,7 @@ import {
   createDataImagePreview,
   deleteDataImageDraft,
   readDataImageDraft,
+  workspaceReplica,
   workspaceSyncEngine,
   useWorkspaceSyncStatus,
   useWorkspaceReplica,
@@ -69,6 +70,7 @@ export type DataBrowserProps = Omit<
 > & {
   contentEditorProps?: ContentEditorProps;
   imageDeleteButtonProps?: Omit<DeleteButtonProps, "children" | "label" | "onDelete">;
+  imagesEnabled?: boolean;
   inputControlProps?: InputControlProps;
   nodeIdInputProps?: Omit<
     NodeIdInputProps,
@@ -83,7 +85,11 @@ export type DataBrowserProps = Omit<
     | "value"
   >;
   navigationSlot?: string;
+  rootNodeId?: string;
+  rootChildIds?: readonly string[];
   workspaceId?: string;
+  onSelectedNodeChange?: (nodeId: string | null) => void;
+  onNodeCreated?: (node: TreeNodeDto) => void | Promise<void>;
   onSynchronizationError?: (reason: string) => void;
 };
 
@@ -95,7 +101,7 @@ const emptyDataModel = new TreeBrowserModel({
   store: memoryStore,
 });
 
-function createSelectedPathSlice(slot: string): ClientStateSlice<string[]> {
+export function createSelectedPathSlice(slot: string): ClientStateSlice<string[]> {
   return {
     name: `treeNavigation.${slot}.selectedPath`,
     version: 1,
@@ -110,11 +116,16 @@ export function DataBrowser({
   componentName = "DataBrowser",
   contentEditorProps,
   imageDeleteButtonProps,
+  imagesEnabled = true,
   inputControlProps,
   nodeIdInputProps,
   navigationSlot = "data",
   parentInputProps,
+  rootNodeId,
+  rootChildIds,
   workspaceId,
+  onSelectedNodeChange,
+  onNodeCreated,
   onSynchronizationError,
   ...treeBrowserProps
 }: DataBrowserProps) {
@@ -150,14 +161,19 @@ export function DataBrowser({
       componentName={componentName}
       contentEditorProps={contentEditorProps}
       imageDeleteButtonProps={imageDeleteButtonProps}
+      imagesEnabled={imagesEnabled}
       inputControlProps={inputControlProps}
       nodeIdInputProps={nodeIdInputProps}
       navigationSlot={navigationSlot}
       parentInputProps={parentInputProps}
+      rootNodeId={rootNodeId}
+      rootChildIds={rootChildIds}
       localSelectedPath={localSelectedPath}
       setLocalSelectedPath={setLocalSelectedPath}
       workspaceId={workspaceId}
       userId={userId}
+      onSelectedNodeChange={onSelectedNodeChange}
+      onNodeCreated={onNodeCreated}
       onSynchronizationError={onSynchronizationError}
     />
   );
@@ -167,14 +183,19 @@ function ServerDataBrowser({
   componentName,
   contentEditorProps,
   imageDeleteButtonProps,
+  imagesEnabled = true,
   inputControlProps,
   nodeIdInputProps,
   navigationSlot,
   parentInputProps,
+  rootNodeId,
+  rootChildIds,
   localSelectedPath,
   setLocalSelectedPath,
   workspaceId,
   userId,
+  onSelectedNodeChange,
+  onNodeCreated,
   onSynchronizationError,
   ...treeBrowserProps
 }: DataBrowserProps & {
@@ -194,6 +215,13 @@ function ServerDataBrowser({
   }), [userId, workspaceId]);
   const replicaRecord = useWorkspaceReplica(replicaScope);
   const treeLoad = replicaRecord?.tree ?? null;
+  const scopedRoot = treeLoad?.document.nodes.find(({ id }) => id === rootNodeId);
+  const effectiveLocalSelectedPath = useMemo(
+    () => treeBrowserProps.maxDepth === undefined
+      ? localSelectedPath
+      : localSelectedPath.slice(0, treeBrowserProps.maxDepth),
+    [localSelectedPath, treeBrowserProps.maxDepth],
+  );
   const [pastelHuePreviews, setPastelHuePreviews] = useState<
     Record<string, number | null>
   >({});
@@ -263,6 +291,10 @@ function ServerDataBrowser({
     pageSizes.current = { ...treeLoad.selection.pageSizes };
   }, [treeLoad]);
 
+  useEffect(() => {
+    onSelectedNodeChange?.(effectiveLocalSelectedPath.at(-1) ?? null);
+  }, [effectiveLocalSelectedPath, onSelectedNodeChange]);
+
   const createCanonicalNode = useCallback(async (
     label: string,
     parentId: string | null,
@@ -270,7 +302,8 @@ function ServerDataBrowser({
     localId?: string,
     userCommandId?: string,
   ) => {
-    const currentNodes = replicaRecord?.tree?.document.nodes
+    const currentNodes = workspaceReplica.getSnapshot(replicaScope)?.tree?.document.nodes
+      ?? replicaRecord?.tree?.document.nodes
       ?? treeLoad?.document.nodes
       ?? [];
     const nodeId = crypto.randomUUID();
@@ -294,7 +327,7 @@ function ServerDataBrowser({
       },
     }, userCommandId);
     return record?.tree?.document.nodes.find(({ id }) => id === nodeId) ?? null;
-  }, [replicaRecord?.tree?.document.nodes, submitCommand, treeLoad?.document.nodes]);
+  }, [replicaRecord?.tree?.document.nodes, replicaScope, submitCommand, treeLoad?.document.nodes]);
 
   const setNodeSharing = useCallback(async (
     nodeId: string,
@@ -337,23 +370,36 @@ function ServerDataBrowser({
     }));
   }, [submitCommand]);
 
-  const model = treeLoad ? new TreeBrowserModel({
+  const initialTree = useMemo(
+    () => treeLoad ? toInitialTree(treeLoad, rootNodeId ?? null, rootChildIds) : null,
+    [rootChildIds, rootNodeId, treeLoad],
+  );
+  const model = useMemo(() => initialTree ? new TreeBrowserModel({
     definitionAuthority: true,
-    initialTree: toInitialTree(treeLoad),
+    initialTree,
     storageKey: `flydeck.tree.data.server.${workspaceId}.${navigationSlot}`,
     store: memoryStore,
-  }) : null;
+  }) : null, [initialTree, navigationSlot, workspaceId]);
 
   if (!treeLoad || !model) return null;
+
+  const actualRootId = scopedRoot?.id ?? null;
+  const initialPageSizes = actualRootId ? {
+    ...treeLoad.selection.pageSizes,
+    ...(treeLoad.selection.pageSizes[actualRootId]
+      ? { __tree_root__: treeLoad.selection.pageSizes[actualRootId] }
+      : {}),
+  } : treeLoad.selection.pageSizes;
 
   return (
     <TreeBrowser
       {...treeBrowserProps}
       componentName={componentName}
       model={model}
+      rootLabel={scopedRoot?.label ?? treeBrowserProps.rootLabel}
       structureManagedExternally
-      initialSelectedPath={localSelectedPath}
-      initialPageSizes={treeLoad.selection.pageSizes}
+      initialSelectedPath={effectiveLocalSelectedPath}
+      initialPageSizes={initialPageSizes}
       itemColor={(node) => pastelItemColor(
         Object.hasOwn(pastelHuePreviews, node.id)
           ? pastelHuePreviews[node.id]
@@ -361,8 +407,35 @@ function ServerDataBrowser({
       )}
       suppressSelectedItemId={adjustingPastelHueNodeId}
       onCreateNode={async (label, parentId, afterNodeId) => {
-        const node = await createCanonicalNode(label, parentId, afterNodeId);
+        const node = await createCanonicalNode(label, parentId ?? actualRootId, afterNodeId);
+        if (node) await onNodeCreated?.(node);
         return node ? toCreatedTreeNode(node) : false;
+      }}
+      onDuplicateNode={async (nodeId, parentId, afterNodeId, label) => {
+        const sourceNode = workspaceReplica.getSnapshot(replicaScope)?.tree?.document.nodes.find((node) => node.id === nodeId);
+        if (!sourceNode) return false;
+        let sourceContent = workspaceReplica.getSnapshot(replicaScope)?.contents[nodeId];
+        if (!sourceContent) {
+          await workspaceSyncEngine.ensureContents(replicaScope, [nodeId]);
+          sourceContent = workspaceReplica.getSnapshot(replicaScope)?.contents[nodeId];
+        }
+        if (!sourceContent) {
+          fail(new Error("The item content is unavailable for duplication."));
+          return false;
+        }
+        const node = await createCanonicalNode(label, parentId ?? actualRootId, afterNodeId);
+        if (!node) return false;
+        if (sourceContent.content) {
+          const saved = await submitCommand({ type: "update-content", nodeId: node.id, input: {
+            requestId: crypto.randomUUID(), content: sourceContent.content,
+            expectedRevision: 0,
+          }});
+          if (!saved) return false;
+        }
+        if (sourceNode.pastelHue !== undefined && sourceNode.pastelHue !== null) {
+          await setNodePastelHue(node.id, sourceNode.pastelHue);
+        }
+        return toCreatedTreeNode(node);
       }}
       onRenameNode={renameNode}
       onUpdateNodeLocalId={async (nodeId, localId) => {
@@ -393,7 +466,7 @@ function ServerDataBrowser({
           nodeId,
           input: {
             requestId: crypto.randomUUID(),
-            parentId,
+            parentId: parentId ?? actualRootId,
             expectedTreeRevision: treeRevision.current,
           },
         }, userCommandId));
@@ -410,15 +483,23 @@ function ServerDataBrowser({
       }}
       onSelectedPathChange={async (selectedPath) => {
         setLocalSelectedPath(selectedPath);
+        onSelectedNodeChange?.(selectedPath.at(-1) ?? null);
         return true;
       }}
       onPageSizesChange={async (nextPageSizes) => {
+        const canonicalPageSizes = actualRootId ? {
+          ...nextPageSizes,
+          ...(pageSizes.current.__tree_root__
+            ? { __tree_root__: pageSizes.current.__tree_root__ }
+            : {}),
+          [actualRootId]: nextPageSizes.__tree_root__,
+        } : nextPageSizes;
         return Boolean(await submitCommand({
           type: "set-selection",
           input: {
             requestId: crypto.randomUUID(),
             selectedPath: [],
-            pageSizes: nextPageSizes,
+            pageSizes: canonicalPageSizes,
             expectedRevision: selectionRevision.current,
           },
         }));
@@ -445,6 +526,7 @@ function ServerDataBrowser({
           {...inputControlProps}
           contentEditorProps={contentEditorProps}
           imageDeleteButtonProps={imageDeleteButtonProps}
+          imagesEnabled={imagesEnabled}
           nodeIdInputProps={nodeIdInputProps}
           height={height}
           nodeId={node.id}
@@ -502,6 +584,7 @@ export function ServerDataContent({
   nodeIdInputProps,
   contentEditorProps,
   imageDeleteButtonProps,
+  imagesEnabled = true,
   replicaScope,
   onSynchronizationError,
   height,
@@ -509,6 +592,7 @@ export function ServerDataContent({
 }: InputControlProps & {
   contentEditorProps?: ContentEditorProps;
   imageDeleteButtonProps?: DataBrowserProps["imageDeleteButtonProps"];
+  imagesEnabled?: boolean;
   nodeIdInputProps?: DataBrowserProps["nodeIdInputProps"];
   nodeId: string;
   name: string;
@@ -1066,7 +1150,7 @@ export function ServerDataContent({
       />
       </div>}
       <div className={styles.contentEditorArea}>
-        {(draftImageUrl || serverImageVisible) && (
+        {imagesEnabled && (draftImageUrl || serverImageVisible) && (
           <div className={styles.imagePreviewFrame}>
             <img
               className={styles.imagePreview}
@@ -1121,6 +1205,7 @@ export function ServerDataContent({
             inputControlProps.textareaProps?.onPaste?.(event);
             contentEditorProps?.textareaProps?.onPaste?.(event);
             if (event.defaultPrevented) return;
+            if (!imagesEnabled) return;
             const image = clipboardImage(event.clipboardData.items);
             if (!image) return;
             event.preventDefault();
@@ -1141,9 +1226,9 @@ export function ServerDataContent({
         listSizeButtonProps={listSizeButtonProps}
         pageSize={pageSize}
         onPageSizeChange={onPageSizeChange}
-        onImageSelect={(file) => void selectImage(file).catch(
-          onSynchronizationError,
-        )}
+        onImageSelect={imagesEnabled
+          ? (file) => void selectImage(file).catch(onSynchronizationError)
+          : undefined}
         imageSelectDisabled={imageQueued}
       />
       <BlockingDialog
@@ -1289,7 +1374,11 @@ export function clipboardImage(
   return null;
 }
 
-function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
+function toInitialTree(
+  load: TreeLoadDto,
+  rootNodeId: string | null = null,
+  rootChildIds?: readonly string[],
+): TreeBrowserInitialNode[] {
   const enabled = new Set(load.semanticState.enabledNodeIds);
   const childrenByParent = new Map<string | null, TreeNodeDto[]>();
   for (const node of load.document.nodes) {
@@ -1299,8 +1388,14 @@ function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
   }
 
   function build(parentId: string | null): TreeBrowserInitialNode[] {
+    const rootOrder = parentId === rootNodeId && rootChildIds
+      ? new Map(rootChildIds.map((id, index) => [id, index]))
+      : null;
     return (childrenByParent.get(parentId) ?? [])
-      .sort(compareDataNodes)
+      .filter((node) => !rootOrder || rootOrder.has(node.id))
+      .sort((left, right) => rootOrder
+        ? (rootOrder.get(left.id) ?? 0) - (rootOrder.get(right.id) ?? 0)
+        : compareDataNodes(left, right))
       .map((node) => ({
         id: node.id,
         kind: node.kind,
@@ -1318,7 +1413,7 @@ function toInitialTree(load: TreeLoadDto): TreeBrowserInitialNode[] {
       }));
   }
 
-  return build(null);
+  return build(rootNodeId);
 }
 
 function compareDataNodes(left: TreeNodeDto, right: TreeNodeDto) {
@@ -1348,6 +1443,21 @@ export function resolveFlatTreePath(
     parentId = current.id;
   }
   return current;
+}
+
+export function createFlatTreeNodePath(
+  nodes: readonly TreeNodeDto[],
+  nodeId: string | undefined,
+) {
+  if (!nodeId) return "";
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const segments: string[] = [];
+  let current = byId.get(nodeId);
+  while (current) {
+    segments.unshift(current.localId);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return segments.join("/");
 }
 
 function toCreatedTreeNode(node: TreeNodeDto) {

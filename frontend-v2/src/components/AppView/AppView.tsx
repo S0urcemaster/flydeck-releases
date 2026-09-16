@@ -21,7 +21,6 @@ export type AppViewProps = BaseStyleProps & {
   defaultDataSource?: string;
   onDataSourceChange?: (dataSource: string) => void;
   onDataSourceResolved?: (dataSource: string) => void;
-  title: string;
   validateDataSource?: (dataSource: string) => boolean;
 };
 
@@ -32,7 +31,6 @@ export function AppView({
   dataSource,
   defaultDataSource,
   onDataSourceResolved,
-  title,
   ...baseProps
 }: AppViewProps) {
   const [persistedAppViews] = useClientStateSlice(appViewsSlice);
@@ -52,9 +50,6 @@ export function AppView({
       componentName={componentName}
       data-access-mode={accessMode}
     >
-      <div className={styles.titleBar}>
-        <div className={styles.title} data-access-mode={accessMode}>{title}</div>
-      </div>
       <div className={styles.content}>{children}</div>
     </Base>
   );

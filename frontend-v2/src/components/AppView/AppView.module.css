@@ -1,32 +1,4 @@
-.root {
-  display: grid;
-  grid-template-rows: auto auto;
-  min-width: 0;
-  gap: var(--app-section-gap);
-  overflow: visible;
-}
-
-.titleBar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--app-section-gap);
-}
-
-.title {
-  display: flex;
-  align-items: center;
-  padding: var(--space-xs);
-  color: var(--color-surface);
-  border: var(--border-standard);
-  border-radius: var(--radius-control);
-  background: var(--color-accent-two);
-  font-size: var(--item-fontsize);
-  font-weight: 500;
-}
-
-.title[data-access-mode="read-write"] {
-  background: var(--color-accent-one);
-}
+.root { min-width: 0; overflow: visible; }
 
 .content {
   min-width: 0;

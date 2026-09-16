@@ -1,7 +1,7 @@
 import type { ModuleMenuItem } from "../components/ModuleMenu";
 
 export const primaryModuleItems = [
-  "AGNT", "DATA", "DATB", "DATC", "DATD", "FUNC",
+  "AGNT", "DATA", "LENS", "FUNC",
 ] as const;
 export type PrimaryModuleItem = typeof primaryModuleItems[number];
 export type ModuleActionItem = Extract<ModuleMenuItem, "HELP" | "CONFIG">;

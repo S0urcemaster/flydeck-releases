@@ -19,7 +19,7 @@ export function AppTopbar(props: AppTopbarProps) {
     <header className="topbar">
       <div>
         <p className="eyebrow">
-          <span className="brand-mark">𐦍</span> Flydeck <span>Workspace Console</span>
+          <span className="brand-mark">𐦍</span> Flydeck <span>Information System</span>
         </p>
         <p className={`status-line ${status.isError ? "error" : ""}`} role="status">{status.message}</p>
       </div>

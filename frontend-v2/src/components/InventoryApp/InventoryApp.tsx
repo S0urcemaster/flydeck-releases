@@ -224,7 +224,6 @@ export function InventoryApp({
       componentName="InventoryApp"
       defaultDataSource="lagerraum"
       onDataSourceResolved={setDataSource}
-      title="INVENTORY"
     >
       {selected ? (
         <div className={styles.root}>

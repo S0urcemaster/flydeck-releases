@@ -116,14 +116,23 @@ function relayConfig(databaseUrl: string, directory: string): RelayConfig {
     host: "127.0.0.1",
     databaseUrl,
     databaseSsl: false,
+    nodeId: "test-relay",
+    publicOrigin: null,
     title: "Relay One",
     info: "",
     imageDirectory: path.join(directory, "unused-legacy-images"),
     assetDirectory: path.join(directory, "relay-assets"),
+    identityDirectory: path.join(directory, "relay-identity"),
     ingestSecret: secret,
     maxAssetBytes: 25 * 1_024 * 1_024,
     dataSource: "projection",
     publicCacheSeconds: 15,
     frontendDist: path.join(directory, "unused-dist"),
+    capabilities: {
+      homeIngress: true,
+      federation: false,
+      accounts: false,
+      diagnostics: false,
+    },
   };
 }

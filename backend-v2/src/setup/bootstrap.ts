@@ -6,6 +6,7 @@ import { createDatabase } from "../db/database.js";
 import { runMigrations } from "../db/migrations.js";
 
 const labelSchema = z.string().trim().min(1).max(100);
+const accountTypeSchema = z.enum(["personal", "guest", "probe", "test"]);
 
 const options = readOptions(process.argv.slice(2));
 const database = createDatabase(loadConfig());
@@ -36,8 +37,8 @@ try {
       ORDER BY users.created_at, workspaces.created_at
       LIMIT 1
     ), new_user AS (
-      INSERT INTO users (id, display_name)
-      SELECT $4, $1
+      INSERT INTO users (id, display_name, account_type, expires_at, usage_logging)
+      SELECT $4, $1, $6, $7, $6 = 'test'
       WHERE NOT EXISTS (SELECT 1 FROM existing)
       RETURNING id
     ), new_workspace AS (
@@ -60,6 +61,8 @@ try {
     options.filesystemRoot,
     userId,
     workspaceId,
+    options.accountType,
+    options.expiresAt,
   ]);
 
   const row = result.rows[0];
@@ -68,6 +71,8 @@ try {
     created: row.created,
     userId: row.user_id,
     workspaceId: row.workspace_id,
+    accountType: options.accountType,
+    expiresAt: options.expiresAt,
   }, null, 2));
 } finally {
   await database.end();
@@ -88,13 +93,23 @@ function readOptions(arguments_: string[]) {
   const workspaceName = labelSchema.parse(values.get("workspace-name"));
   const filesystemRoot = values.get("filesystem-root")?.trim();
   if (!filesystemRoot?.startsWith("/")) throw usageError();
-  return { userName, workspaceName, filesystemRoot };
+  const accountType = accountTypeSchema.parse(values.get("account-type") ?? "personal");
+  const expiresAtValue = values.get("expires-at")?.trim();
+  const expiresAt = expiresAtValue
+    ? z.iso.datetime({ offset: true }).parse(expiresAtValue)
+    : null;
+  if (accountType === "probe" && !expiresAt) {
+    throw new Error("Probe accounts require --expires-at with an ISO timestamp");
+  }
+  return { userName, workspaceName, filesystemRoot, accountType, expiresAt };
 }
 
 function usageError() {
   return new Error(
     "Usage: npm run bootstrap --workspace flydeck-backend-v2 -- "
       + "--user-name <name> --workspace-name <name> "
-      + "--filesystem-root </absolute/path>",
+      + "--filesystem-root </absolute/path> "
+      + "[--account-type <personal|guest|probe|test>] "
+      + "[--expires-at <ISO timestamp>]",
   );
 }

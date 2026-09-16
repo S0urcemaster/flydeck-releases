@@ -11,7 +11,7 @@ const moduleButtonProps = {
 
 describe("ModulePanel", () => {
   it("defines the mobile menu order", () => {
-    expect(modulePanelItems).toEqual(["AGNT", "DATA", "DATB", "FUNC"]);
+    expect(modulePanelItems).toEqual(["AGNT", "DATA", "LENS", "FUNC"]);
     expect(isValidElement(
       <ModulePanel
         activeItem="FUNC"
@@ -21,22 +21,20 @@ describe("ModulePanel", () => {
     )).toBe(true);
   });
 
-  it("shows only the active B/C/D slot label with its own symbol", () => {
+  it("shows the Lens module with its own symbol", () => {
     const markup = renderToStaticMarkup(
       <ModulePanel
-        activeItem="DATC"
+        activeItem="LENS"
         moduleButtonProps={moduleButtonProps}
         onChange={() => undefined}
       />,
     );
 
-    const cycleButton = markup.match(
-      /<button[^>]*aria-label="Data navigation slot C"[^>]*>.*?<\/button>/,
+    const lensButton = markup.match(
+      /<button[^>]*>.*?LENS.*?<\/button>/,
     )?.[0];
-    expect(cycleButton).toContain("database-zap");
-    expect(cycleButton).toContain(">DATC<");
-    expect(cycleButton).not.toContain(">DATB<");
-    expect(cycleButton).not.toContain(">DATD<");
+    expect(lensButton).toContain("lucide-focus");
+    expect(lensButton).toContain(">LENS<");
   });
 
   it("passes configured Button base properties to its controls", () => {
@@ -49,5 +47,19 @@ describe("ModulePanel", () => {
     );
 
     expect(markup.match(/height:32px/g)).toHaveLength(modulePanelItems.length);
+  });
+
+  it("does not render AGNT for a restricted hosted account", () => {
+    const markup = renderToStaticMarkup(
+      <ModulePanel
+        activeItem="DATA"
+        agentEnabled={false}
+        moduleButtonProps={moduleButtonProps}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).not.toContain("AGNT");
+    expect(markup).toContain("DATA");
   });
 });

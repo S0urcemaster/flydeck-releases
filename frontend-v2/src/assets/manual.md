@@ -5,9 +5,17 @@ Created by Sebastian Teister, Germany
 
 Manual by Sebastian Teister in English
 
+## Warranty
+
+Absolutely NO WARRANTY !
+
+There is now a Bluesky poster (and maybe later others) - use it on your own risk !
+
+Let your Agent check the code
+
 ## General
 
-You are reading the Flydeck V2 manual
+You are reading the Flydeck (V2) manual
 There are 2 ways you may have come here by yourself: You are reading the source code or you already have Flydeck installed (by someone)
 
 The following manual is intended for those who don,t have a clue about anything

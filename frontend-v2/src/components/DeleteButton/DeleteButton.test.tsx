@@ -4,6 +4,15 @@ import { describe, expect, it } from "vitest";
 import { DeleteButton } from "./DeleteButton";
 
 describe("DeleteButton", () => {
+  it("arms duplication with its own copy icon", () => {
+    const markup = renderToStaticMarkup(
+      <DeleteButton action="duplicate" label="Exercise" onDelete={() => undefined} />,
+    );
+    expect(markup).toContain('aria-label="Arm duplicate for Exercise"');
+    expect(markup).toContain("background:var(--color-surface)");
+    expect(markup).toContain('aria-hidden="true"');
+  });
+
   it("renders as a self-contained timeout button", () => {
     const markup = renderToStaticMarkup(
       <DeleteButton

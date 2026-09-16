@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Queryable } from "../db/database.js";
 import { PublicationSnapshotBuilder, safeSourcePath } from "./PublicationSnapshotBuilder.js";
@@ -26,9 +26,8 @@ describe("PublicationSnapshotBuilder", () => {
     const image = Buffer.from("published image");
     await writeFile(path.join(imageDirectory, "2026-09", `${childId}.jpg`), image);
     const rows = [node(rootId, null), node(childId, rootId, image.length)];
-    const database = {
-      query: async () => ({ rows, rowCount: rows.length }),
-    } as Queryable;
+    const query = vi.fn(async () => ({ rows, rowCount: rows.length }));
+    const database = { query } as Queryable;
 
     const snapshot = await new PublicationSnapshotBuilder(database, imageDirectory)
       .build("00000000-0000-4000-8000-000000000099", rootId, 3);
@@ -38,6 +37,14 @@ describe("PublicationSnapshotBuilder", () => {
     expect(snapshot.nodes[0].parentId).toBeNull();
     expect(snapshot.nodes[1].assets[0].sha256).toBe(hash);
     expect(snapshot.assets).toEqual([expect.objectContaining({ sha256: hash })]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("COALESCE(content.updated_at, node.updated_at)"),
+      expect.any(Array),
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("COALESCE(image.updated_at, node.updated_at)"),
+      expect.any(Array),
+    );
   });
 
   it("does not allow publication files to escape the image root", () => {

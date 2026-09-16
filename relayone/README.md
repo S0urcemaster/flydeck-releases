@@ -1,8 +1,21 @@
 # Relay One
 
+Relay One is one configured instance of the common Relay Node software. The
+equal-node invariants and optional capabilities are documented in
+`NODE-ARCHITECTURE.md`; the reusable Docker package lives in
+`deploy/relay-node`.
+
 Relay One is Flydeck's deliberately small public presentation layer. It reads
 explicitly shared DATA subtrees and exposes only those subtrees through a read-only
 website suitable for Tailscale Funnel.
+
+Published JSON items with schema `flydeck.sport.exercise/v1` render as an
+interactive exercise player instead of source JSON. The player lazy-loads a
+direct Three.js renderer only on exercise pages, plays the cyclic keyframe
+timeline, supports Play/Pause and Loop, and keeps horizontal drag/swipe camera
+rotation at the chosen angle. It accepts the exercise's optional furniture and
+embedded metrics; publications without embedded metrics use neutral body
+dimensions.
 
 ## Security boundary
 

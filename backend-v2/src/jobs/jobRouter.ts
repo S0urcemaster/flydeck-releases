@@ -10,6 +10,7 @@ import { z } from "zod";
 import type { SessionService } from "../auth/SessionService.js";
 import { requireWorkspaceAccess } from "../auth/workspaceAuthorization.js";
 import type { JobService } from "./JobService.js";
+import { HttpError } from "../http/HttpError.js";
 
 const uuidSchema = z.uuid();
 
@@ -71,10 +72,14 @@ export function createJobRouter(sessions: SessionService, service: JobService) {
 }
 
 async function access(sessions: SessionService, request: Request, write: boolean) {
-  return requireWorkspaceAccess(
+  const result = await requireWorkspaceAccess(
     sessions,
     request,
     String(request.params.workspaceId),
     write,
   );
+  if (!result.capabilities.agents) {
+    throw new HttpError(404, "NOT_FOUND", "Endpoint was not found");
+  }
+  return result;
 }

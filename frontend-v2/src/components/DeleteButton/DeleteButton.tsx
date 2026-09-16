@@ -5,7 +5,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { Trash2 } from "lucide-react";
+import { CopyPlus, Trash2 } from "lucide-react";
 
 import { Button, type ButtonProps } from "../Button";
 
@@ -13,7 +13,7 @@ export type DeleteButtonProps = Omit<
   ButtonProps,
   "aria-label" | "aria-pressed" | "children" | "onClick" | "selected"
 > & {
-  action?: "delete" | "reset";
+  action?: "delete" | "reset" | "duplicate";
   armedColor?: string;
   children?: ReactNode;
   confirmation?: boolean;
@@ -24,7 +24,7 @@ export type DeleteButtonProps = Omit<
 
 export function DeleteButton({
   action = "delete",
-  children = <Trash2 aria-hidden="true" />,
+  children,
   confirmation = true,
   label,
   onDelete,
@@ -75,14 +75,15 @@ export function DeleteButton({
     ...buttonProps,
     componentName: "DeleteButton",
     activeColor: armedColor,
+    background: action === "duplicate" ? "COLOR_SURFACE" : buttonProps.background,
     selected: armed,
     disabled: buttonProps.disabled || pending,
     "aria-label": `${pending
-      ? action === "delete" ? "Deleting" : "Resetting"
+      ? action === "delete" ? "Deleting" : action === "duplicate" ? "Duplicating" : "Resetting"
       : armed ? `Confirm ${action} for`
-        : confirmation ? `Arm ${action} for` : `${action === "delete" ? "Delete" : "Reset"}`} ${label}`,
+        : confirmation ? `Arm ${action} for` : `${action === "delete" ? "Delete" : action === "duplicate" ? "Duplicate" : "Reset"}`} ${label}`,
     onClick: click,
   };
 
-  return <Button {...sharedButtonProps}>{children}</Button>;
+  return <Button {...sharedButtonProps}>{children ?? (action === "duplicate" ? <CopyPlus aria-hidden="true" /> : <Trash2 aria-hidden="true" />)}</Button>;
 }

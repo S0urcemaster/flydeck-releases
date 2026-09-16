@@ -1,9 +1,7 @@
 const moduleMenuItems = [
   "AGNT",
   "DATA",
-  "DATB",
-  "DATC",
-  "DATD",
+  "LENS",
   "FUNC",
   "HELP",
   "CONFIG",
@@ -133,6 +131,9 @@ export type ComponentPropertiesConfig = {
   ContentEditor: { base: StoredBaseProperties };
   AppView: { base: StoredBaseProperties };
   BlueskyApp: { base: StoredBaseProperties };
+  GpsEventsApp: { base: StoredBaseProperties };
+  SportApp: { base: StoredBaseProperties };
+  SportFigure3D: { base: StoredBaseProperties };
   CompassApp: { base: StoredBaseProperties };
   ConfigEditor: { base: StoredBaseProperties };
   DeviceInfoView: { base: StoredBaseProperties };
@@ -268,6 +269,9 @@ export function parseComponentPropertiesConfig(
   const contentEditor = input.ContentEditor;
   const appView = input.AppView;
   const blueskyApp = input.BlueskyApp;
+  const gpsEventsApp = input.GpsEventsApp;
+  const sportApp = input.SportApp;
+  const sportFigure3D = input.SportFigure3D;
   const compassApp = input.CompassApp;
   const configEditor = input.ConfigEditor;
   const deviceInfoView = input.DeviceInfoView;
@@ -358,6 +362,9 @@ export function parseComponentPropertiesConfig(
     || !isRecord(contentEditor)
     || !isRecord(appView)
     || !isRecord(blueskyApp)
+    || !isRecord(gpsEventsApp)
+    || !isRecord(sportApp)
+    || !isRecord(sportFigure3D)
     || !isRecord(compassApp)
     || !isRecord(configEditor)
     || !isRecord(deviceInfoView)
@@ -450,6 +457,9 @@ export function parseComponentPropertiesConfig(
   const contentEditorBase = parseStoredBaseProperties(contentEditor.base);
   const appViewBase = parseStoredBaseProperties(appView.base);
   const blueskyAppBase = parseStoredBaseProperties(blueskyApp.base);
+  const gpsEventsAppBase = parseStoredBaseProperties(gpsEventsApp.base);
+  const sportAppBase = parseStoredBaseProperties(sportApp.base);
+  const sportFigure3DBase = parseStoredBaseProperties(sportFigure3D.base);
   const compassAppBase = parseStoredBaseProperties(compassApp.base);
   const configEditorBase = parseStoredBaseProperties(configEditor.base);
   const deviceInfoViewBase = parseStoredBaseProperties(deviceInfoView.base);
@@ -546,6 +556,9 @@ export function parseComponentPropertiesConfig(
     || !contentEditorBase
     || !appViewBase
     || !blueskyAppBase
+    || !gpsEventsAppBase
+    || !sportAppBase
+    || !sportFigure3DBase
     || !compassAppBase
     || !configEditorBase
     || !deviceInfoViewBase
@@ -834,6 +847,9 @@ export function parseComponentPropertiesConfig(
     ContentEditor: { base: contentEditorBase },
     AppView: { base: appViewBase },
     BlueskyApp: { base: blueskyAppBase },
+    GpsEventsApp: { base: gpsEventsAppBase },
+    SportApp: { base: sportAppBase },
+    SportFigure3D: { base: sportFigure3DBase },
     CompassApp: { base: compassAppBase },
     ConfigEditor: { base: configEditorBase },
     DeviceInfoView: { base: deviceInfoViewBase },

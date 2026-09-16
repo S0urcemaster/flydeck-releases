@@ -1,11 +1,32 @@
+@font-face {
+  font-family: "Play";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/Play-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Play";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/Play-Bold.ttf") format("truetype");
+}
+
 :root {
   color: #e9eee9;
-  background: #111513;
-  --tree-green: #4f9769;
-  --tree-green-surface: rgb(79 151 105 / 14%);
-  --tree-orange: #d99758;
-  --tree-orange-surface: rgb(217 151 88 / 14%);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #453e28d8;
+  --item-background: #fffef4db;
+  --item-color: #171725;
+  --item-muted-color: #4d4d5c;
+  --post-green-background: #e3ffd0e4;
+  --post-blue-background: #ddecffdb;
+  --header-text-color: var(--item-color);
+  --logo-left-color: #429f00;
+  --logo-right-color: #589bd9;
+  --link-hover-color: var(--logo-left-color);
+  font-family: "Play", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -20,7 +41,23 @@ body {
   margin: 0;
   background:
     radial-gradient(circle at 80% 0%, rgb(79 151 105 / 12%), transparent 32rem),
-    #111513;
+    #282845;
+}
+
+.snake3dBackground {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  pointer-events: none;
+  opacity: 1;
+  background: #03070d;
+}
+
+.snake3dBackground[data-paused="true"] {
+  filter: saturate(0.72);
 }
 
 a {
@@ -33,38 +70,201 @@ textarea {
   font: inherit;
 }
 
+.sportPlayer,
+.sportPlayerLoading {
+  overflow: hidden;
+  margin-top: 1rem;
+  border: 1px solid #52636c;
+  border-radius: 0.65rem;
+  background: #152638;
+}
+
+.sportPlayerLoading {
+  min-height: 24rem;
+  padding: 2rem;
+  color: #f4dcc0;
+}
+
+.sportViewport {
+  width: 100%;
+  height: clamp(20rem, 62vw, 34rem);
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.sportViewport:active { cursor: grabbing; }
+.sportViewport canvas { display: block; width: 100%; height: 100%; }
+
+.sportPlayerControls {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.7rem;
+  background: #203747;
+}
+
+.sportPlayerControls button {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.5rem;
+  border: 1px solid #78909c;
+  border-radius: 0.4rem;
+  background: #fffef4;
+  color: #172631;
+  cursor: pointer;
+}
+
+.sportPlayerControls .sportLoopActive { background: var(--logo-right-color); color: #fff; }
+.sportPlayerControls input { width: 100%; accent-color: var(--logo-right-color); }
+.sportPlayerComment { margin: 0; padding: 0.8rem 1rem 1rem; color: #e9eee9; white-space: pre-wrap; }
+.sportPlayerError { color: #8e1e24; }
+
 .siteShell {
+  position: relative;
+  z-index: 1;
   width: min(100%, 92rem);
   min-height: 100dvh;
   margin: 0 auto;
   padding: clamp(1rem, 3vw, 2.5rem);
 }
 
+.appLinks,
+.relayLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem 1.25rem;
+  margin-top: 1.35rem;
+}
+
+.appLinks {
+  align-items: baseline;
+}
+
+.appLinks a {
+  color: var(--header-text-color);
+  text-decoration: none;
+}
+
+.relayLinks a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.appLinks h3,
+.appLinksLabel {
+  margin: 0;
+  font-size: 1.17em;
+}
+
+.appLinksLabel {
+  color: var(--header-text-color);
+}
+
+.appLinks a:hover,
+.appLinks a:focus-visible {
+  color: var(--logo-right-color);
+}
+
+.relayLinks a:hover,
+.relayLinks a:focus-visible {
+  color: var(--link-hover-color);
+}
+
+.relayLinks {
+  color: #849087;
+  font-size: 0.85rem;
+}
+
 .siteHeader {
-  padding: clamp(1rem, 3vw, 3rem) 0;
-  border-bottom: 1px solid #3a443e;
+  padding: clamp(1rem, 3vw, 3rem) clamp(1rem, 3vw, 2.5rem) 0.75rem;
+  border: 1px solid #3a443e;
+  border-radius: 0.8rem;
+  background: var(--item-background);
+}
+
+.siteHeaderShowcase {
+  border-color: transparent;
+  background: transparent;
+}
+
+.headerDivider {
+  height: 1px;
+  margin: 0.75rem 0;
+  border: 0;
+  background: #3a443e;
 }
 
 .brand {
   display: flex;
+  width: fit-content;
+  max-width: 100%;
   gap: 0.8rem;
   align-items: center;
-  color: #f3f6f3;
-  font-family: Georgia, "Times New Roman", serif;
+  color: var(--header-text-color);
   font-size: clamp(2.3rem, 7vw, 5.5rem);
   line-height: 0.9;
+}
+
+.brandTitle {
+  color: inherit;
   text-decoration: none;
 }
 
+.brandTitle:hover,
+.brandTitle:focus-visible,
+.breadcrumbs > span:nth-child(odd) a:hover,
+.breadcrumbs > span:nth-child(odd) a:focus-visible {
+  color: var(--link-hover-color);
+}
+
+.breadcrumbs > span:nth-child(even) a:hover,
+.breadcrumbs > span:nth-child(even) a:focus-visible {
+  color: var(--logo-right-color);
+}
+
 .mark {
-  color: #dc8c42;
+  color: var(--logo-left-color);
+}
+
+.logoToggle {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 1em;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+}
+
+.logoHalf {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.logoHalfLeft {
+  color: var(--logo-left-color);
+  clip-path: inset(0 50% 0 0);
+}
+
+.logoHalfRight {
+  color: var(--logo-right-color);
+  clip-path: inset(0 0 0 50%);
 }
 
 .publication {
   display: grid;
-  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
-  gap: clamp(2rem, 6vw, 6rem);
-  padding: clamp(2rem, 5vw, 5rem) 0;
+  grid-template-columns: minmax(14rem, 20rem) minmax(0, 1fr);
+  row-gap: clamp(2rem, 6vw, 6rem);
+  column-gap: clamp(1rem, 3vw, 4rem);
+  padding: 2rem 0 clamp(2rem, 5vw, 5rem);
 }
 
 .postNavigation {
@@ -75,20 +275,8 @@ textarea {
 }
 
 .postNavigation nav {
-  max-height: calc(100dvh - 6rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-color: #526158 transparent;
-  scrollbar-width: thin;
-}
-
-.eyebrow {
-  margin: 0 0 1rem;
-  color: #d99758;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  max-height: none;
+  overflow: visible;
 }
 
 .treeLevels {
@@ -97,17 +285,16 @@ textarea {
 }
 
 .treeLevel {
-  --level-accent: var(--tree-green);
-  --level-surface: var(--tree-green-surface);
+  --level-accent: var(--logo-left-color);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--level-accent) 55%, #354039);
   border-radius: 0.5rem;
-  background: var(--level-surface);
+  background: var(--item-background);
+  color: var(--item-color);
 }
 
-.treeLevel[data-tone="orange"] {
-  --level-accent: var(--tree-orange);
-  --level-surface: var(--tree-orange-surface);
+.treeLevel[data-tone="blue"] {
+  --level-accent: var(--logo-right-color);
 }
 
 .treeLevel ul {
@@ -125,7 +312,7 @@ textarea {
   align-items: center;
   padding: 0.65rem 0.75rem;
   border-radius: 0.35rem;
-  color: #aeb9b1;
+  color: var(--item-muted-color);
   border-left: 0.22rem solid transparent;
   line-height: 1.25;
   text-decoration: none;
@@ -142,9 +329,9 @@ textarea {
 
 .treeLevel a:hover,
 .treeLevel a[data-path-selected] {
-  color: #fff;
+  color: var(--item-color);
   border-left-color: var(--level-accent);
-  background: color-mix(in srgb, var(--level-accent) 24%, #171d19);
+  background: color-mix(in srgb, var(--level-accent) 24%, var(--item-background));
 }
 
 .treeLevel a[aria-current="page"] {
@@ -154,10 +341,12 @@ textarea {
 .breadcrumbs {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
-  margin-bottom: 2.2rem;
-  color: #849087;
-  font-size: 0.85rem;
+  margin: 0;
+  color: var(--header-text-color);
+  font-size: 1.17em;
+  font-weight: 700;
 }
 
 .breadcrumbs span {
@@ -165,16 +354,27 @@ textarea {
   gap: 0.5rem;
 }
 
-.breadcrumbs a:hover {
-  color: #e3e8e4;
+.breadcrumbs a {
+  text-decoration: none;
+}
+
+.postView article {
+  padding: 2.75rem clamp(1.25rem, 4vw, 3rem) clamp(1.25rem, 4vw, 3rem);
+  border: 1px solid #454564;
+  border-radius: 0.8rem;
+  background: var(--post-green-background);
+  color: var(--item-color);
+}
+
+.postView article[data-tone="blue"] {
+  background: var(--post-blue-background);
 }
 
 .postHeader h1 {
   max-width: 18ch;
   margin: 0;
-  color: #f4f7f4;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2.6rem, 7vw, 6rem);
+  color: var(--item-color);
+  font-size: clamp(2.6rem, 4vw, 6rem);
   font-weight: 500;
   letter-spacing: -0.04em;
   line-height: 0.98;
@@ -183,8 +383,8 @@ textarea {
 .dateRange {
   display: block;
   margin-top: 1.25rem;
-  color: #849087;
-  font-size: 0.78rem;
+  color: var(--item-muted-color);
+  font-size: 0.98rem;
   letter-spacing: 0.04em;
 }
 
@@ -246,8 +446,7 @@ textarea {
 .postContent {
   max-width: 68ch;
   margin-top: 2.5rem;
-  color: #d4dbd5;
-  font-family: Georgia, "Times New Roman", serif;
+  color: var(--item-color);
   font-size: clamp(1.1rem, 2vw, 1.3rem);
   line-height: 1.75;
 }
@@ -256,7 +455,7 @@ textarea {
 .postContent h3,
 .postContent h4 {
   margin: 2em 0 0.6em;
-  color: #f0f3f0;
+  color: var(--item-color);
   line-height: 1.15;
 }
 
@@ -270,23 +469,14 @@ textarea {
   padding: 1.25rem;
   border: 1px solid #354039;
   border-radius: 0.5rem;
-  background: #171d19;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  background: var(--item-background);
+  color: var(--item-color);
   font-size: 0.9rem;
   white-space: pre-wrap;
 }
 
 .childPosts {
-  margin-top: 4rem;
-  padding-top: 2rem;
-  border-top: 1px solid #354039;
-}
-
-.childPosts h2 {
-  margin: 0 0 1.5rem;
-  font-size: 1rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  margin-top: 1rem;
 }
 
 .postGrid {
@@ -300,7 +490,8 @@ textarea {
   overflow: hidden;
   border: 1px solid #354039;
   border-radius: 0.65rem;
-  background: #171d19;
+  background: var(--item-background);
+  color: var(--item-color);
   text-decoration: none;
   transition: border-color 120ms ease, transform 120ms ease;
 }
@@ -330,14 +521,13 @@ textarea {
 }
 
 .postCardBody strong {
-  color: #f0f3f0;
-  font-family: Georgia, "Times New Roman", serif;
+  color: var(--item-color);
   font-size: 1.45rem;
   font-weight: 500;
 }
 
 .postCardBody > span:last-child {
-  color: #9eaaa1;
+  color: var(--item-muted-color);
   line-height: 1.5;
 }
 
@@ -349,6 +539,8 @@ footer {
 }
 
 .statusPage {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-content: center;
   min-height: 100dvh;
@@ -367,10 +559,6 @@ footer {
 
   .postNavigation {
     position: static;
-  }
-
-  .postNavigation nav {
-    max-height: min(42dvh, 22rem);
   }
 
   .postGrid {

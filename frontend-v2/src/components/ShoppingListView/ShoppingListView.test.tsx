@@ -14,7 +14,6 @@ describe("ShoppingListView", () => {
     );
 
     expect(markup).toContain('data-component-name="ShoppingListView"');
-    expect(markup).toContain("SHOPPING LIST");
     expect(markup).toContain("Backwaren");
     expect(markup).toContain("Brot");
   });

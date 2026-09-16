@@ -343,6 +343,19 @@ export class JobStore {
         SELECT job_id FROM agent_jobs
         WHERE schedule_enabled = true AND schedule_claimed_at IS NULL
           AND schedule_due_at <= now()
+          AND EXISTS (
+            SELECT 1
+            FROM tree_nodes job_node
+            JOIN trees ON trees.id = job_node.tree_id
+            JOIN workspace_memberships owner_membership
+              ON owner_membership.workspace_id = trees.workspace_id
+             AND owner_membership.role = 'owner'
+            JOIN users owner_user ON owner_user.id = owner_membership.user_id
+            WHERE job_node.id = agent_jobs.job_id
+              AND owner_user.account_type = 'personal'
+              AND owner_user.account_status = 'active'
+              AND (owner_user.expires_at IS NULL OR owner_user.expires_at > now())
+          )
           AND NOT EXISTS (
             SELECT 1 FROM tree_nodes child
             WHERE child.parent_id = agent_jobs.job_id

@@ -38,6 +38,24 @@ export type RelayError = {
   message: string;
 };
 
+export type RelayNodeDescriptor = {
+  protocolVersion: 1;
+  nodeId: string;
+  origin: string | null;
+  title: string;
+  identity: {
+    algorithm: "Ed25519";
+    publicKey: string;
+    fingerprint: string;
+  } | null;
+  capabilities: {
+    homeIngress: boolean;
+    federation: boolean;
+    accounts: boolean;
+    diagnostics: boolean;
+  };
+};
+
 export const relayPublicationSchemaVersion = 1 as const;
 
 export type RelayAssetRole = "hero" | "attachment" | "video" | "audio";

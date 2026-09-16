@@ -8,7 +8,6 @@ describe("DeviceInfoView", () => {
     const markup = renderToStaticMarkup(<DeviceInfoView />);
 
     expect(markup).toContain('data-component-name="DeviceInfoView"');
-    expect(markup).toContain("DEVICEINFO");
     expect(markup).toContain('data-component-name="DeviceInfo"');
     expect(markup).toContain('aria-label="DeviceInfo result"');
   });

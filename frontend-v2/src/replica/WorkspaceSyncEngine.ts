@@ -27,7 +27,7 @@ export class WorkspaceSyncEngine {
     private readonly api: V2ApiClient,
     private readonly status: WorkspaceSyncStatusStore,
     listensToBrowser = true,
-    private readonly writeDelayMs = 5_000,
+    private readonly writeDelayMs = 0,
     private readonly imageDrafts: DataImageDraftRepository = dataImageDraftRepository,
   ) {
     if (listensToBrowser && typeof window !== "undefined") {

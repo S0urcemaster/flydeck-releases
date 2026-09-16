@@ -2,19 +2,24 @@ import express, { type ErrorRequestHandler } from "express";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { RelayError } from "../shared/contracts.js";
+import type { RelayError, RelayNodeDescriptor } from "../shared/contracts.js";
 import type { RelayConfig } from "./config.js";
+import type { PublicNodeIdentity } from "./NodeIdentity.js";
 import type { RelayReader } from "./RelayStore.js";
 import { createIngestRouter } from "./ingest/router.js";
 import type { PublicationIngestService } from "./ingest/PublicationIngestService.js";
 import type { BlueskyOAuthBrokerApi } from "./oauth/BlueskyOAuthBroker.js";
 import { createOAuthRouters } from "./oauth/router.js";
+import type { FederationService } from "./federation/FederationService.js";
+import { createFederationAdminRouter, createFederationPublicRouter } from "./federation/router.js";
 
 export function createApp(
   config: RelayConfig,
   relay: RelayReader,
   ingest?: PublicationIngestService,
   oauthBroker?: BlueskyOAuthBrokerApi,
+  nodeIdentity: PublicNodeIdentity | null = null,
+  federation?: FederationService,
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -29,7 +34,7 @@ export function createApp(
         "frame-ancestors 'none'",
         "img-src 'self' data:",
         "object-src 'none'",
-        "script-src 'self'",
+        "script-src 'self' 'wasm-unsafe-eval'",
         "style-src 'self'",
       ].join("; "),
       "Cross-Origin-Resource-Policy": "same-origin",
@@ -53,6 +58,11 @@ export function createApp(
       ingest,
     ));
   }
+  if (config.capabilities.federation && federation) {
+    app.use("/federation/v1", createFederationPublicRouter(federation));
+    // The reverse proxy must expose this route only on the Tailnet listener.
+    app.use("/admin/v1/federation", createFederationAdminRouter(federation));
+  }
 
   app.get("/api/health/live", (_request, response) => {
     response.json({ status: "ok" });
@@ -61,6 +71,41 @@ export function createApp(
     const ready = await relay.isReady();
     response.status(ready ? 200 : 503).json({ status: ready ? "ready" : "unavailable" });
   });
+  app.get("/api/node", (_request, response) => {
+    response.json({
+      protocolVersion: 1,
+      nodeId: config.nodeId,
+      origin: config.publicOrigin,
+      title: config.title,
+      identity: nodeIdentity,
+      capabilities: config.capabilities,
+    } satisfies RelayNodeDescriptor);
+  });
+  if (config.capabilities.federation && federation) {
+    app.get("/api/peers", async (_request, response) => response.json(await federation.publicPeers()));
+    app.get("/api/peers/:peerId/site", async (request, response) => {
+      const snapshot = await federation.peerSnapshot(request.params.peerId);
+      if (!snapshot) return response.status(404).json({ error: "PEER_NOT_FOUND", message: "Peer snapshot was not found." });
+      response.json(snapshot.site);
+    });
+    app.get("/api/peers/:peerId/nodes/:nodeId", async (request, response) => {
+      const snapshot = await federation.peerSnapshot(request.params.peerId);
+      const page = snapshot?.nodes.find(({ post }) => post.id === request.params.nodeId);
+      if (!page) return response.status(404).json({ error: "NODE_NOT_FOUND", message: "Peer node was not found." });
+      response.json(page);
+    });
+    app.get("/api/peers/:peerId/path", async (request, response) => {
+      const parts = String(request.query.value ?? "").split("/").filter(Boolean);
+      const page = await federation.loadPeerPath(request.params.peerId, parts);
+      if (!page) return response.status(404).json({ error: "NODE_NOT_FOUND", message: "Peer path was not found." });
+      response.json(page);
+    });
+    app.get("/api/peers/:peerId/assets/:sha256", async (request, response) => {
+      const asset = await federation.peerAsset(request.params.peerId, request.params.sha256);
+      if (!asset) return response.status(404).end();
+      response.type(asset.mime_type).sendFile(asset.stored_path);
+    });
+  }
   app.get("/api/site", async (_request, response) => {
     const site = await relay.loadSite();
     if (!site) {
@@ -177,14 +222,14 @@ export function createApp(
     } satisfies RelayError);
   });
   app.use(((error, request, response, _next) => {
-    console.error("Relay One request failed", {
+    console.error(`${config.nodeId} request failed`, {
       method: request.method,
       path: request.originalUrl,
       error,
     });
     response.status(500).json({
       error: "INTERNAL_ERROR",
-      message: "Relay One could not complete the request.",
+      message: `${config.title} could not complete the request.`,
     } satisfies RelayError);
   }) as ErrorRequestHandler);
   return app;

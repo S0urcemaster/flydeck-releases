@@ -1,5 +1,6 @@
 import {
   createContext,
+  createElement,
   useEffect,
   useContext,
   useState,
@@ -232,15 +233,13 @@ export function Base<TElement extends ElementType = "div">({
     (showComponentName ?? configuration.showComponentName)
     && Boolean(componentName);
 
-  return (
-    <Element
-      {...props}
-      className={classes}
-      style={baseStyle}
-      data-component-name={componentName}
-      data-show-component-name={displaysComponentName || undefined}
-    />
-  );
+  return createElement(Element, {
+    ...props,
+    className: classes,
+    style: baseStyle,
+    "data-component-name": componentName,
+    "data-show-component-name": displaysComponentName || undefined,
+  });
 }
 
 export function resolveCssValue(value: string | undefined): string | undefined {

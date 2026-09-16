@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   TreeBrowser,
+  createDuplicateItemName,
+  duplicateTreeBrowserItem,
   createBatchRootTargets,
   createRootTargets,
   createSelectedPathLabel,
@@ -36,6 +38,41 @@ function createModel(initialTree = tree) {
 }
 
 describe("TreeBrowser", () => {
+  it("duplicates only an item and its data under a free copy name", () => {
+    const source: TreeBrowserNode<{ text: string }> = {
+      id: "source", label: "Exercise", enabled: true, contentVisible: true,
+      data: { text: "pose source" },
+      children: [{ id: "child", label: "Child", enabled: true, contentVisible: true, children: [] }],
+    };
+    const siblings = [source, { id: "existing", label: "Exercise copy" }];
+    expect(createDuplicateItemName(source.label, siblings)).toBe("Exercise copy 2");
+    const copy = duplicateTreeBrowserItem(source, siblings);
+    expect(copy.label).toBe("Exercise copy 2");
+    expect(copy.children).toEqual([]);
+    expect(copy.data).toEqual(source.data);
+    expect(copy.data).not.toBe(source.data);
+    expect(copy.id).not.toBe(source.id);
+  });
+
+  it("places an armed normal-color duplicate button left of delete", () => {
+    const markup = renderToStaticMarkup(<TreeBrowser
+      initialSelectedPath={["plants"]}
+      itemRenameVisible={false}
+      model={createModel()}
+    />);
+    const duplicate = markup.indexOf('aria-label="Arm duplicate for Pflanzen"');
+    const remove = markup.indexOf('aria-label="Arm delete for Pflanzen"');
+    expect(duplicate).toBeGreaterThan(-1);
+    expect(duplicate).toBeLessThan(remove);
+    const editingMarkup = renderToStaticMarkup(<TreeBrowser
+      initialSelectedPath={["plants"]}
+      model={createModel()}
+    />);
+    expect(editingMarkup.indexOf('aria-label="Arm duplicate for Pflanzen"')).toBeLessThan(
+      editingMarkup.indexOf('aria-label="Arm delete for Pflanzen"'),
+    );
+  });
+
   it("inserts a new sibling directly after the selected position", () => {
     expect(insertAt(["A", "C"], 1, "B")).toEqual(["A", "B", "C"]);
   });

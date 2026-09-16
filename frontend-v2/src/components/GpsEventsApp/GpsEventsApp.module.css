@@ -1,0 +1,4 @@
+.controls { display: grid; grid-template-columns: 1fr 1fr .55fr; gap: var(--space-xs); }
+.status { padding: var(--space-xs); color: var(--color-text-muted); }
+.linked { display: grid; gap: var(--space-xs); }
+.caption { padding-inline: var(--space-xs); font-size: .85em; color: var(--color-text-muted); }

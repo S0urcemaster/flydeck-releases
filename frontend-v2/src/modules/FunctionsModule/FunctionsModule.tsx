@@ -16,6 +16,10 @@ import { DeviceInfoView } from "../../components/DeviceInfoView";
 import { InventoryApp, type InventoryAppProps } from "../../components/InventoryApp";
 import { ShoppingListView } from "../../components/ShoppingListView";
 import { BlueskyApp, type BlueskyAppProps } from "../../components/BlueskyApp";
+import { GpsEventsApp, type GpsEventsAppProps } from "../../components/GpsEventsApp";
+import { SportApp } from "../../components/SportApp";
+import type { DataTreeProps } from "../../components/DataTree";
+import type { TextareaProps } from "../../components/Textarea";
 import {
   AppBrowser,
   type AppBrowserOutputState,
@@ -32,8 +36,10 @@ export type FunctionsAppTab =
   | "BLUESKY"
   | "DEVICE INFO"
   | "COMPASS"
+  | "GPS EVENTS"
   | "INVENTORY"
-  | "SHOPPING LIST";
+  | "SHOPPING LIST"
+  | "SPORT";
 
 export type FunctionsModuleProps = ModuleProps & {
   appBrowserProps?: AppBrowserProps;
@@ -44,6 +50,7 @@ export type FunctionsModuleProps = ModuleProps & {
   appViewConfigEditorProps?: AppSettingsProps["configEditorProps"];
   appViewButtonProps?: Omit<ButtonProps, "aria-label" | "children" | "onClick">;
   blueskyAppProps?: Omit<BlueskyAppProps, "workspaceId">;
+  gpsEventsAppProps?: Omit<GpsEventsAppProps, "workspaceId">;
   compassAppBaseProps?: BaseStyleProps;
   deviceInfoProps?: DeviceInfoProps;
   deviceInfoViewBaseProps?: BaseStyleProps;
@@ -58,6 +65,9 @@ export type FunctionsModuleProps = ModuleProps & {
   inventoryParentInputProps?: InventoryAppProps["parentInputProps"];
   inventoryTextareaProps?: InventoryAppProps["textareaProps"];
   shoppingListViewBaseProps?: BaseStyleProps;
+  sportAppBaseProps?: BaseStyleProps;
+  sportAppTreeProps?: DataTreeProps;
+  sportAppCommentTextareaProps?: Omit<TextareaProps, "rows" | "value" | "onChange">;
   workspaceId?: string;
 };
 
@@ -67,6 +77,7 @@ export function FunctionsModule({
   appViewConfigEditorProps,
   appViewButtonProps,
   blueskyAppProps,
+  gpsEventsAppProps,
   compassAppBaseProps,
   deviceInfoProps,
   deviceInfoViewBaseProps,
@@ -81,6 +92,9 @@ export function FunctionsModule({
   inventoryParentInputProps,
   inventoryTextareaProps,
   shoppingListViewBaseProps,
+  sportAppBaseProps,
+  sportAppTreeProps,
+  sportAppCommentTextareaProps,
   workspaceId,
   ...props
 }: FunctionsModuleProps) {
@@ -91,8 +105,10 @@ export function FunctionsModule({
     categories: [],
     compassActive: false,
     deviceInfoActive: false,
+    gpsEventsActive: false,
     inventoryActive: false,
     shoppingListActive: false,
+    sportActive: false,
     shoppingCategories: [],
   });
   const visibleTabs = getVisibleFunctionsAppTabs(output);
@@ -177,6 +193,17 @@ export function FunctionsModule({
           workspaceId={workspaceId}
         />
       ) : null}
+      {visibleActiveTab === "GPS EVENTS" ? (
+        <GpsEventsApp
+          {...gpsEventsAppProps}
+          buttonProps={gpsEventsAppProps?.buttonProps ?? appViewButtonProps}
+          key="gps-events-view"
+          workspaceId={workspaceId}
+        />
+      ) : null}
+      {visibleActiveTab === "SPORT" ? (
+        <SportApp {...sportAppBaseProps} key="sport-view" treeProps={sportAppTreeProps} commentTextareaProps={sportAppCommentTextareaProps} workspaceId={workspaceId} />
+      ) : null}
       {visibleActiveTab === "BROWSER" ? (
         <AppBrowser
           {...appBrowserProps}
@@ -195,8 +222,10 @@ export function getVisibleFunctionsAppTabs(
   output: AppBrowserOutputState,
 ): FunctionsAppTab[] {
   const tabs: FunctionsAppTab[] = ["BROWSER"];
+  if (output.sportActive) tabs.push("SPORT");
   if (output.blueskyActive) tabs.push("BLUESKY");
   if (output.deviceInfoActive) tabs.push("DEVICE INFO");
+  if (output.gpsEventsActive) tabs.push("GPS EVENTS");
   if (output.compassActive) tabs.push("COMPASS");
   if (output.inventoryActive) tabs.push("INVENTORY");
   if (output.shoppingListActive) tabs.push("SHOPPING LIST");
@@ -228,8 +257,10 @@ const functionsAppTabSlice: ClientStateSlice<FunctionsAppTab> = {
     value === "BROWSER"
     || value === "BLUESKY"
     || value === "DEVICE INFO"
+    || value === "GPS EVENTS"
     || value === "COMPASS"
     || value === "INVENTORY"
     || value === "SHOPPING LIST"
+    || value === "SPORT"
   ),
 };

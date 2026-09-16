@@ -141,7 +141,12 @@ const publishedSubtreeSql = `
   )
   SELECT
     node.id, node.parent_id, node.local_id, node.position, node.label, node.share_name,
-    node.created_at, node.updated_at,
+    node.created_at,
+    GREATEST(
+      node.updated_at,
+      COALESCE(content.updated_at, node.updated_at),
+      COALESCE(image.updated_at, node.updated_at)
+    ) AS updated_at,
     COALESCE(content.format, 'text') AS format,
     COALESCE(content.content, '') AS content,
     image.relative_path, image.mime_type, image.original_name, image.byte_size

@@ -24,6 +24,9 @@ const envSchema = z.object({
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   FRONTEND_DIST: z.string().trim().optional(),
   FRONTEND_BASE_PATH: z.string().default("/v2"),
+  DESKTOP_DIST: z.string().trim().optional(),
+  DESKTOP_BASE_PATH: z.string().default("/desktop"),
+  RELAY_ADMIN_URL: z.url().optional(),
 });
 
 export type AppConfig = {
@@ -49,6 +52,9 @@ export type AppConfig = {
   sessionTtlDays: number;
   frontendDist?: string;
   frontendBasePath: string;
+  desktopDist?: string;
+  desktopBasePath?: string;
+  relayAdminUrl?: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -81,6 +87,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       ? path.resolve(parsed.FRONTEND_DIST)
       : undefined,
     frontendBasePath: normalizeBasePath(parsed.FRONTEND_BASE_PATH),
+    desktopDist: parsed.DESKTOP_DIST ? path.resolve(parsed.DESKTOP_DIST) : undefined,
+    desktopBasePath: normalizeBasePath(parsed.DESKTOP_BASE_PATH),
+    relayAdminUrl: parsed.RELAY_ADMIN_URL?.replace(/\/$/, ""),
   };
 }
 

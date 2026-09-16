@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createNumberedBlueskyThread,
   graphemeLength,
+  setBlueskyTitleIncluded,
   splitBlueskyPosts,
   updateBlueskyPosts,
 } from "./BlueskyApp";
@@ -23,12 +23,23 @@ describe("BlueskyApp transformer", () => {
     expect(updateBlueskyPosts(["post", ""], 1, "")).toEqual(["post"]);
   });
 
-  it("reserves space for thread numbering and counts graphemes", () => {
-    const posts = createNumberedBlueskyThread(["👨‍👩‍👧‍👧".repeat(300)]);
+  it("includes and removes the item title without exceeding the post limit", () => {
+    const included = setBlueskyTitleIncluded(["Body"], "Item title", true);
+    expect(included).toEqual(["Item title\n\nBody"]);
+    expect(setBlueskyTitleIncluded(included, "Item title", false)).toEqual(["Body"]);
 
-    expect(posts).toHaveLength(2);
-    expect(posts[0]).toMatch(/ \(1\/2\)$/);
-    expect(posts[1]).toMatch(/ \(2\/2\)$/);
-    expect(posts.every((post) => graphemeLength(post) <= 300)).toBe(true);
+    const overflowed = setBlueskyTitleIncluded(["👨‍👩‍👧‍👧".repeat(300)], "Title", true);
+    expect(overflowed).toHaveLength(2);
+    expect(overflowed.every((post) => graphemeLength(post) <= 300)).toBe(true);
+  });
+
+  it("re-splits the complete thread when the title changes the first post capacity", () => {
+    const body = `${"word ".repeat(59)}tail`;
+    const included = setBlueskyTitleIncluded(splitBlueskyPosts(body), "A longer title", true);
+
+    expect(included).toHaveLength(2);
+    expect(included[0]).toMatch(/^A longer title\n\n/);
+    expect(included.every((post) => graphemeLength(post) <= 300)).toBe(true);
+    expect(included.join(" ")).toContain("tail");
   });
 });

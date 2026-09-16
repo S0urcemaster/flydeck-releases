@@ -14,15 +14,19 @@ const config: RelayConfig = {
   host: "127.0.0.1",
   databaseUrl: "postgresql://localhost/relayone",
   databaseSsl: false,
+  nodeId: "relay-one",
+  publicOrigin: "https://relay-one.example",
   title: "Relay One",
   info: "Selected posts.",
   imageDirectory: "/tmp/images",
   assetDirectory: "/tmp/relay-assets",
+  identityDirectory: "/tmp/relay-identity",
   ingestSecret: null,
   maxAssetBytes: 25 * 1_024 * 1_024,
   dataSource: "legacy",
   publicCacheSeconds: 15,
   frontendDist: path.resolve("dist-does-not-exist"),
+  capabilities: { homeIngress: true, federation: false, accounts: false, diagnostics: false },
 };
 
 const site: RelaySite = {
@@ -52,6 +56,25 @@ const page: RelayNodePage = {
 };
 
 describe("Relay One app", () => {
+  it("describes the configured relay node and only implemented capabilities", async () => {
+    const response = await request(createApp(config, reader())).get("/api/node");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      protocolVersion: 1,
+      nodeId: "relay-one",
+      origin: "https://relay-one.example",
+      title: "Relay One",
+      identity: null,
+      capabilities: {
+        homeIngress: true,
+        federation: false,
+        accounts: false,
+        diagnostics: false,
+      },
+    });
+  });
+
   it("serves the publication with restrictive browser headers", async () => {
     const response = await request(createApp(config, reader())).get("/api/site");
 

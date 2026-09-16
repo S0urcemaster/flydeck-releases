@@ -54,6 +54,7 @@ export type ListControlProps = BaseStyleProps & {
   newItemCount?: number;
   selectedName?: string;
   newDisabled?: boolean;
+  newItemName?: string;
   onNew?: (name: string) => void | Promise<void>;
   page: number;
   pageSize: ListControlListSize;
@@ -99,6 +100,7 @@ export function ListControl({
   newItemCount = itemCount,
   selectedName,
   newDisabled = false,
+  newItemName,
   onNew,
   page,
   pageSize,
@@ -182,7 +184,13 @@ export function ListControl({
             padding="0"
             selected={newVisible}
             width="100%"
-            onClick={() => setNewView({ selectedName, visible: true })}
+            onClick={() => {
+              if (newItemName !== undefined) {
+                void onNew?.(newItemName);
+                return;
+              }
+              setNewView({ selectedName, visible: true });
+            }}
           >
             <span className={styles.labelText}>{selectedName ?? ""}</span>
             <Base
@@ -258,6 +266,7 @@ export type ListControlInputProps = {
     "disabled" | "label" | "onDelete"
   >;
   deleteEnabled?: boolean;
+  duplicateEnabled?: boolean;
   deleteLabel?: string;
   editable?: boolean;
   inputProps?: ListControlTextInputProps;
@@ -272,6 +281,7 @@ export type ListControlInputProps = {
   onNew?: (name: string) => void | Promise<void>;
   onCheckedChange?: (checked: boolean) => void;
   onDelete?: () => void | Promise<void>;
+  onDuplicate?: () => void | Promise<void>;
   onRename?: (name: string) => void;
   onEditingChange?: (editing: boolean) => void;
   selectedName?: string;
@@ -286,6 +296,7 @@ export function ListControlInput({
   checkboxProps,
   deleteButtonProps,
   deleteEnabled = false,
+  duplicateEnabled = false,
   deleteLabel,
   editable = true,
   inputProps,
@@ -297,6 +308,7 @@ export function ListControlInput({
   onNew,
   onCheckedChange,
   onDelete,
+  onDuplicate,
   onRename,
   onEditingChange,
   selectedName,
@@ -339,7 +351,18 @@ export function ListControlInput({
   return (
     <InputControl
       control="input"
-      controlActions={selectedName ? (
+      controlActions={selectedName ? (<>
+        <DeleteButton
+          {...buttonProps}
+          {...deleteButtonProps}
+          action="duplicate"
+          armedColor="COLOR_ERROR"
+          confirmation
+          children={undefined}
+          disabled={!duplicateEnabled || !deleteLabel || !onDuplicate}
+          label={deleteLabel ?? selectedName}
+          onDelete={onDuplicate ?? (() => undefined)}
+        />
         <DeleteButton
           {...buttonProps}
           {...deleteButtonProps}
@@ -347,7 +370,7 @@ export function ListControlInput({
           label={deleteLabel ?? selectedName}
           onDelete={onDelete ?? (() => undefined)}
         />
-      ) : null}
+      </>) : null}
       controlLeading={selectedName && checked !== undefined && itemNumber
         && onCheckedChange ? (
           <Checkbox

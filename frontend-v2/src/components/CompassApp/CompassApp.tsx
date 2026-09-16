@@ -42,7 +42,6 @@ export function CompassApp({
       {...appViewProps}
       componentName="CompassApp"
       defaultDataSource="_system/compass"
-      title="COMPASS"
     >
       <ol className={styles.list}>
         {orderedSayings.map((saying, index) => (

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { markRaw } from "vue";
-import { ChatDotRound, Clock, Collection, Grid } from "@element-plus/icons-vue";
+import { ChatDotRound, Clock, Collection, Connection, Grid } from "@element-plus/icons-vue";
 import type { ModuleId } from "../ui";
 
 defineProps<{ activeModule: ModuleId }>();
@@ -10,6 +10,7 @@ const modules = [
   { id: "AGNT" as const, icon: markRaw(ChatDotRound) },
   { id: "DATA" as const, icon: markRaw(Collection) },
   { id: "APPS" as const, icon: markRaw(Grid) },
+  { id: "RELAY" as const, icon: markRaw(Connection) },
   { id: "CRON" as const, icon: markRaw(Clock) },
 ];
 </script>

@@ -47,9 +47,11 @@ describe("getVisibleFunctionsAppTabs", () => {
       categories: [],
       compassActive: true,
       deviceInfoActive: false,
+      gpsEventsActive: false,
       inventoryActive: true,
       shoppingListActive: false,
       shoppingCategories: [],
+      sportActive: false,
     })).toEqual(["BROWSER", "COMPASS", "INVENTORY"]);
   });
 });

@@ -18,7 +18,7 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadOnlyPaths=/opt/relayone
-ReadWritePaths=/var/lib/relayone/assets
+ReadWritePaths=/var/lib/relayone/assets /var/lib/relayone/identity
 
 [Install]
 WantedBy=multi-user.target

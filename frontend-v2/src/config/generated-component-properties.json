@@ -612,6 +612,39 @@
       "height": "inherit"
     }
   },
+  "GpsEventsApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "SportApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "SportFigure3D": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "CompassApp": {
     "base": {
       "color": "inherit",
@@ -821,7 +854,7 @@
   "AppTitle": {
     "title": "Flydeck",
     "symbol": "𐦍",
-    "subtitle": "Workspace Console",
+    "subtitle": "Information System",
     "fontSize": 22,
     "titleTop": 0,
     "titleLeft": 0,

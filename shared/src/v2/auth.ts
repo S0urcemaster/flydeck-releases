@@ -3,6 +3,14 @@ import { z } from "zod";
 export const sessionUserDtoSchema = z.object({
   id: z.uuid(),
   displayName: z.string().min(1).max(100),
+  accountType: z.enum(["personal", "guest", "probe", "test"]),
+});
+
+export const accountCapabilitiesDtoSchema = z.object({
+  agents: z.boolean(),
+  images: z.boolean(),
+  integrations: z.boolean(),
+  usageLogging: z.boolean(),
 });
 
 export const workspaceSummaryDtoSchema = z.object({
@@ -31,6 +39,7 @@ export const sessionDtoSchema = z.discriminatedUnion("authenticated", [
     authenticated: z.literal(true),
     loginRequired: z.boolean(),
     user: sessionUserDtoSchema,
+    capabilities: accountCapabilitiesDtoSchema,
     workspaces: z.array(workspaceSummaryDtoSchema),
   }),
 ]);

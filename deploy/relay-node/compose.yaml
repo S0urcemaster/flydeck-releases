@@ -1,0 +1,144 @@
+services:
+  database:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: relay
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: ${RELAY_DB_PASSWORD:?Set RELAY_DB_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relay -d relay"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - relay-database:/var/lib/postgresql/data
+
+  relay:
+    build:
+      context: ../../relayone
+    image: flydeck-relay-node:${RELAY_IMAGE_TAG:-local}
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://relay:${RELAY_DB_PASSWORD}@database:5432/relay
+      DATABASE_SSL: "false"
+      HOST: 0.0.0.0
+      PORT: 6060
+      FRONTEND_DIST: /app/dist
+      RELAY_ASSET_DIRECTORY: /var/lib/relay-node/assets
+      RELAY_IDENTITY_DIRECTORY: /var/lib/relay-node/identity
+      RELAY_DATA_SOURCE: projection
+    ports:
+      - "127.0.0.1:${RELAY_HOST_PORT:-6070}:6060"
+    volumes:
+      - relay-assets:/var/lib/relay-node/assets
+      - relay-identity:/var/lib/relay-node/identity
+
+  flydeck-database:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: flydeck
+      POSTGRES_USER: flydeck
+      POSTGRES_PASSWORD: ${FLYDECK_DB_PASSWORD:?Set FLYDECK_DB_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flydeck -d flydeck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - flydeck-database:/var/lib/postgresql/data
+
+  flydeck:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.flydeck
+      args:
+        FLYDECK_FRONTEND_BASE: /
+    image: flydeck-owner:${FLYDECK_IMAGE_TAG:-local}
+    restart: unless-stopped
+    depends_on:
+      flydeck-database:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://flydeck:${FLYDECK_DB_PASSWORD}@flydeck-database:5432/flydeck
+      DATABASE_SSL: "false"
+      PORT: 5100
+      BASE_PATH: /flydeck
+      FRONTEND_DIST: /app/frontend-v2/dist
+      FRONTEND_BASE_PATH: /
+      DESKTOP_DIST: /app/desktop-v2/dist
+      DESKTOP_BASE_PATH: /desktop
+      LOGIN_REQUIRED: "false"
+      AUTH_SECURE_COOKIE: "true"
+      TRUST_PROXY: ${FLYDECK_TRUST_PROXY:-false}
+      IMAGE_DIRECTORY: /var/lib/flydeck/images
+      BACKUP_DIRECTORY: /var/lib/flydeck/backups
+      RELAY_INGEST_URL: http://relay:6060/ingest/v1
+      RELAY_INGEST_SECRET: ${RELAY_INGEST_SECRET}
+      RELAY_ADMIN_URL: http://relay:6060/admin/v1
+    ports:
+      - "127.0.0.1:${FLYDECK_HOST_PORT:-6080}:5100"
+    volumes:
+      - flydeck-images:/var/lib/flydeck/images
+      - flydeck-backups:/var/lib/flydeck/backups
+
+  hosted-flydeck-database:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: flydeck
+      POSTGRES_USER: flydeck
+      POSTGRES_PASSWORD: ${HOSTED_FLYDECK_DB_PASSWORD:?Set HOSTED_FLYDECK_DB_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flydeck -d flydeck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - hosted-flydeck-database:/var/lib/postgresql/data
+
+  hosted-flydeck:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.flydeck
+      args:
+        FLYDECK_FRONTEND_BASE: /flydeck/
+    image: flydeck-hosted:${FLYDECK_IMAGE_TAG:-local}
+    restart: unless-stopped
+    depends_on:
+      hosted-flydeck-database:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://flydeck:${HOSTED_FLYDECK_DB_PASSWORD}@hosted-flydeck-database:5432/flydeck
+      DATABASE_SSL: "false"
+      PORT: 5100
+      BASE_PATH: /flydeck
+      FRONTEND_DIST: /app/frontend-v2/dist
+      FRONTEND_BASE_PATH: /flydeck
+      LOGIN_REQUIRED: "true"
+      AUTH_SECURE_COOKIE: "true"
+      TRUST_PROXY: "true"
+      IMAGE_DIRECTORY: /var/lib/flydeck/images
+      BACKUP_DIRECTORY: /var/lib/flydeck/backups
+    ports:
+      - "127.0.0.1:${HOSTED_FLYDECK_HOST_PORT:-6081}:5100"
+    volumes:
+      - hosted-flydeck-images:/var/lib/flydeck/images
+      - hosted-flydeck-backups:/var/lib/flydeck/backups
+
+volumes:
+  relay-database:
+  relay-assets:
+  relay-identity:
+  flydeck-database:
+  flydeck-images:
+  flydeck-backups:
+  hosted-flydeck-database:
+  hosted-flydeck-images:
+  hosted-flydeck-backups:

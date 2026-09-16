@@ -187,3 +187,31 @@ async function request<TResult>(
   }
   return body as TResult;
 }
+
+export type ExchangeInboxItem = {
+  id: string; peerNodeId: string; peerOrigin: string; peerTitle: string;
+  peerFingerprint: string; status: "pending" | "accepted" | "rejected";
+  receivedAt: string; decidedAt: string | null;
+};
+
+async function federationRequest<TResult>(path: string, method = "GET", body?: unknown) {
+  const response = await fetch(`${API_BASE}/relay-admin/federation${path}`, {
+    method,
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok) throw new Error(`Federation API: HTTP ${response.status}`);
+  return response.status === 204 ? undefined as TResult : await response.json() as TResult;
+}
+
+export const loadExchangeInbox = () => federationRequest<ExchangeInboxItem[]>("/inbox");
+export const loadRelayConnections = () => federationRequest<Array<{
+  id: string; peerNodeId: string; peerOrigin: string; peerTitle: string; state: string;
+}>>("/connections");
+export const sendExchangeRequest = (origin: string) => federationRequest("/requests", "POST", { origin });
+export const decideExchangeRequest = (id: string, decision: "accept" | "reject") =>
+  federationRequest(`/inbox/${encodeURIComponent(id)}/${decision}`, "POST");
+export const deleteExchangeRequest = (id: string) =>
+  federationRequest(`/inbox/${encodeURIComponent(id)}`, "DELETE");
+export const disconnectRelay = (id: string) =>
+  federationRequest(`/connections/${encodeURIComponent(id)}`, "DELETE");

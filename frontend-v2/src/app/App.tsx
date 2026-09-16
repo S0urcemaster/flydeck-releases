@@ -21,7 +21,7 @@ import {
 import generatedProperties from "../config/generated-component-properties.json";
 import generatedThemes from "../themes/generated-themes.json";
 import { AgentModule } from "../modules/AgentModule";
-import { DataModule } from "../modules/DataModule";
+import { DataModule, LensModule } from "../modules/DataModule";
 import { FunctionsModule } from "../modules/FunctionsModule";
 import { HelpModule } from "../modules/HelpModule";
 import { SettingsModule } from "../modules/SettingsModule";
@@ -88,6 +88,8 @@ export function App() {
   const [workspaceId, setWorkspaceId] = useState<string | undefined>(
     cachedClientIdentity?.workspaceId,
   );
+  const [agentEnabled, setAgentEnabled] = useState(true);
+  const [imagesEnabled, setImagesEnabled] = useState(true);
   const clientStateScope = useMemo<ClientStateScope>(() => ({
     userId: userId ?? "anonymous",
     workspaceId: workspaceId ?? "default",
@@ -248,6 +250,14 @@ export function App() {
   const blueskyAppBase = resolveDerivedBaseProperties(
     appViewBase,
     properties.BlueskyApp.base,
+  );
+  const gpsEventsAppBase = resolveDerivedBaseProperties(
+    appViewBase,
+    properties.GpsEventsApp.base,
+  );
+  const sportAppBase = resolveDerivedBaseProperties(
+    appViewBase,
+    properties.SportApp.base,
   );
   const compassAppBase = resolveDerivedBaseProperties(
     appViewBase,
@@ -422,6 +432,13 @@ export function App() {
   }, [userId, workspaceId]);
 
   useEffect(() => {
+    if (!agentEnabled && activeMenuItem === "AGNT") {
+      setPreviousPrimaryMenuItem("DATA");
+      setActiveMenuItem("DATA");
+    }
+  }, [agentEnabled, activeMenuItem, setActiveMenuItem, setPreviousPrimaryMenuItem]);
+
+  useEffect(() => {
     let active = true;
     const waitingTimer = window.setTimeout(() => {
       if (!active) return;
@@ -439,6 +456,8 @@ export function App() {
         setAccessReason("");
         setUserId(session.user.id);
         setWorkspaceId(session.workspaces[0].id);
+        setAgentEnabled(session.capabilities.agents);
+        setImagesEnabled(session.capabilities.images);
         setLastClientIdentity({
           userId: session.user.id,
           workspaceId: session.workspaces[0].id,
@@ -475,6 +494,8 @@ export function App() {
         setAccessReason("");
         setUserId(session.user.id);
         setWorkspaceId(session.workspaces[0].id);
+        setAgentEnabled(session.capabilities.agents);
+        setImagesEnabled(session.capabilities.images);
         setLastClientIdentity({
           userId: session.user.id,
           workspaceId: session.workspaces[0].id,
@@ -505,6 +526,7 @@ export function App() {
     if (!isPrimaryModuleItem(item)) {
       return;
     }
+    if (item === "AGNT" && !agentEnabled) return;
 
     setPreviousPrimaryMenuItem(item);
     setActiveMenuItem(item);
@@ -521,6 +543,31 @@ export function App() {
       previousPrimaryMenuItem,
     ));
   }
+
+  const standardDataTreeProps = {
+    ...dataTreeBase,
+    contentEditorProps: { ...sharedInputControlProps, ...contentEditorBase },
+    imageDeleteButtonProps: {
+      ...deleteButtonBase,
+      armedColor: properties.DeleteButton.armedColor,
+      timeout: unlockButtonTimeout,
+    },
+    imagesEnabled,
+    inputControlProps: sharedInputControlProps,
+    nodeIdInputProps: {
+      ...nodeIdInputBase,
+      buttonProps: sharedInputControlProps.buttonProps,
+      inputProps: configuredInputProps,
+    },
+    parentInputProps: {
+      ...parentInputBase,
+      buttonProps: { ...buttonBase, activeColor: properties.Button.activeColor },
+      inputProps: configuredInputProps,
+    },
+    onSynchronizationError: reportSynchronizationError,
+    rowGap: properties.TreeBrowser.rowGap,
+    ...sharedTreeChildProps,
+  };
 
   return (
     <ClientStateScopeProvider scope={clientStateScope}>
@@ -626,13 +673,14 @@ export function App() {
       <ModulePanel
         {...panelBase}
         activeItem={activeMenuItem}
+        agentEnabled={agentEnabled}
         moduleButtonProps={{
           ...moduleButtonBase,
           activeColor: properties.Button.activeColor,
         }}
         onChange={selectPrimaryModule}
       />
-      {activeMenuItem === "AGNT" && (
+      {agentEnabled && activeMenuItem === "AGNT" && (
         <AgentModule
           {...agentModuleBase}
           jobCaseProps={{
@@ -674,9 +722,7 @@ export function App() {
           }}
         />
       )}
-      {(["DATA", "DATB", "DATC", "DATD"] as const).includes(
-        activeMenuItem as "DATA" | "DATB" | "DATC" | "DATD",
-      ) && (
+      {activeMenuItem === "DATA" && (
         <DataModule
           key={activeMenuItem}
           {...dataModuleBase}
@@ -691,8 +737,9 @@ export function App() {
               armedColor: properties.DeleteButton.armedColor,
               timeout: unlockButtonTimeout,
             },
+            imagesEnabled,
             inputControlProps: sharedInputControlProps,
-            navigationSlot: activeMenuItem.toLocaleLowerCase(),
+            navigationSlot: "data",
             nodeIdInputProps: {
               ...nodeIdInputBase,
               buttonProps: sharedInputControlProps.buttonProps,
@@ -713,8 +760,47 @@ export function App() {
           }}
         />
       )}
+      {activeMenuItem === "LENS" && (
+        <LensModule
+          {...dataModuleBase}
+          workspaceId={workspaceId}
+          dataBrowserProps={{
+            ...dataTreeBase,
+            contentEditorProps: {
+              ...sharedInputControlProps,
+              ...contentEditorBase,
+            },
+            imageDeleteButtonProps: {
+              ...deleteButtonBase,
+              armedColor: properties.DeleteButton.armedColor,
+              timeout: unlockButtonTimeout,
+            },
+            imagesEnabled,
+            inputControlProps: sharedInputControlProps,
+            nodeIdInputProps: {
+              ...nodeIdInputBase,
+              buttonProps: sharedInputControlProps.buttonProps,
+              inputProps: configuredInputProps,
+            },
+            parentInputProps: {
+              ...parentInputBase,
+              buttonProps: {
+                ...buttonBase,
+                activeColor: properties.Button.activeColor,
+              },
+              inputProps: configuredInputProps,
+            },
+            onSynchronizationError: reportSynchronizationError,
+            rowGap: properties.TreeBrowser.rowGap,
+            ...sharedTreeChildProps,
+          }}
+        />
+      )}
       {activeMenuItem === "FUNC" && (
         <FunctionsModule
+          sportAppBaseProps={sportAppBase}
+          sportAppTreeProps={standardDataTreeProps}
+          sportAppCommentTextareaProps={configuredTextareaProps}
           {...functionsModuleBase}
           workspaceId={workspaceId}
           appTabPanelProps={{
@@ -746,6 +832,10 @@ export function App() {
               rowGap: properties.TreeBrowser.rowGap,
               ...sharedTreeChildProps,
             },
+          }}
+          gpsEventsAppProps={{
+            ...gpsEventsAppBase,
+            treeProps: standardDataTreeProps,
           }}
           compassAppBaseProps={compassAppBase}
           deviceInfoProps={{
@@ -877,7 +967,7 @@ const activeMenuItemSlice: ClientStateSlice<ModuleMenuItem> = {
   validate: (value): value is ModuleMenuItem => (
     typeof value === "string"
       && [
-        "AGNT", "DATA", "DATB", "DATC", "DATD", "FUNC", "HELP", "CONFIG",
+        "AGNT", "DATA", "LENS", "FUNC", "HELP", "CONFIG",
       ].includes(value)
   ),
 };
@@ -887,8 +977,7 @@ const previousPrimaryMenuItemSlice: ClientStateSlice<PrimaryModuleItem> = {
   version: 1,
   defaultValue: initialPrimaryMenuItem,
   validate: (value): value is PrimaryModuleItem => (
-    value === "AGNT" || value === "DATA" || value === "DATB"
-      || value === "DATC" || value === "DATD" || value === "FUNC"
+    value === "AGNT" || value === "DATA" || value === "LENS" || value === "FUNC"
   ),
 };
 

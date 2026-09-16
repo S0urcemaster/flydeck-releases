@@ -15,6 +15,8 @@ export const sessionCookieName = "flydeck_v2_session";
 type SessionRow = {
   user_id: string;
   display_name: string;
+  account_type: "personal" | "guest" | "probe" | "test";
+  usage_logging: boolean;
   workspace_id: string | null;
   workspace_name: string | null;
   role: WorkspaceSummaryDto["role"] | null;
@@ -57,6 +59,8 @@ export class SessionService {
       FROM users
       JOIN user_credentials ON user_credentials.user_id = users.id
       WHERE lower(users.display_name) = lower($1)
+        AND users.account_status = 'active'
+        AND (users.expires_at IS NULL OR users.expires_at > now())
       ORDER BY users.created_at
       LIMIT 2
     `, [loginName]);
@@ -91,6 +95,8 @@ export class SessionService {
       SELECT
         users.id AS user_id,
         users.display_name,
+        users.account_type,
+        users.usage_logging,
         workspaces.id AS workspace_id,
         workspaces.name AS workspace_name,
         workspace_memberships.role
@@ -102,6 +108,8 @@ export class SessionService {
         ON workspaces.id = workspace_memberships.workspace_id
       WHERE sessions.token_hash = $1
         AND sessions.expires_at > now()
+        AND users.account_status = 'active'
+        AND (users.expires_at IS NULL OR users.expires_at > now())
       ORDER BY workspaces.name, workspaces.id
     `, [tokenHash])).rows;
   }
@@ -111,6 +119,8 @@ export class SessionService {
       SELECT
         users.id AS user_id,
         users.display_name,
+        users.account_type,
+        users.usage_logging,
         workspaces.id AS workspace_id,
         workspaces.name AS workspace_name,
         workspace_memberships.role
@@ -119,8 +129,12 @@ export class SessionService {
         ON workspace_memberships.user_id = users.id
       JOIN workspaces
         ON workspaces.id = workspace_memberships.workspace_id
-      WHERE ($1::uuid IS NOT NULL AND users.id = $1)
-         OR ($1::uuid IS NULL AND workspace_memberships.role = 'owner')
+      WHERE (
+        ($1::uuid IS NOT NULL AND users.id = $1)
+        OR ($1::uuid IS NULL AND workspace_memberships.role = 'owner')
+      )
+        AND users.account_status = 'active'
+        AND (users.expires_at IS NULL OR users.expires_at > now())
       ORDER BY
         CASE WHEN $1::uuid IS NOT NULL AND users.id = $1 THEN 0 ELSE 1 END,
         users.created_at,
@@ -141,7 +155,12 @@ function toSession(rows: SessionRow[], loginRequired: boolean) {
   return sessionDtoSchema.parse({
       authenticated: true,
       loginRequired,
-      user: { id: first.user_id, displayName: first.display_name },
+      user: {
+        id: first.user_id,
+        displayName: first.display_name,
+        accountType: first.account_type,
+      },
+      capabilities: capabilitiesFor(first),
       workspaces: rows.flatMap((row) => (
         row.workspace_id && row.workspace_name && row.role
           ? [{
@@ -152,6 +171,16 @@ function toSession(rows: SessionRow[], loginRequired: boolean) {
           : []
       )),
     });
+}
+
+function capabilitiesFor(row: SessionRow) {
+  const personal = row.account_type === "personal";
+  return {
+    agents: personal,
+    images: row.account_type !== "probe",
+    integrations: personal,
+    usageLogging: row.account_type === "test" || row.usage_logging,
+  };
 }
 
 function unauthenticatedSession(loginRequired: boolean): SessionDto {

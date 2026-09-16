@@ -52,8 +52,10 @@ export type AppBrowserOutputState = {
   categories: AppBrowserOutputCategory[];
   compassActive: boolean;
   deviceInfoActive: boolean;
+  gpsEventsActive: boolean;
   inventoryActive: boolean;
   shoppingListActive: boolean;
+  sportActive: boolean;
   shoppingCategories: ShoppingListOutputCategory[];
 };
 
@@ -65,7 +67,7 @@ export type ShoppingListOutputCategory = {
 
 export type AppData =
   | { kind: "group"; groupId: "system" }
-  | { kind: "view-generator"; viewId: "bluesky" | "compass" | "inventory" | "shopping-list" }
+  | { kind: "view-generator"; viewId: "bluesky" | "compass" | "gps-events" | "inventory" | "shopping-list" | "sport" }
   | { kind: "category"; category: string }
   | { kind: "shopping-category"; category: string }
   | { kind: "shopping-item"; label: string }
@@ -150,6 +152,9 @@ export function AppBrowser({
       )}
       renderContent={({ height, node }) => {
         if (node.data?.kind === "view-generator") {
+          if (node.data.viewId === "gps-events") {
+            return <pre>locations: _system/user/locations{"\n"}events: _system/user/events</pre>;
+          }
           const settings = appSettingsByViewId[node.data.viewId];
           return (
             <AppSettings
@@ -226,7 +231,7 @@ const checkedAppsSlice: ClientStateSlice<string[]> = {
 };
 
 const rootAppIds = new Set([
-  "compass", "inventory", "shopping-list", "bluesky", "_system",
+  "compass", "inventory", "shopping-list", "bluesky", "gps-events", "sport", "_system",
 ]);
 
 const appSettingsByViewId = {
@@ -234,6 +239,8 @@ const appSettingsByViewId = {
   inventory: { componentName: "InventoryApp", defaultDataSource: "lagerraum" },
   "shopping-list": { componentName: "ShoppingListView", defaultDataSource: "" },
   bluesky: { componentName: "BlueskyApp", defaultDataSource: "" },
+  "gps-events": { componentName: "GpsEventsApp", defaultDataSource: "" },
+  sport: { componentName: "SportApp", defaultDataSource: "" },
 } as const;
 
 const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
@@ -267,6 +274,22 @@ const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
     enabled: false,
     contentVisible: false,
     data: { kind: "view-generator", viewId: "bluesky" },
+    children: [],
+  },
+  {
+    id: "gps-events",
+    label: "GPS Events",
+    enabled: false,
+    contentVisible: false,
+    data: { kind: "view-generator", viewId: "gps-events" },
+    children: [],
+  },
+  {
+    id: "sport",
+    label: "Sport",
+    enabled: false,
+    contentVisible: false,
+    data: { kind: "view-generator", viewId: "sport" },
     children: [],
   },
   {
@@ -400,12 +423,19 @@ export function generateFunctionOutput(
   const bluesky = nodes.find(
     ({ data }) => data?.kind === "view-generator" && data.viewId === "bluesky",
   );
+  const gpsEvents = nodes.find(
+    ({ data }) => data?.kind === "view-generator" && data.viewId === "gps-events",
+  );
+  const sport = nodes.find(
+    ({ data }) => data?.kind === "view-generator" && data.viewId === "sport",
+  );
   const compassActive = Boolean(compass?.enabled);
   const shoppingListActive = Boolean(shopping?.enabled);
   return {
     blueskyActive: Boolean(bluesky?.enabled),
     compassActive,
     deviceInfoActive: false,
+    gpsEventsActive: Boolean(gpsEvents?.enabled),
     inventoryActive: Boolean(inventory?.enabled),
     categories: compassActive && compass
       ? compass.children
@@ -425,6 +455,7 @@ export function generateFunctionOutput(
           .filter(({ sayings: activeSayings }) => activeSayings.length > 0)
       : [],
     shoppingListActive,
+    sportActive: Boolean(sport?.enabled),
     shoppingCategories: shoppingListActive && shopping
       ? shopping.children
           .filter(({ enabled }) => enabled)

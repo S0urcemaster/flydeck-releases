@@ -28,7 +28,6 @@ describe("InventoryApp", () => {
 
     expect(markup).toContain('data-component-name="InventoryApp"');
     expect(markup).toContain('data-access-mode="read-write"');
-    expect(markup).toContain("INVENTORY");
     expect(markup).toContain('aria-label="Inventory item name"');
     expect(markup).toContain('aria-label="Inventory item ID"');
     expect(markup).toContain('aria-label="Inventory item description"');

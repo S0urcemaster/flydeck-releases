@@ -6,7 +6,7 @@ import {
 } from "@element-plus/icons-vue";
 import type { TreeRow } from "./api";
 
-export type ModuleId = "AGNT" | "DATA" | "APPS" | "CRON";
+export type ModuleId = "AGNT" | "DATA" | "APPS" | "CRON" | "RELAY";
 export type DesktopAppId = "data-analysis" | "mindmap";
 export type AppVisualization = "timeline" | "mindmap";
 

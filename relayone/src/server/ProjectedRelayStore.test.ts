@@ -8,15 +8,19 @@ const config: RelayConfig = {
   host: "127.0.0.1",
   databaseUrl: "postgresql://localhost/relayone",
   databaseSsl: false,
+  nodeId: "relay-one",
+  publicOrigin: "https://relay-one.example",
   title: "Relay One",
   info: "Independent publication",
   imageDirectory: "/legacy/images",
   assetDirectory: "/srv/relayone/assets",
+  identityDirectory: "/srv/relayone/identity",
   ingestSecret: null,
   maxAssetBytes: 25 * 1_024 * 1_024,
   dataSource: "projection",
   publicCacheSeconds: 15,
   frontendDist: "/srv/relayone/dist",
+  capabilities: { homeIngress: true, federation: false, accounts: false, diagnostics: false },
 };
 
 const rootId = "00000000-0000-4000-8000-000000000001";

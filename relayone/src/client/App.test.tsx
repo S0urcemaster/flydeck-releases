@@ -23,6 +23,22 @@ const root: RelayPostSummary = {
 };
 
 describe("Relay One client response", () => {
+  it("links the public apps without the obsolete Local navigation label", async () => {
+    const source = await import("node:fs/promises").then(({ readFile }) => readFile(
+      new URL("./App.tsx", import.meta.url),
+      "utf8",
+    ));
+
+    expect(source).toContain("https://relay-two.relay-one.de/flydeck/");
+    expect(source.indexOf("https://relay-two.relay-one.de/flydeck/"))
+      .toBeLessThan(source.indexOf("https://apps.relay-one.de/textor"));
+    expect(source).toContain("https://apps.relay-one.de/textor");
+    expect(source).toContain("https://apps.relay-one.de/webdictate");
+    expect(source.indexOf("https://apps.relay-one.de/webdictate"))
+      .toBeLessThan(source.indexOf("https://apps.relay-one.de/textor"));
+    expect(source).not.toContain(">Local</a>");
+  });
+
   it("keeps an empty current publication list visible", () => {
     expect(normalizeRelaySite({
       title: "Relay One",

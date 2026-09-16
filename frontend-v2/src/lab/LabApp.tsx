@@ -1,5 +1,7 @@
 import {
   useLayoutEffect,
+  lazy,
+  Suspense,
   useRef,
   useState,
   type CSSProperties,
@@ -38,6 +40,9 @@ import { CompactButton } from "../components/CompactButton";
 import { ColorDialer } from "../components/ColorDialer";
 import { CompassApp } from "../components/CompassApp";
 import { BlueskyApp } from "../components/BlueskyApp";
+import { GpsEventsApp } from "../components/GpsEventsApp";
+import { SportApp } from "../components/SportApp";
+const LabSportFigure3D = lazy(() => import("../components/SportApp/SportFigure3D").then((module) => ({ default: module.SportFigure3D })));
 import { PointerButton, type PointerButtonProps } from "../components/PointerButton";
 import { Pointer, type PointerProps } from "../components/Pointer";
 import { CycleButton } from "../components/CycleButton";
@@ -216,6 +221,9 @@ const manifestPreviewComponentNames = [
   "Block",
   "Breadcrumb",
   "BlueskyApp",
+  "GpsEventsApp",
+  "SportApp",
+  "SportFigure3D",
   "CompassApp",
   "CompactButton",
   "ConfigEditor",
@@ -240,6 +248,8 @@ const manifestPreviewComponentNames = [
 const appViewFamilyComponentNames = [
   "AppView",
   "BlueskyApp",
+  "GpsEventsApp",
+  "SportApp",
   "CompassApp",
   "ConfigEditor",
   "DeviceInfoView",
@@ -385,6 +395,8 @@ export function LabApp() {
   >({
     AppView: storedComponentProperties.AppView.base,
     BlueskyApp: storedComponentProperties.BlueskyApp.base,
+    GpsEventsApp: storedComponentProperties.GpsEventsApp.base,
+    SportApp: storedComponentProperties.SportApp.base,
     CompassApp: storedComponentProperties.CompassApp.base,
     ConfigEditor: storedComponentProperties.ConfigEditor.base,
     DeviceInfoView: storedComponentProperties.DeviceInfoView.base,
@@ -777,6 +789,9 @@ export function LabApp() {
       BackspaceButton: { base: backspaceButtonBaseValues },
       AppView: { base: appViewFamilyBaseValues.AppView },
       BlueskyApp: { base: appViewFamilyBaseValues.BlueskyApp },
+      GpsEventsApp: { base: appViewFamilyBaseValues.GpsEventsApp },
+      SportApp: { base: appViewFamilyBaseValues.SportApp },
+      SportFigure3D: { base: storedComponentProperties.SportFigure3D.base },
       InlineAppView: { base: inlineAppFamilyBaseValues.InlineAppView },
       BackupApp: { base: inlineAppFamilyBaseValues.BackupApp },
       MaintenanceApp: { base: inlineAppFamilyBaseValues.MaintenanceApp },
@@ -4142,7 +4157,7 @@ export function LabApp() {
         <BasePropertyControls
           componentName="ModulePanel"
           ownPropertyComments={{
-            activeItem: "AGNT | DATA | DATB | DATC | DATD | FUNC | HELP | CONFIG",
+            activeItem: "AGNT | DATA | LENS | FUNC | HELP | CONFIG",
           }}
           ownProperties={{ activeItem: panelPreviewItem }}
           values={modulePanelBaseValues}
@@ -4154,9 +4169,7 @@ export function LabApp() {
               && [
                 "AGNT",
                 "DATA",
-                "DATB",
-                "DATC",
-                "DATD",
+                "LENS",
                 "FUNC",
                 "HELP",
                 "CONFIG",
@@ -4788,11 +4801,17 @@ function renderManifestComponentPreview(
 
   switch (name) {
     case "AppView":
-      return <AppView {...baseProps} title="APP VIEW">Application content</AppView>;
+      return <AppView {...baseProps}>Application content</AppView>;
     case "BackupApp":
       return <BackupApp {...baseProps} />;
     case "BlueskyApp":
       return <BlueskyApp {...baseProps} />;
+    case "GpsEventsApp":
+      return <GpsEventsApp {...baseProps} />;
+    case "SportApp":
+      return <SportApp {...baseProps} />;
+    case "SportFigure3D":
+      return <Suspense fallback="Loading 3D view…"><LabSportFigure3D {...baseProps} pose={{ yaw: 0, pitch: 0, roll: 0, zoom: 100, spine: 0, head: 0, leftKnee: 0, rightKnee: 0 }} /></Suspense>;
     case "MaintenanceApp":
       return <MaintenanceApp {...baseProps} />;
     case "Block":

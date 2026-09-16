@@ -1,0 +1,43 @@
+.layout { display: grid; gap: var(--space-xs); min-width: 0; }
+.exerciseTitle, .browserTitle { display: flex; align-items: center; gap: var(--space-xs); }
+.exerciseTitle { justify-content: space-between; }
+.exerciseTitle span, .note { color: var(--color-text-muted); font-size: 12px; }
+.view { display: grid; place-items: center; width: 100%; height: 360px; overflow: hidden; border-radius: var(--radius-control); background: #152638; color: #f4dcc0; touch-action: pan-y; cursor: grab; }
+.view:active { cursor: grabbing; }
+.view canvas { display: block; }
+.tabLayout { display: grid; grid-template-columns: minmax(0, 4fr) minmax(32px, .75fr); gap: 3px; }
+.poseTabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
+.utilityTabs { display: grid; grid-template-rows: repeat(2, 32px); align-content: center; gap: 3px; }
+.tab, .activeTab { display: flex; justify-content: center; align-items: center; gap: 2px; height: 42px; min-width: 0; border: var(--border-standard); border-radius: var(--radius-control); background: color-mix(in srgb, var(--sport-group-color) 8%, var(--color-surface)); color: var(--sport-group-color); }
+.activeTab { border-color: var(--sport-group-color); background: color-mix(in srgb, var(--sport-group-color) 24%, var(--color-surface)); }
+.utilityTabs .tab, .utilityTabs .activeTab { height: 32px; }
+.poseTabs span { font-size: 10px; }
+.groupLabel { font-weight: 600; }
+.startingPoses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-xs); }
+.startingPoses button { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 3px; padding-inline: 3px; }
+.startingPoses span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.symmetry { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
+.symmetry > div { display: grid; grid-template-columns: var(--button-width) minmax(0, 1fr); align-items: center; gap: var(--space-xs); min-width: 0; padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); font-size: 12px; }
+.furnitureToggle { display: grid; grid-template-columns: var(--button-width) minmax(0, 1fr); align-items: center; gap: var(--space-xs); min-width: 0; padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); font-size: 12px; }
+.furnitureFields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
+.furnitureFields strong { grid-column: 1 / -1; font-size: 12px; }
+.colorField { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); min-width: 0; padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); font-size: 12px; }
+.colorField input { width: 42px; height: 26px; padding: 1px; border: 0; background: transparent; }
+.sliders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
+.slider { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px; min-width: 0; padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); font-size: 12px; }
+.slider span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slider output { font-variant-numeric: tabular-nums; }
+.slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--color-accent-one); }
+.frames { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-block: 2px; }
+.frameActions { display: flex; flex: 0 0 auto; align-items: center; gap: var(--space-xs); }
+.frame, .activeFrame { display: flex; align-items: center; justify-content: center; flex: 0 0 var(--button-width); min-width: var(--button-width); min-height: var(--button-width); padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
+.activeFrame { border-color: var(--color-accent-one); background: var(--color-app); }
+.frame span, .activeFrame span { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 12px; }
+.nearestFrame span { font-weight: 800; }
+.player { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; gap: var(--space-xs); }
+.player button { display: grid; place-items: center; height: 36px; border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
+.player .loopActive { border-color: var(--color-accent-one); background: var(--color-accent-one); color: var(--color-surface); }
+.player input { width: 100%; accent-color: var(--color-accent-one); }
+.browserTitle { margin-top: var(--space-xs); font-weight: 600; }
+.note { margin: 0; line-height: 1.4; }
+.empty { padding: var(--space-sm); border: var(--border-standard); border-radius: var(--radius-control); color: var(--color-text-muted); }

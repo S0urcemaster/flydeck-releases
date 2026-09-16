@@ -24,6 +24,7 @@ import {
 } from "@flydeck/shared/v2";
 import { z } from "zod";
 import type { SessionService } from "../auth/SessionService.js";
+import { assertImagesAllowed, assertItemTextAllowed } from "../auth/accountPolicy.js";
 import { requireWorkspaceAccess } from "../auth/workspaceAuthorization.js";
 import { HttpError } from "../http/HttpError.js";
 import type { NodeImageService } from "./NodeImageService.js";
@@ -73,9 +74,10 @@ export function createTreeRouter(
     "/nodes/:nodeId/image",
     express.raw({ type: "image/*", limit: "20mb" }),
     async (request, response) => {
-      const { workspaceId } = await requireWorkspaceAccess(
+      const { workspaceId, accountType } = await requireWorkspaceAccess(
         sessions, request, workspaceIdParameter(request), true,
       );
+      assertImagesAllowed(accountType);
       const nodeId = uuidSchema.parse(request.params.nodeId);
       if (!Buffer.isBuffer(request.body)) {
         throw new HttpError(400, "INVALID_REQUEST", "Image body is required");
@@ -95,9 +97,10 @@ export function createTreeRouter(
   );
 
   router.delete("/nodes/:nodeId/image", async (request, response) => {
-    const { workspaceId } = await requireWorkspaceAccess(
+    const { workspaceId, accountType } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
+    assertImagesAllowed(accountType);
     const nodeId = uuidSchema.parse(request.params.nodeId);
     response.json(deleteTreeNodeImageResponseSchema.parse({
       nodeId,
@@ -106,31 +109,34 @@ export function createTreeRouter(
   });
 
   router.post("/nodes", async (request, response) => {
-    const { workspaceId, userId } = await requireWorkspaceAccess(
+    const { workspaceId, userId, accountType } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const input = createTreeNodeRequestSchema.parse(request.body);
+    assertItemTextAllowed(accountType, { label: input.label });
     response.status(201).json(createTreeNodeResponseSchema.parse(
       await trees.createNode(workspaceId, userId, input),
     ));
   });
 
   router.post("/nodes/with-content", async (request, response) => {
-    const { workspaceId, userId } = await requireWorkspaceAccess(
+    const { workspaceId, userId, accountType } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const input = createTreeNodeWithContentRequestSchema.parse(request.body);
+    assertItemTextAllowed(accountType, { label: input.label, content: input.content });
     response.status(201).json(createTreeNodeResponseSchema.parse(
       await trees.createNode(workspaceId, userId, input),
     ));
   });
 
   router.patch("/nodes/:nodeId", async (request, response) => {
-    const { workspaceId, userId } = await requireWorkspaceAccess(
+    const { workspaceId, userId, accountType } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = renameTreeNodeRequestSchema.parse(request.body);
+    assertItemTextAllowed(accountType, { label: input.label });
     response.json(createTreeNodeResponseSchema.parse(
       await trees.executeIdempotent(
         workspaceId, userId, input.requestId, "tree.rename",
@@ -143,11 +149,12 @@ export function createTreeRouter(
   });
 
   router.put("/nodes/:nodeId/edit", async (request, response) => {
-    const { workspaceId, userId } = await requireWorkspaceAccess(
+    const { workspaceId, userId, accountType } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = editTreeNodeRequestSchema.parse(request.body);
+    assertItemTextAllowed(accountType, { label: input.label, content: input.content });
     response.json(createTreeNodeResponseSchema.parse(
       await trees.executeIdempotent(
         workspaceId, userId, input.requestId, "tree.edit",
@@ -293,11 +300,12 @@ export function createTreeRouter(
   });
 
   router.put("/nodes/:nodeId/content", async (request, response) => {
-    const { workspaceId, userId } = await requireWorkspaceAccess(
+    const { workspaceId, userId, accountType } = await requireWorkspaceAccess(
       sessions, request, workspaceIdParameter(request), true,
     );
     const nodeId = uuidSchema.parse(request.params.nodeId);
     const input = updateTreeNodeContentRequestSchema.parse(request.body);
+    assertItemTextAllowed(accountType, { content: input.content });
     response.json(treeNodeContentDtoSchema.parse(
       await trees.executeIdempotent(
         workspaceId, userId, input.requestId, "tree.content",

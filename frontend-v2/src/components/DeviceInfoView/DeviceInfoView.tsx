@@ -16,7 +16,6 @@ export function DeviceInfoView({
     <AppView
       {...appViewProps}
       componentName="DeviceInfoView"
-      title="DEVICEINFO"
     >
       <DeviceInfo {...deviceInfoProps} showRefreshButton={false} />
     </AppView>

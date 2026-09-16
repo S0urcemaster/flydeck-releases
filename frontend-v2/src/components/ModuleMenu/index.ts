@@ -1,9 +1,7 @@
 export const moduleMenuItems = [
   "AGNT",
   "DATA",
-  "DATB",
-  "DATC",
-  "DATD",
+  "LENS",
   "FUNC",
   "HELP",
   "CONFIG",

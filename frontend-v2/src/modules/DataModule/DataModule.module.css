@@ -4,3 +4,7 @@
   background: transparent;
   pointer-events: none;
 }
+
+.focus {
+  min-width: 0;
+}
