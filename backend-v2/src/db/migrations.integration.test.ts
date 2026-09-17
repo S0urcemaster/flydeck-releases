@@ -265,6 +265,7 @@ integration("PostgreSQL migrations", () => {
       memory: "# Rules\n\nAlways be concise.",
       dataSourceNodeIds: [dataId],
       dataSources: "|- Source\n|-|- Current source content",
+      destinationNodeId: null,
       prompt: "Answer",
       modelTier: "ECON",
       effort: "FAST",

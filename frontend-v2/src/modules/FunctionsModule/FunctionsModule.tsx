@@ -18,6 +18,7 @@ import { ShoppingListView } from "../../components/ShoppingListView";
 import { BlueskyApp, type BlueskyAppProps } from "../../components/BlueskyApp";
 import { GpsEventsApp, type GpsEventsAppProps } from "../../components/GpsEventsApp";
 import { SportApp } from "../../components/SportApp";
+import { SchedulerApp } from "../../components/SchedulerApp";
 import type { DataTreeProps } from "../../components/DataTree";
 import type { TextareaProps } from "../../components/Textarea";
 import {
@@ -39,6 +40,7 @@ export type FunctionsAppTab =
   | "GPS EVENTS"
   | "INVENTORY"
   | "SHOPPING LIST"
+  | "SCHEDULER"
   | "SPORT";
 
 export type FunctionsModuleProps = ModuleProps & {
@@ -109,6 +111,7 @@ export function FunctionsModule({
     inventoryActive: false,
     shoppingListActive: false,
     sportActive: false,
+    schedulerActive: false,
     shoppingCategories: [],
   });
   const visibleTabs = getVisibleFunctionsAppTabs(output);
@@ -204,6 +207,9 @@ export function FunctionsModule({
       {visibleActiveTab === "SPORT" ? (
         <SportApp {...sportAppBaseProps} key="sport-view" treeProps={sportAppTreeProps} commentTextareaProps={sportAppCommentTextareaProps} workspaceId={workspaceId} />
       ) : null}
+      {visibleActiveTab === "SCHEDULER" ? (
+        <SchedulerApp key="scheduler-view" workspaceId={workspaceId} />
+      ) : null}
       {visibleActiveTab === "BROWSER" ? (
         <AppBrowser
           {...appBrowserProps}
@@ -223,6 +229,7 @@ export function getVisibleFunctionsAppTabs(
 ): FunctionsAppTab[] {
   const tabs: FunctionsAppTab[] = ["BROWSER"];
   if (output.sportActive) tabs.push("SPORT");
+  if (output.schedulerActive) tabs.push("SCHEDULER");
   if (output.blueskyActive) tabs.push("BLUESKY");
   if (output.deviceInfoActive) tabs.push("DEVICE INFO");
   if (output.gpsEventsActive) tabs.push("GPS EVENTS");
@@ -262,5 +269,6 @@ const functionsAppTabSlice: ClientStateSlice<FunctionsAppTab> = {
     || value === "INVENTORY"
     || value === "SHOPPING LIST"
     || value === "SPORT"
+    || value === "SCHEDULER"
   ),
 };

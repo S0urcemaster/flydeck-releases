@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { DoubleSide, Matrix4, Quaternion, Vector3 } from "three";
+import { CanvasTexture, DoubleSide, Matrix4, Quaternion, Vector3 } from "three";
 import { Base, type BaseStyleProps } from "../Base";
 import { buildSportRig, groundedSportFigureHeight, type RigJoint, type RigPoint, type RigSegment } from "./SportRig";
 import { defaultSportMetrics, type SportMetricValues } from "./SportMetrics";
@@ -87,11 +87,57 @@ const SportRoom = memo(function SportRoom() {
   </>;
 });
 
+function AxisLabel({ color, position, text }: { color: string; position: RigPoint; text: string }) {
+  const texture = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 72;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = "700 38px sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.lineWidth = 7;
+    context.strokeStyle = "#10202b";
+    context.strokeText(text, canvas.width / 2, canvas.height / 2);
+    context.fillStyle = color;
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+    return new CanvasTexture(canvas);
+  }, [color, text]);
+  useEffect(() => () => texture?.dispose(), [texture]);
+  if (!texture) return null;
+  return <sprite position={position} scale={[.72, .16, 1]} renderOrder={10}>
+    <spriteMaterial map={texture} transparent depthTest={false} />
+  </sprite>;
+}
+
+const RoomAxes = memo(function RoomAxes() {
+  return <group position={[-2.34, .055, -2.34]}>
+    <mesh><sphereGeometry args={[.045, 10, 8]} /><meshBasicMaterial color="#dce7ed" /></mesh>
+    <group rotation={[0, 0, -Math.PI / 2]}>
+      <mesh position={[0, .38, 0]}><cylinderGeometry args={[.018, .018, .76, 8]} /><meshBasicMaterial color="#ef6b68" /></mesh>
+      <mesh position={[0, .8, 0]}><coneGeometry args={[.055, .14, 10]} /><meshBasicMaterial color="#ef6b68" /></mesh>
+    </group>
+    <mesh position={[0, .38, 0]}><cylinderGeometry args={[.018, .018, .76, 8]} /><meshBasicMaterial color="#77cc80" /></mesh>
+    <mesh position={[0, .8, 0]}><coneGeometry args={[.055, .14, 10]} /><meshBasicMaterial color="#77cc80" /></mesh>
+    <group rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[0, .38, 0]}><cylinderGeometry args={[.018, .018, .76, 8]} /><meshBasicMaterial color="#67a9ef" /></mesh>
+      <mesh position={[0, .8, 0]}><coneGeometry args={[.055, .14, 10]} /><meshBasicMaterial color="#67a9ef" /></mesh>
+    </group>
+    <AxisLabel color="#ef6b68" position={[1.05, .05, 0]} text="X SIDE" />
+    <AxisLabel color="#77cc80" position={[0, 1.03, 0]} text="Y UP" />
+    <AxisLabel color="#67a9ef" position={[0, .05, 1.02]} text="Z FRONT" />
+  </group>;
+});
+
 const SportFurnitureScene = memo(function SportFurnitureScene({ furniture }: { furniture: SportFurniture }) {
   const table = furniture.table;
   const chair = furniture.chair;
   const bench = furniture.bench;
   return <>
+    <RoomAxes />
     {table.enabled ? <group position={[table.x, 0, table.y]} rotation={[0, degrees(table.rotation), 0]}>
       <mesh position={[0, table.height - .045, 0]}><boxGeometry args={[table.width, .09, table.depth]} /><meshStandardMaterial color={table.color} roughness={.82} /></mesh>
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], index) => <mesh key={index} position={[x * (table.width / 2 - .09), (table.height - .09) / 2, z * (table.depth / 2 - .09)]}><boxGeometry args={[.08, table.height - .09, .08]} /><meshStandardMaterial color={table.color} roughness={.88} /></mesh>)}

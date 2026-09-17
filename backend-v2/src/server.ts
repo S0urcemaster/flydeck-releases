@@ -10,6 +10,7 @@ import { PublicationOutbox } from "./publication/PublicationOutbox.js";
 import { PublicationSnapshotBuilder } from "./publication/PublicationSnapshotBuilder.js";
 import { PublicationWorker } from "./publication/PublicationWorker.js";
 import { RelayIngestClient } from "./publication/RelayIngestClient.js";
+import { SchedulerPlanService } from "./scheduler/SchedulerPlanService.js";
 
 const config = loadConfig();
 const database = createDatabase(config);
@@ -18,6 +19,9 @@ const jobs = new JobService(new JobStore(database));
 await jobs.store.markInterrupted();
 const jobScheduler = new JobScheduler(jobs, config.schedulerIntervalMs);
 jobScheduler.start();
+const schedulerPlans = new SchedulerPlanService(database);
+const planScheduler = new JobScheduler(schedulerPlans, config.schedulerIntervalMs);
+planScheduler.start();
 const publicationWorker = config.relayIngestUrl && config.relayIngestSecret
   ? new PublicationWorker(
       new PublicationOutbox(database),
@@ -27,7 +31,7 @@ const publicationWorker = config.relayIngestUrl && config.relayIngestSecret
     )
   : undefined;
 publicationWorker?.start();
-const app = createApp(config, database, jobs);
+const app = createApp(config, database, jobs, undefined, schedulerPlans);
 const server = app.listen(config.port, () => {
   console.info(`Flydeck backend-v2 listening on ${config.port}`);
 });
@@ -39,6 +43,7 @@ async function shutdown(signal: string) {
   shuttingDown = true;
   console.info(`Flydeck backend-v2 received ${signal}`);
   jobScheduler.stop();
+  planScheduler.stop();
   const publicationStopped = publicationWorker?.stop();
 
   const serverClosed = new Promise<void>((resolve, reject) => {

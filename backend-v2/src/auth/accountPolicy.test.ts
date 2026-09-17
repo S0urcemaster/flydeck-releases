@@ -4,6 +4,7 @@ import {
   assertImagesAllowed,
   assertItemTextAllowed,
   assertTreeItemCapacity,
+  trialItemContentLimit,
 } from "./accountPolicy.js";
 
 describe("trial account policy", () => {
@@ -21,12 +22,12 @@ describe("trial account policy", () => {
 
   it("limits trial item titles and text", () => {
     expect(() => assertItemTextAllowed("probe", {
-      label: "t".repeat(100), content: "c".repeat(500),
+      label: "t".repeat(100), content: "c".repeat(trialItemContentLimit),
     })).not.toThrow();
     expect(() => assertItemTextAllowed("probe", { label: "t".repeat(101) }))
       .toThrow(/at most 100/);
-    expect(() => assertItemTextAllowed("probe", { content: "c".repeat(501) }))
-      .toThrow(/at most 500/);
+    expect(() => assertItemTextAllowed("probe", { content: "c".repeat(trialItemContentLimit + 1) }))
+      .toThrow(/at most 250000/);
     expect(() => assertItemTextAllowed("guest", {
       label: "t".repeat(101), content: "c".repeat(501),
     })).not.toThrow();

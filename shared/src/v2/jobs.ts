@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requestIdSchema, revisionSchema } from "./common.js";
+import { schedulePlanSchema } from "./schedules.js";
 
 export const jobModelTierSchema = z.enum(["ECON", "MEDI", "HIGH"]);
 export const jobEffortSchema = z.enum(["FAST", "MEDI", "DEEP"]);
@@ -8,11 +9,7 @@ export const jobRunStatusSchema = z.enum([
 ]);
 export const jobTriggerSchema = z.enum(["manual", "scheduled"]);
 
-export const jobScheduleSchema = z.object({
-  dueAt: z.iso.datetime(),
-  timeZone: z.string().trim().min(1).max(100),
-  enabled: z.boolean(),
-});
+export const jobScheduleSchema = schedulePlanSchema;
 
 export const jobConfigDtoSchema = z.object({
   jobId: z.uuid(),
@@ -21,6 +18,7 @@ export const jobConfigDtoSchema = z.object({
   memory: z.string().max(100_000).default(""),
   dataSourceNodeIds: z.array(z.uuid()).max(64),
   dataSources: z.string().max(100_000).default(""),
+  destinationNodeId: z.uuid().nullable().default(null),
   prompt: z.string().max(100_000),
   modelTier: jobModelTierSchema,
   effort: jobEffortSchema,

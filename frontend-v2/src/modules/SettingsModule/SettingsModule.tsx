@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentProps } from "react";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 
 import { Button, type ButtonProps } from "../../components/Button";
 import { Checkbox } from "../../components/Checkbox";
@@ -59,6 +59,7 @@ export function SettingsModule({
   const activeTheme = configuration.themes.find(({ enabled }) => enabled)
     ?? configuration.themes[0];
   const [draft, setDraft] = useState(() => structuredClone(configuration));
+  const [saved, setSaved] = useState(() => structuredClone(configuration));
   const [selection, setSelection] = useState<SettingsSelection>(() => activeTheme
     ? { kind: "theme", themeId: activeTheme.id }
     : null);
@@ -69,6 +70,21 @@ export function SettingsModule({
   }));
   const checkedNodeIds = useMemo(() => createCheckedNodeIds(draft), [draft]);
   const resetAvailable = canResetSelection(draft, selection);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  function saveDraft(next = draft) {
+    onSave(structuredClone(next));
+    setSaved(structuredClone(next));
+  }
+
+  useEffect(() => {
+    if (!dirty) return;
+    const timeout = window.setTimeout(() => {
+      onSave(structuredClone(draft));
+      setSaved(structuredClone(draft));
+    }, 2_000);
+    return () => window.clearTimeout(timeout);
+  }, [dirty, draft, onSave]);
 
   const updateCheckedValue = (
     node: TreeBrowserNode<SettingsTreeData>,
@@ -160,12 +176,13 @@ export function SettingsModule({
             if (!selection) return;
             const reset = resetSettingsSelection(draft, selection);
             setDraft(reset);
-            onSave(structuredClone(reset));
+            saveDraft(reset);
           }}
         >
           RESET
         </DeleteButton>
-        <Button {...saveButtonProps} onClick={() => onSave(structuredClone(draft))}>
+        <Button {...saveButtonProps} disabled={saveButtonProps?.disabled || !dirty}
+          onClick={() => saveDraft()}>
           SAVE
         </Button>
       </div>

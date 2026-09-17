@@ -95,6 +95,9 @@ export class JobService {
         await this.emit(workspaceId, jobId);
       }
       if (!output.trim()) throw new Error("Flydon completed without a final response");
+      if (execution.destinationNodeId) {
+        await this.store.importAgentOutput(workspaceId, execution.destinationNodeId, output);
+      }
       await this.store.finishRun(execution.run.id, "completed", output, null);
     } catch (error) {
       const cancelled = controller.signal.aborted;

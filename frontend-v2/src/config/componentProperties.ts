@@ -133,6 +133,7 @@ export type ComponentPropertiesConfig = {
   BlueskyApp: { base: StoredBaseProperties };
   GpsEventsApp: { base: StoredBaseProperties };
   SportApp: { base: StoredBaseProperties };
+  SchedulerApp: { base: StoredBaseProperties };
   SportFigure3D: { base: StoredBaseProperties };
   CompassApp: { base: StoredBaseProperties };
   ConfigEditor: { base: StoredBaseProperties };
@@ -148,6 +149,7 @@ export type ComponentPropertiesConfig = {
   };
   InputControl: { base: StoredBaseProperties };
   PromptInput: { base: StoredBaseProperties };
+  ScheduleEditor: { base: StoredBaseProperties };
   NodeIdInput: { base: StoredBaseProperties };
   ListControl: { base: StoredBaseProperties };
   ListControlButton: { base: StoredBaseProperties };
@@ -271,6 +273,7 @@ export function parseComponentPropertiesConfig(
   const blueskyApp = input.BlueskyApp;
   const gpsEventsApp = input.GpsEventsApp;
   const sportApp = input.SportApp;
+  const schedulerApp = input.SchedulerApp;
   const sportFigure3D = input.SportFigure3D;
   const compassApp = input.CompassApp;
   const configEditor = input.ConfigEditor;
@@ -282,6 +285,7 @@ export function parseComponentPropertiesConfig(
   const inputComponent = input.Input;
   const inputControl = input.InputControl;
   const promptInput = input.PromptInput;
+  const scheduleEditor = input.ScheduleEditor;
   const nodeIdInput = input.NodeIdInput;
   const listControl = input.ListControl;
   const listControlButton = input.ListControlButton;
@@ -364,6 +368,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(blueskyApp)
     || !isRecord(gpsEventsApp)
     || !isRecord(sportApp)
+    || !isRecord(schedulerApp)
     || !isRecord(sportFigure3D)
     || !isRecord(compassApp)
     || !isRecord(configEditor)
@@ -375,6 +380,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(inputComponent)
     || !isRecord(inputControl)
     || !isRecord(promptInput)
+    || !isRecord(scheduleEditor)
     || !isRecord(nodeIdInput)
     || !isRecord(listControl)
     || !isRecord(listControlButton)
@@ -459,6 +465,7 @@ export function parseComponentPropertiesConfig(
   const blueskyAppBase = parseStoredBaseProperties(blueskyApp.base);
   const gpsEventsAppBase = parseStoredBaseProperties(gpsEventsApp.base);
   const sportAppBase = parseStoredBaseProperties(sportApp.base);
+  const schedulerAppBase = parseStoredBaseProperties(schedulerApp.base);
   const sportFigure3DBase = parseStoredBaseProperties(sportFigure3D.base);
   const compassAppBase = parseStoredBaseProperties(compassApp.base);
   const configEditorBase = parseStoredBaseProperties(configEditor.base);
@@ -470,6 +477,7 @@ export function parseComponentPropertiesConfig(
   const inputBase = parseStoredBaseProperties(inputComponent.base);
   const inputControlBase = parseStoredBaseProperties(inputControl.base);
   const promptInputBase = parseStoredBaseProperties(promptInput.base);
+  const scheduleEditorBase = parseStoredBaseProperties(scheduleEditor.base);
   const nodeIdInputBase = parseStoredBaseProperties(nodeIdInput.base);
   const listControlBase = parseStoredBaseProperties(listControl.base);
   const listControlButtonBase = parseStoredBaseProperties(listControlButton.base);
@@ -558,6 +566,7 @@ export function parseComponentPropertiesConfig(
     || !blueskyAppBase
     || !gpsEventsAppBase
     || !sportAppBase
+    || !schedulerAppBase
     || !sportFigure3DBase
     || !compassAppBase
     || !configEditorBase
@@ -569,6 +578,7 @@ export function parseComponentPropertiesConfig(
     || !inputBase
     || !inputControlBase
     || !promptInputBase
+    || !scheduleEditorBase
     || !listControlBase
     || !listControlButtonBase
     || !listControlListSizeButtonBase
@@ -849,6 +859,7 @@ export function parseComponentPropertiesConfig(
     BlueskyApp: { base: blueskyAppBase },
     GpsEventsApp: { base: gpsEventsAppBase },
     SportApp: { base: sportAppBase },
+    SchedulerApp: { base: schedulerAppBase },
     SportFigure3D: { base: sportFigure3DBase },
     CompassApp: { base: compassAppBase },
     ConfigEditor: { base: configEditorBase },
@@ -864,6 +875,7 @@ export function parseComponentPropertiesConfig(
     },
     InputControl: { base: inputControlBase },
     PromptInput: { base: promptInputBase },
+    ScheduleEditor: { base: scheduleEditorBase },
     NodeIdInput: { base: nodeIdInputBase },
     ListControl: { base: listControlBase },
     ListControlButton: { base: listControlButtonBase },

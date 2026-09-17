@@ -22,17 +22,21 @@ import { JobStore } from "./jobs/JobStore.js";
 import { createJobRouter } from "./jobs/jobRouter.js";
 import { createIntegrationRouter } from "./integrations/integrationRouter.js";
 import { RelayOAuthClient, type OAuthBroker } from "./integrations/RelayOAuthClient.js";
+import { SchedulerPlanService } from "./scheduler/SchedulerPlanService.js";
+import { createSchedulerRouter } from "./scheduler/schedulerRouter.js";
 
 export function createApp(
   config: AppConfig,
   database: Database,
   providedJobs?: JobService,
   providedOAuthBroker?: OAuthBroker,
+  providedScheduler?: SchedulerPlanService,
 ) {
   const app = express();
   const backups = new BackupService(config);
   const sessions = new SessionService(database, config);
   const jobs = providedJobs ?? new JobService(new JobStore(database));
+  const scheduler = providedScheduler ?? new SchedulerPlanService(database);
   const oauthBroker = providedOAuthBroker ?? (config.relayBrokerUrl && config.relayBrokerSecret
     ? new RelayOAuthClient(config.relayBrokerUrl, config.relayBrokerSecret)
     : undefined);
@@ -127,6 +131,10 @@ export function createApp(
   app.use(
     `${apiPath}/workspaces/:workspaceId/jobs`,
     createJobRouter(sessions, jobs),
+  );
+  app.use(
+    `${apiPath}/workspaces/:workspaceId/scheduler`,
+    createSchedulerRouter(sessions, scheduler),
   );
   app.use(
     `${apiPath}/workspaces/:workspaceId/backup`,

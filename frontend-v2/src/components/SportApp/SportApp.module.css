@@ -7,7 +7,7 @@
 .view canvas { display: block; }
 .tabLayout { display: grid; grid-template-columns: minmax(0, 4fr) minmax(32px, .75fr); gap: 3px; }
 .poseTabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
-.utilityTabs { display: grid; grid-template-rows: repeat(2, 32px); align-content: center; gap: 3px; }
+.utilityTabs { display: grid; grid-template-rows: repeat(3, 32px); align-content: center; gap: 3px; }
 .tab, .activeTab { display: flex; justify-content: center; align-items: center; gap: 2px; height: 42px; min-width: 0; border: var(--border-standard); border-radius: var(--radius-control); background: color-mix(in srgb, var(--sport-group-color) 8%, var(--color-surface)); color: var(--sport-group-color); }
 .activeTab { border-color: var(--sport-group-color); background: color-mix(in srgb, var(--sport-group-color) 24%, var(--color-surface)); }
 .utilityTabs .tab, .utilityTabs .activeTab { height: 32px; }
@@ -16,6 +16,15 @@
 .startingPoses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-xs); }
 .startingPoses button { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 3px; padding-inline: 3px; }
 .startingPoses span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.presetEditor { grid-column: 1 / -1; display: grid; gap: var(--space-xs); }
+.presetList { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.preset, .activePreset { display: grid; grid-template-columns: 22px minmax(0, auto); align-items: center; gap: var(--space-xs); min-height: var(--button-width); padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
+.activePreset { border-color: var(--color-accent-one); background: var(--color-app); }
+.preset span, .activePreset span { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 12px; font-weight: 700; }
+.preset small, .activePreset small { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.presetApply { min-height: var(--button-width); padding: var(--space-xs); }
+.presetActions { display: flex; align-items: center; gap: var(--space-xs); }
+.presetNameInput { min-width: 0; width: 180px; height: var(--button-width); padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
 .symmetry { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
 .symmetry > div { display: grid; grid-template-columns: var(--button-width) minmax(0, 1fr); align-items: center; gap: var(--space-xs); min-width: 0; padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); font-size: 12px; }
 .furnitureToggle { display: grid; grid-template-columns: var(--button-width) minmax(0, 1fr); align-items: center; gap: var(--space-xs); min-width: 0; padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); font-size: 12px; }
@@ -28,6 +37,7 @@
 .slider span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slider output { font-variant-numeric: tabular-nums; }
 .slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--color-accent-one); }
+.sliderAction { min-height: 100%; padding: var(--space-xs); }
 .frames { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-block: 2px; }
 .frameActions { display: flex; flex: 0 0 auto; align-items: center; gap: var(--space-xs); }
 .frame, .activeFrame { display: flex; align-items: center; justify-content: center; flex: 0 0 var(--button-width); min-width: var(--button-width); min-height: var(--button-width); padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }

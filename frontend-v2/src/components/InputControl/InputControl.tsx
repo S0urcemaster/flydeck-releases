@@ -39,7 +39,7 @@ export type InputControlProps = BaseStyleProps & {
   keyboardSaveVisible?: boolean;
   onChange?: (value: string) => void;
   onEditingChange?: (editing: boolean) => void;
-  onSend?: (value: string) => void;
+  onSend?: (value: string) => void | boolean | Promise<void | boolean>;
   textareaProps?: Omit<TextareaProps, "controlRef" | "onChange" | "value">;
   value?: string;
 };
@@ -75,25 +75,49 @@ export function InputControl({
   const [fontStage, setFontStage] = useState<InputFontStage>(
     control === "textarea" ? initialTextareaFontStage : initialKeyboardFontStage,
   );
+  const [savedValue, setSavedValue] = useState(value ?? initialValue);
+  const [edited, setEdited] = useState(false);
+  const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const keyboardOwner = useRef(Symbol("InputControl"));
   const closeKeyboardRef = useRef<() => void>(() => undefined);
   const smartphoneKeyboardRequest = useRef(false);
   const currentValue = value ?? uncontrolledValue;
+  const latestValue = useRef(currentValue);
+  const dirty = edited && currentValue !== savedValue;
   const configuredProps = control === "input" ? inputProps : textareaProps;
+  const saveDisabled = Boolean(buttonProps?.disabled
+    || configuredProps?.disabled || configuredProps?.readOnly);
   const keyboardEnabled = true;
   const layout = keyboardLayout ?? configuredProps?.keyboardLayout ?? "inline";
   const keyboardProps = configuredProps?.keyboardProps;
   const keyboardExpandsControl = keyboardVisible && layout === "inline";
   const targetRef = controlRef ?? (control === "input" ? inputRef : textareaRef);
+  async function save(nextValue: string) {
+    if (!onSend || saving || saveDisabled || nextValue === savedValue) return;
+    setSaving(true);
+    try {
+      const result = await onSend(nextValue);
+      if (result !== false) {
+        setSavedValue(nextValue);
+        setEdited(latestValue.current !== nextValue);
+      }
+    } catch {
+      // Keep the control dirty so the user can retry.
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const actions = keyboardActions === undefined && keyboardSaveVisible ? (
     <Button
       {...buttonProps}
       aria-label="Save content"
+      disabled={!onSend || !dirty || saving || saveDisabled}
       width="100%"
       onPointerDown={(event) => event.preventDefault()}
-      onClick={() => onSend?.(currentValue)}
+      onClick={() => void save(currentValue)}
     >
       Save
     </Button>
@@ -121,6 +145,9 @@ export function InputControl({
   }
 
   useEffect(() => {
+    latestValue.current = currentValue;
+  }, [currentValue]);
+  useEffect(() => {
     closeKeyboardRef.current = () => setEditing(false);
   });
   useEffect(() => () => {
@@ -129,6 +156,19 @@ export function InputControl({
       closeActiveKeyboard = null;
     }
   }, []);
+  useEffect(() => {
+    if (!dirty || !onSend || saving || saveDisabled) return;
+    const timeout = window.setTimeout(() => {
+      setSaving(true);
+      void Promise.resolve(onSend(currentValue)).then((result) => {
+        if (result !== false) {
+          setSavedValue(currentValue);
+          setEdited(latestValue.current !== currentValue);
+        }
+      }).catch(() => undefined).finally(() => setSaving(false));
+    }, 2_000);
+    return () => window.clearTimeout(timeout);
+  }, [currentValue, dirty, onSend, saveDisabled, saving]);
 
   function toggleSmartphoneKeyboard() {
     const enabled = !smartphoneKeyboardEnabled;
@@ -158,6 +198,7 @@ export function InputControl({
 
   function changeValue(nextValue: string) {
     if (value === undefined) setUncontrolledValue(nextValue);
+    setEdited(true);
     onChange?.(nextValue);
   }
 

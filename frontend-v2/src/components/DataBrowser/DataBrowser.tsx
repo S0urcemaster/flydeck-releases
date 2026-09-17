@@ -1072,7 +1072,7 @@ export function ServerDataContent({
         keyboardLayout="block"
         value={effectiveNameDraft}
         onChange={(value) => setNameDraft({ nodeId, saved: name, value })}
-        onSend={() => void saveItem()}
+        onSend={() => saveItem()}
       />
       {root && (
         <ParentInput
@@ -1146,7 +1146,7 @@ export function ServerDataContent({
           ...effectiveSharingDraft,
           name: value,
         })}
-        onSend={() => void saveItem()}
+        onSend={() => saveItem()}
       />
       </div>}
       <div className={styles.contentEditorArea}>
@@ -1218,7 +1218,7 @@ export function ServerDataContent({
           revision: document?.revision,
           value,
         })}
-        onSend={(content) => void saveItem(content)}
+        onSend={(content) => saveItem(content)}
         />
       </div>
       <DataListSizeControl

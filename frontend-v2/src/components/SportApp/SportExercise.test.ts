@@ -38,7 +38,7 @@ describe("sport exercise content", () => {
     const exercise = createSportExercise();
     exercise.comment = "Keep knees over feet";
     expect(parseSportExercise(JSON.stringify(exercise))?.comment).toBe(exercise.comment);
-    const oldValues = Object.fromEntries(Object.entries(exercise.keyframes[0].values).filter(([key]) => !["viewAngle", "viewHeight", "viewZoom", "x", "y", "height", "lowerSpine", "headTilt", "headSideTilt", "headTurn", "torsoTurn", "leftShoulderTurn", "rightShoulderTurn", "leftKneeTurn", "rightKneeTurn", "leftHandFlex", "leftElbowTurn", "rightHandFlex", "rightElbowTurn"].includes(key)));
+    const oldValues = Object.fromEntries(Object.entries(exercise.keyframes[0].values).filter(([key]) => !["viewAngle", "viewHeight", "viewZoom", "x", "y", "height", "lowerSpine", "headTilt", "headSideTilt", "headTurn", "torsoTurn", "leftShoulderHeight", "leftShoulderForward", "rightShoulderHeight", "rightShoulderForward", "leftShoulderTurn", "rightShoulderTurn", "leftKneeTurn", "rightKneeTurn", "leftHandFlex", "leftElbowTurn", "rightHandFlex", "rightElbowTurn"].includes(key)));
     const oldContent = { ...exercise, comment: undefined, secondsPerKeyframe: undefined, keyframes: [{ id: exercise.keyframes[0].id, label: "Stand", values: oldValues }] };
     expect(parseSportExercise(JSON.stringify(oldContent))?.comment).toBe("");
     expect(parseSportExercise(JSON.stringify(oldContent))?.secondsPerKeyframe).toBe(1.2);
@@ -87,10 +87,12 @@ describe("sport exercise content", () => {
   });
 
   it("copies the left limb when symmetry starts and keeps either side linked", () => {
-    const pose = { ...defaultSportPose, leftElbow: 70, rightElbow: 10, leftKnee: 80, rightKnee: 20 };
+    const pose = { ...defaultSportPose, leftShoulderHeight: 7, rightShoulderHeight: -2, leftElbow: 70, rightElbow: 10, leftKnee: 80, rightKnee: 20 };
     expect(mirrorSportLimb(pose, "arm").rightElbow).toBe(70);
+    expect(mirrorSportLimb(pose, "arm").rightShoulderHeight).toBe(7);
     expect(mirrorSportLimb(pose, "leg").rightKnee).toBe(80);
     expect(changeSportPoseAxis(pose, "rightElbow", 45, true, false).leftElbow).toBe(45);
+    expect(changeSportPoseAxis(pose, "rightShoulderForward", 6, true, false).leftShoulderForward).toBe(6);
     expect(changeSportPoseAxis(pose, "leftKneeTurn", 35, false, true).rightKneeTurn).toBe(35);
   });
 });

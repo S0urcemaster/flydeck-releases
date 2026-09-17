@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Activity, Armchair, BedDouble, BedSingle, BicepsFlexed, Camera, ChevronLeft, ChevronRight, Dumbbell, Image as ImageIcon, Link2, Pause, PersonStanding, Play, Plus, RectangleHorizontal, Repeat2, Settings2, Shirt, SportShoe, Sprout, StretchHorizontal, Table2, UserRound } from "lucide-react";
+import { Armchair, BedSingle, BicepsFlexed, Camera, ChevronLeft, ChevronRight, Dumbbell, Image as ImageIcon, Link2, ListChecks, Pause, Pencil, PersonStanding, Play, Plus, RectangleHorizontal, Repeat2, Settings2, Shirt, SportShoe, Sprout, StretchHorizontal, Table2, UserRound } from "lucide-react";
 import { AppView, type AppViewProps } from "../AppView";
 import { DataTree, type DataTreeProps } from "../DataTree";
 import { Button } from "../Button";
@@ -13,6 +13,8 @@ import { workspaceReplica, workspaceSyncEngine, useWorkspaceReplica, type Worksp
 import { addSportKeyframe, changeSportPoseAxis, createSportExercise, defaultSportFurniture, defaultSportPose, deleteSportKeyframe, mirrorSportLimb, moveSportKeyframe, parseSportExercise, type SportExercise, type SportFurniture, type SportKeyframe, type SportPose } from "./SportExercise";
 import { defaultSportMetrics, parseSportMetrics, type SportMetricValues } from "./SportMetrics";
 import { saveSportMetrics } from "./SportMetricsStore";
+import { defaultSportPosePresets, parseSportPosePresets, type SportPosePresets } from "./SportPosePresets";
+import { saveSportPosePresets } from "./SportPosePresetsStore";
 import { sportGroupColors } from "./SportPalette";
 import { defaultSportCamera, type SportCameraControls } from "./SportCamera";
 import { advanceSportPlayback, interpolateSportPose } from "./SportPlayback";
@@ -28,6 +30,10 @@ const fields = [
   { id: "pitch", label: "Front/back tilt", group: 1, min: -90, max: 90 },
   { id: "roll", label: "Side tilt", group: 1, min: -90, max: 90 },
   { id: "height", label: "Height", group: 1, min: 0, max: 150 },
+  { id: "leftShoulderHeight", label: "Left shoulder up/down", group: 2, min: -10, max: 10, unit: " cm" },
+  { id: "leftShoulderForward", label: "Left shoulder forward/back", group: 2, min: -10, max: 10, unit: " cm" },
+  { id: "rightShoulderHeight", label: "Right shoulder up/down", group: 2, min: -10, max: 10, unit: " cm" },
+  { id: "rightShoulderForward", label: "Right shoulder forward/back", group: 2, min: -10, max: 10, unit: " cm" },
   { id: "lowerSpine", label: "Lower back bend", group: 2, min: -60, max: 90 },
   { id: "spine", label: "Upper torso bend", group: 2, min: -60, max: 90 },
   { id: "torsoTurn", label: "Mid-torso rotation", group: 2, min: -90, max: 90 },
@@ -35,18 +41,18 @@ const fields = [
   { id: "headTilt", label: "Head tilt", group: 3, min: -60, max: 60 },
   { id: "headSideTilt", label: "Head side tilt", group: 3, min: -60, max: 60 },
   { id: "headTurn", label: "Head rotation", group: 3, min: -90, max: 90 },
-  { id: "leftShoulder", label: "Shoulder forward/back", group: 4, min: -90, max: 190 },
-  { id: "leftShoulderSide", label: "Shoulder sideways", group: 4, min: -90, max: 90 },
-  { id: "leftShoulderTurn", label: "Shoulder rotation", group: 4, min: -90, max: 90 },
+  { id: "leftShoulder", label: "Arm up/down", group: 4, min: 0, max: 180 },
+  { id: "leftShoulderSide", label: "Arm forward/back", group: 4, min: -90, max: 120 },
+  { id: "leftShoulderTurn", label: "Shoulder rotation", group: 4, min: 0, max: 180 },
   { id: "leftElbow", label: "Elbow", group: 4, min: 0, max: 150 },
   { id: "leftHandFlex", label: "Wrist bend", group: 4, min: -75, max: 75 },
-  { id: "leftElbowTurn", label: "Elbow rotation", group: 4, min: -180, max: 180 },
-  { id: "rightShoulder", label: "Shoulder forward/back", group: 5, min: -90, max: 190 },
-  { id: "rightShoulderSide", label: "Shoulder sideways", group: 5, min: -90, max: 90 },
-  { id: "rightShoulderTurn", label: "Shoulder rotation", group: 5, min: -90, max: 90 },
+  { id: "leftElbowTurn", label: "Elbow rotation", group: 4, min: -140, max: 90 },
+  { id: "rightShoulder", label: "Arm up/down", group: 5, min: 0, max: 180 },
+  { id: "rightShoulderSide", label: "Arm forward/back", group: 5, min: -90, max: 120 },
+  { id: "rightShoulderTurn", label: "Shoulder rotation", group: 5, min: 0, max: 180 },
   { id: "rightElbow", label: "Elbow", group: 5, min: 0, max: 150 },
   { id: "rightHandFlex", label: "Wrist bend", group: 5, min: -75, max: 75 },
-  { id: "rightElbowTurn", label: "Elbow rotation", group: 5, min: -180, max: 180 },
+  { id: "rightElbowTurn", label: "Elbow rotation", group: 5, min: -140, max: 90 },
   { id: "leftHip", label: "Hip forward/back", group: 6, min: -90, max: 120 },
   { id: "leftHipSide", label: "Hip sideways", group: 6, min: -60, max: 60 },
   { id: "leftKnee", label: "Knee", group: 6, min: 0, max: 150 },
@@ -80,6 +86,7 @@ const groups = [
   { label: "Head", icon: UserRound, color: sportGroupColors.torso },
   { label: "Left arm", icon: BicepsFlexed, color: sportGroupColors.leftArm }, { label: "Right arm", icon: BicepsFlexed, color: sportGroupColors.rightArm },
   { label: "Left leg", icon: SportShoe, color: sportGroupColors.leftLeg }, { label: "Right leg", icon: SportShoe, color: sportGroupColors.rightLeg },
+  { label: "Poses", icon: ListChecks, color: sportGroupColors.space },
   { label: "Furniture", icon: Armchair, color: sportGroupColors.furniture },
   { label: "Body settings", icon: Settings2, color: sportGroupColors.settings },
 ];
@@ -101,13 +108,6 @@ const demo: SportKeyframe[] = [
   { id: "demo-2", values: { ...defaultSportPose, spine: 15, leftHip: 48, rightHip: 48, leftKnee: 65, rightKnee: 65, leftAnkle: 12, rightAnkle: 12, leftShoulder: 55, rightShoulder: 55 } },
   { id: "demo-3", values: { ...defaultSportPose, spine: 25, leftHip: 75, rightHip: 75, leftKnee: 105, rightKnee: 105, leftAnkle: 20, rightAnkle: 20, leftShoulder: 80, rightShoulder: 80 } },
 ];
-const startingPoses: readonly { label: string; icon: typeof PersonStanding; values: SportPose }[] = [
-  { label: "Standing", icon: PersonStanding, values: { ...defaultSportPose } },
-  { label: "Supine", icon: BedDouble, values: { ...defaultSportPose, pitch: -90 } },
-  { label: "T pose", icon: StretchHorizontal, values: { ...defaultSportPose, leftShoulderSide: 72, rightShoulderSide: 72 } },
-  { label: "Squat", icon: Activity, values: { ...defaultSportPose, spine: 15, leftHip: 55, rightHip: 55, leftKnee: 80, rightKnee: 80, leftAnkle: 15, rightAnkle: 15 } },
-];
-
 export type SportAppProps = Omit<AppViewProps, "children" | "title" | "accessMode"> & {
   workspaceId?: string;
   treeProps?: DataTreeProps;
@@ -197,6 +197,9 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   const [message, setMessage] = useState("");
   const [source, setSource] = useState("");
   const [metricsDraft, setMetricsDraft] = useState<SportMetricValues>(defaultSportMetrics);
+  const [presetDraft, setPresetDraft] = useState<SportPosePresets>(defaultSportPosePresets);
+  const [selectedPreset, setSelectedPreset] = useState(-1);
+  const [renamingPreset, setRenamingPreset] = useState(false);
   const [armSymmetry, setArmSymmetry] = useState(false);
   const [legSymmetry, setLegSymmetry] = useState(false);
   const [loop, setLoop] = useState(true);
@@ -211,6 +214,8 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   const metricsTimer = useRef<number | null>(null);
   const metricsPending = useRef<(() => void) | null>(null);
   const metricsSaveQueue = useRef(Promise.resolve());
+  const presetTimer = useRef<number | null>(null);
+  const presetSaveQueue = useRef(Promise.resolve());
   const framesRef = useRef<HTMLDivElement>(null);
   const { userId } = useClientStateScope();
   const scope = useMemo<WorkspaceReplicaScope | null>(() => workspaceId ? { userId, workspaceId } : null, [userId, workspaceId]);
@@ -221,12 +226,24 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   const metricsNode = metricsUserNode ? nodes.find((node) => node.parentId === metricsUserNode.id && node.localId === "metrics") : undefined;
   const metricsNodeId = metricsNode?.id;
   const metricsContent = metricsNode ? record?.contents[metricsNode.id]?.content : undefined;
+  const presetsNode = metricsUserNode ? nodes.find((node) => node.parentId === metricsUserNode.id && node.localId === "pose-presets") : undefined;
+  const presetsNodeId = presetsNode?.id;
+  const presetsContent = presetsNode ? record?.contents[presetsNode.id]?.content : undefined;
   const selectedItem = nodes.find((node) => node.id === selectedNodeId && root && isInBranch(nodes, node.id, root.id));
   const selectedItemId = selectedItem?.id;
   const editButtonProps = treeProps?.inputControlProps?.buttonProps;
   const selectedContent = selectedItem ? record?.contents[selectedItem.id]?.content : undefined;
   const poses = selectedItem ? draft?.keyframes ?? [{ id: "empty", values: defaultSportPose }] : demo;
   const pose = poses[selected]?.values ?? defaultSportPose;
+  const previewPreset = group === 8 && selectedPreset >= 0 ? presetDraft.items[selectedPreset] : undefined;
+  const visiblePoses = previewPreset
+    ? poses.map((item, index) => index === selected ? { ...item, values: {
+      ...previewPreset.values,
+      viewAngle: item.values.viewAngle,
+      viewHeight: item.values.viewHeight,
+      viewZoom: item.values.viewZoom,
+    }} : item)
+    : poses;
   useEffect(() => {
     if (!scope || !selectedItemId) return;
     void workspaceSyncEngine.ensureContents(scope, [selectedItemId]);
@@ -235,6 +252,19 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
     if (!scope || !metricsNodeId) return;
     void workspaceSyncEngine.ensureContents(scope, [metricsNodeId]);
   }, [metricsNodeId, scope]);
+  useEffect(() => {
+    if (!scope || !presetsNodeId) return;
+    void workspaceSyncEngine.ensureContents(scope, [presetsNodeId]);
+  }, [presetsNodeId, scope]);
+  useEffect(() => {
+    const next = parseSportPosePresets(presetsContent) ?? defaultSportPosePresets;
+    const frame = requestAnimationFrame(() => {
+      setPresetDraft(next);
+      setSelectedPreset((current) => current < 0 ? -1 : Math.min(current, next.items.length - 1));
+      setRenamingPreset(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [root?.id, presetsContent]);
   useEffect(() => {
     if (metricsDirty.current) return;
     const values = parseSportMetrics(metricsContent) ?? defaultSportMetrics;
@@ -250,7 +280,17 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   useEffect(() => () => {
     if (saveTimer.current !== null) clearTimeout(saveTimer.current);
     if (metricsTimer.current !== null) clearTimeout(metricsTimer.current);
+    if (presetTimer.current !== null) clearTimeout(presetTimer.current);
   }, []);
+  function changePresets(value: SportPosePresets) {
+    if (!root || !scope) return;
+    setPresetDraft(value);
+    if (presetTimer.current !== null) window.clearTimeout(presetTimer.current);
+    presetTimer.current = window.setTimeout(() => {
+      presetTimer.current = null;
+      presetSaveQueue.current = presetSaveQueue.current.catch(() => undefined).then(() => saveSportPosePresets(scope, root.id, value)).catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Could not save pose presets"));
+    }, 2000);
+  }
   function persistMetrics(rootId: string, values: SportMetricValues) {
     metricsSaveQueue.current = metricsSaveQueue.current.catch(() => undefined).then(async () => {
       if (!scope) return;
@@ -356,27 +396,23 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   return <AppView {...viewProps} onDataSourceResolved={resolveSource} componentName="SportApp" accessMode="read-write">
     <div className={styles.layout}>
       <div className={styles.exerciseTitle}><strong>{selectedItem?.label ?? "Squat"}</strong><span>{selectedItem ? `${poses.length} poses` : "Example · 3 poses"}</span></div>
-      <SportPlaybackView poses={poses} selected={selected} metrics={metricsDraft} furniture={draft?.furniture ?? defaultSportFurniture} secondsPerKeyframe={draft?.secondsPerKeyframe ?? 1.2} playerTarget={playerTarget} loop={loop} onLoopChange={setLoop} onCameraAngleChange={(angle) => { if (draft) changeSelectedPose({ ...draft.keyframes[selected].values, viewAngle: angle }); }} onCameraReset={() => { if (draft) changeSelectedPose({ ...draft.keyframes[selected].values, viewAngle: defaultSportCamera.angle, viewHeight: defaultSportCamera.height, viewZoom: defaultSportCamera.zoom }, 0); }} onCurrentKeyframeChange={markCurrentKeyframe} />
+      <SportPlaybackView poses={visiblePoses} selected={selected} metrics={metricsDraft} furniture={draft?.furniture ?? defaultSportFurniture} secondsPerKeyframe={draft?.secondsPerKeyframe ?? 1.2} playerTarget={playerTarget} loop={loop} onLoopChange={setLoop} onCameraAngleChange={(angle) => { if (draft) changeSelectedPose({ ...draft.keyframes[selected].values, viewAngle: angle }); }} onCameraReset={() => { if (draft) changeSelectedPose({ ...draft.keyframes[selected].values, viewAngle: defaultSportCamera.angle, viewHeight: defaultSportCamera.height, viewZoom: defaultSportCamera.zoom }, 0); }} onCurrentKeyframeChange={markCurrentKeyframe} />
       <div className={styles.tabLayout} role="tablist" aria-label="Joint groups">
         <div className={styles.poseTabs}>
           {groups.slice(0, 8).map(({ label, icon: Icon, color }, index) => <button key={label} type="button" role="tab" aria-selected={group === index} aria-label={label} title={label} style={{ "--sport-group-color": color } as CSSProperties} className={group === index ? styles.activeTab : styles.tab} onClick={() => setGroup(index)}><Icon size={19} /><span>{index > 3 ? (index % 2 ? "R" : "L") : ""}</span></button>)}
         </div>
         <div className={styles.utilityTabs}>
-          {groups.slice(8).map(({ label, icon: Icon, color }, offset) => { const index = offset + 8; return <button key={label} type="button" role="tab" aria-selected={group === index} aria-label={label} title={label} style={{ "--sport-group-color": color } as CSSProperties} className={group === index ? styles.activeTab : styles.tab} onClick={() => setGroup(index)}><Icon size={17} /></button>; })}
+          {groups.slice(8).map(({ label, icon: Icon, color }, offset) => { const index = offset + 8; return <button key={label} type="button" role="tab" aria-selected={group === index} aria-label={label} title={label} style={{ "--sport-group-color": color } as CSSProperties} className={group === index ? styles.activeTab : styles.tab} onClick={() => { setGroup(index); if (index === 8) { setSelectedPreset(-1); setRenamingPreset(false); } }}><Icon size={17} /></button>; })}
         </div>
       </div>
-      <div className={styles.groupLabel}>{group === 9 ? "Body dimensions · cm" : groups[group].label}</div>
-      {group === 1 ? <div className={styles.startingPoses} aria-label="Starting poses">
-        {startingPoses.map(({ label, icon: Icon, values }) => <DeleteButton key={label} action="reset" label={label} background="COLOR_SURFACE" armedColor="COLOR_ERROR" disabled={!selectedItem || !draft} onDelete={() => changeSelectedPose({ ...values }, 0)}><Icon size={18} /><span>{label}</span></DeleteButton>)}
-      </div> : null}
+      <div className={styles.groupLabel}>{group === 10 ? "Body dimensions · cm" : groups[group].label}</div>
       {group === 2 ? <div className={styles.symmetry} aria-label="Limb symmetry">
         <div><Checkbox checked={armSymmetry} label="Arm symmetry" disabled={!selectedItem || !draft} onChange={(enabled) => setSymmetry("arm", enabled)}><Link2 size={16} /></Checkbox><span>Arm symmetry</span></div>
         <div><Checkbox checked={legSymmetry} label="Leg symmetry" disabled={!selectedItem || !draft} onChange={(enabled) => setSymmetry("leg", enabled)}><Link2 size={16} /></Checkbox><span>Leg symmetry</span></div>
       </div> : null}
-      {group === 0 ? <DeleteButton action="reset" label="all keyframe views" background="COLOR_SURFACE" armedColor="COLOR_ERROR" disabled={!selectedItem || !draft} onDelete={() => { if (!draft) return; const view = draft.keyframes[selected].values; changeExercise({ ...draft, keyframes: draft.keyframes.map((frame) => ({ ...frame, values: { ...frame.values, viewAngle: view.viewAngle, viewHeight: view.viewHeight, viewZoom: view.viewZoom } })) }, 0); }}>Reset keyframe views</DeleteButton> : null}
       <div className={styles.sliders}>
-        {group === 9 ? metricFields.map((field) => <label className={styles.slider} key={field.id}><span>{field.label}</span><output>{metricsDraft[field.id]} cm</output><input type="range" min={field.min} max={field.max} value={metricsDraft[field.id]} disabled={!root || !scope} onChange={(event) => changeMetrics({ ...metricsDraft, [field.id]: Number(event.target.value) })} /></label>)
-          : group === 8 ? <>
+        {group === 10 ? metricFields.map((field) => <label className={styles.slider} key={field.id}><span>{field.label}</span><output>{metricsDraft[field.id]} cm</output><input type="range" min={field.min} max={field.max} value={metricsDraft[field.id]} disabled={!root || !scope} onChange={(event) => changeMetrics({ ...metricsDraft, [field.id]: Number(event.target.value) })} /></label>)
+          : group === 9 ? <>
             {placedFurniture.map((id) => { const FurnitureIcon = furnitureIcons[id]; return <div className={styles.furnitureToggle} key={id}><Checkbox checked={draft?.furniture[id].enabled ?? false} label={`${furnitureLabels[id]} visible`} disabled={!draft} onChange={(enabled) => { if (!draft) return; changeFurniture({ ...draft.furniture, [id]: { ...draft.furniture[id], enabled } }); }}><FurnitureIcon size={16} /></Checkbox><span>{furnitureLabels[id]}</span></div>; })}
             <div className={styles.furnitureToggle}><Checkbox checked={draft?.furniture.dumbbells ?? false} label="Dumbbells visible" disabled={!draft} onChange={(dumbbells) => { if (draft) changeFurniture({ ...draft.furniture, dumbbells }); }}><Dumbbell size={16} /></Checkbox><span>Dumbbells</span></div>
             <div className={styles.furnitureToggle}><Checkbox checked={draft?.furniture.wallBar.enabled ?? false} label="Wall bar visible" disabled={!draft} onChange={(enabled) => { if (draft) changeFurniture({ ...draft.furniture, wallBar: { ...draft.furniture.wallBar, enabled } }); }}><StretchHorizontal size={16} /></Checkbox><span>Wall bar</span></div>
@@ -390,8 +426,22 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
             {draft?.furniture.mat.enabled ? <div className={styles.furnitureFields}><strong>Mat</strong><ColorField label="Mat color" value={draft.furniture.mat.color} onChange={(color) => changeFurniture({ ...draft.furniture, mat: { ...draft.furniture.mat, color } })} />{furniturePlacementFields.map((field) => <label className={styles.slider} key={field.id}><span>{field.label}</span><output>{draft.furniture.mat[field.id].toFixed(field.step < 1 ? 1 : 0)}{field.unit}</output><input type="range" min={field.min} max={field.max} step={field.step} value={draft.furniture.mat[field.id]} onChange={(event) => changeFurniture({ ...draft.furniture, mat: { ...draft.furniture.mat, [field.id]: Number(event.target.value) } })} /></label>)}{(["width", "depth"] as const).map((id) => <FurnitureNumberField key={id} label={id === "width" ? "Width" : "Depth"} value={draft.furniture.mat[id]} min={.4} max={4.5} onChange={(value) => changeFurniture({ ...draft.furniture, mat: { ...draft.furniture.mat, [id]: value } })} />)}</div> : null}
             {draft?.furniture.poster.enabled ? <div className={styles.furnitureFields}><strong>Poster</strong><ColorField label="Poster color" value={draft.furniture.poster.color} onChange={(color) => changeFurniture({ ...draft.furniture, poster: { ...draft.furniture.poster, color } })} />{(["y", "z", "width"] as const).map((id) => <FurnitureNumberField key={id} label={id === "y" ? "Height" : id === "z" ? "Wall position" : "Width"} value={draft.furniture.poster[id]} min={id === "y" ? .5 : id === "z" ? -2.1 : .3} max={id === "y" ? 2.5 : id === "z" ? 2.1 : 2} onChange={(value) => changeFurniture({ ...draft.furniture, poster: { ...draft.furniture.poster, [id]: value } })} />)}</div> : null}
           </>
-          : group === 0 ? viewFields.map((field) => <label className={styles.slider} key={field.id}><span>{field.label}</span><output>{field.id === "viewHeight" ? pose[field.id].toFixed(2) : Math.round(pose[field.id])}{field.unit}</output><input type="range" min={field.min} max={field.max} step={field.step} value={pose[field.id]} disabled={!selectedItem || !draft} onChange={(event) => { if (draft) changeSelectedPose({ ...draft.keyframes[selected].values, [field.id]: Number(event.target.value) }); }} /></label>)
-          : fields.filter((field) => field.group === group).map((field) => { const position = field.id === "x" || field.id === "y"; return <label className={styles.slider} key={field.id}><span>{field.label}</span><output>{position ? (pose[field.id] ?? 0).toFixed(2) : Math.round(pose[field.id] ?? 0)}{position ? " m" : field.id === "height" ? " cm" : "°"}</output><input type="range" min={field.min} max={field.max} step={"step" in field ? field.step : 1} value={position ? pose[field.id] ?? 0 : Math.round(pose[field.id] ?? 0)} disabled={!selectedItem || !draft} onChange={(event) => { if (!draft) return; changeSelectedPose(changeSportPoseAxis(draft.keyframes[selected].values, field.id, Number(event.target.value), armSymmetry, legSymmetry)); }} /></label>; })}
+          : group === 8 ? <div className={styles.presetEditor}>
+            <div className={styles.presetList} aria-label="Pose presets">
+              <button type="button" className={selectedPreset === -1 ? styles.activePreset : styles.preset} aria-label="Current keyframe" aria-pressed={selectedPreset === -1} onClick={() => { setSelectedPreset(-1); setRenamingPreset(false); }}><span>0</span><small>Keyframe</small></button>
+              {presetDraft.items.map((item, index) => <button key={item.id} type="button" className={selectedPreset === index ? styles.activePreset : styles.preset} aria-label={`Pose ${index + 1}: ${item.label}`} aria-pressed={selectedPreset === index} onClick={() => { setSelectedPreset(index); setRenamingPreset(false); }}><span>{index + 1}</span><small>{item.label}</small></button>)}
+              <DeleteButton className={styles.presetApply} fontSize="12px" action="reset" label={presetDraft.items[selectedPreset]?.label ?? "pose preset"} background="COLOR_SURFACE" armedColor="COLOR_ERROR" disabled={!selectedItem || !draft || selectedPreset < 0 || !presetDraft.items[selectedPreset]} onDelete={() => changeSelectedPose({ ...presetDraft.items[selectedPreset].values, viewAngle: pose.viewAngle, viewHeight: pose.viewHeight, viewZoom: pose.viewZoom }, 0)}>Apply selected pose</DeleteButton>
+            </div>
+            <div className={styles.presetActions}>
+              <Button {...editButtonProps} width="var(--button-width)" style={frameEditStyle} aria-label="Add current keyframe as pose preset" disabled={!selectedItem || !draft || !root} onClick={() => { const index = selectedPreset + 1; const item = { id: crypto.randomUUID(), label: `Pose ${presetDraft.items.length + 1}`, values: { ...pose } }; changePresets({ ...presetDraft, items: [...presetDraft.items.slice(0, index), item, ...presetDraft.items.slice(index)] }); setSelectedPreset(index); }}><Plus size={18} /></Button>
+              {renamingPreset && selectedPreset >= 0 && presetDraft.items[selectedPreset] ? <input className={styles.presetNameInput} autoFocus aria-label="Pose preset name" value={presetDraft.items[selectedPreset].label} onChange={(event) => changePresets({ ...presetDraft, items: presetDraft.items.map((item, index) => index === selectedPreset ? { ...item, label: event.target.value } : item) })} onBlur={() => setRenamingPreset(false)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }} /> : <Button {...editButtonProps} width="var(--button-width)" style={frameEditStyle} aria-label="Rename selected pose preset" disabled={selectedPreset < 0 || !presetDraft.items[selectedPreset]} onClick={() => setRenamingPreset(true)}><Pencil size={18} /></Button>}
+              <DeleteButton {...treeProps?.imageDeleteButtonProps} width="var(--button-width)" style={frameEditStyle} key={presetDraft.items[selectedPreset]?.id ?? "keyframe"} label={presetDraft.items[selectedPreset]?.label ?? "Keyframe"} disabled={selectedPreset < 0 || !presetDraft.items[selectedPreset]} onDelete={() => { const items = presetDraft.items.filter((_, index) => index !== selectedPreset); changePresets({ ...presetDraft, items }); setSelectedPreset(Math.min(selectedPreset, items.length - 1)); }} />
+              <Button {...editButtonProps} width="var(--button-width)" style={frameEditStyle} aria-label="Move pose preset left" disabled={selectedPreset <= 0} onClick={() => { const items = [...presetDraft.items]; [items[selectedPreset - 1], items[selectedPreset]] = [items[selectedPreset], items[selectedPreset - 1]]; changePresets({ ...presetDraft, items }); setSelectedPreset(selectedPreset - 1); }}><ChevronLeft size={18} /></Button>
+              <Button {...editButtonProps} width="var(--button-width)" style={frameEditStyle} aria-label="Move pose preset right" disabled={selectedPreset < 0 || selectedPreset >= presetDraft.items.length - 1} onClick={() => { const items = [...presetDraft.items]; [items[selectedPreset], items[selectedPreset + 1]] = [items[selectedPreset + 1], items[selectedPreset]]; changePresets({ ...presetDraft, items }); setSelectedPreset(selectedPreset + 1); }}><ChevronRight size={18} /></Button>
+            </div>
+          </div>
+          : group === 0 ? <>{viewFields.map((field) => <label className={styles.slider} key={field.id}><span>{field.label}</span><output>{field.id === "viewHeight" ? pose[field.id].toFixed(2) : Math.round(pose[field.id])}{field.unit}</output><input type="range" min={field.min} max={field.max} step={field.step} value={pose[field.id]} disabled={!selectedItem || !draft} onChange={(event) => { if (draft) changeSelectedPose({ ...draft.keyframes[selected].values, [field.id]: Number(event.target.value) }); }} /></label>)}<DeleteButton className={styles.sliderAction} fontSize="12px" height="auto" width="100%" action="reset" label="all keyframe views" background="COLOR_SURFACE" armedColor="COLOR_ERROR" disabled={!selectedItem || !draft} onDelete={() => { if (!draft) return; const view = draft.keyframes[selected].values; changeExercise({ ...draft, keyframes: draft.keyframes.map((frame) => ({ ...frame, values: { ...frame.values, viewAngle: view.viewAngle, viewHeight: view.viewHeight, viewZoom: view.viewZoom } })) }, 0); }}>Reset keyframe views</DeleteButton></>
+          : fields.filter((field) => field.group === group).map((field) => { const position = field.id === "x" || field.id === "y"; const unit = "unit" in field ? field.unit : position ? " m" : field.id === "height" ? " cm" : "°"; return <label className={styles.slider} key={field.id}><span>{field.label}</span><output>{position ? (pose[field.id] ?? 0).toFixed(2) : Math.round(pose[field.id] ?? 0)}{unit}</output><input type="range" min={field.min} max={field.max} step={"step" in field ? field.step : 1} value={position ? pose[field.id] ?? 0 : Math.round(pose[field.id] ?? 0)} disabled={!selectedItem || !draft} onChange={(event) => { if (!draft) return; changeSelectedPose(changeSportPoseAxis(draft.keyframes[selected].values, field.id, Number(event.target.value), armSymmetry, legSymmetry)); }} /></label>; })}
       </div>
       <div ref={framesRef} className={styles.frames} aria-label="Keyframes">
         {poses.map((item, index) => <button key={item.id} type="button" data-keyframe-index={index} className={`${selected === index ? styles.activeFrame : styles.frame} ${selected === index ? styles.nearestFrame : ""}`} aria-label={`Keyframe ${index + 1}`} aria-pressed={selected === index} onClick={() => selectFrame(index)}><span>{index + 1}</span></button>)}

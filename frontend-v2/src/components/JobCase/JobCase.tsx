@@ -24,6 +24,7 @@ import { ListControlButton } from "../ListControlButton";
 import { NodeIdInput, type NodeIdInputProps } from "../NodeIdInput";
 import { ParentInput, type ParentInputProps } from "../ParentInput";
 import { PromptInput } from "../PromptInput";
+import { ScheduleEditor } from "../ScheduleEditor";
 import {
   TreeBrowser,
   TreeBrowserModel,
@@ -288,6 +289,7 @@ export function JobCase({
           memory: next.memory,
           dataSourceNodeIds: next.dataSourceNodeIds,
           dataSources: next.dataSources,
+          destinationNodeId: next.destinationNodeId,
           prompt: next.prompt,
           modelTier: next.modelTier,
           effort: next.effort,
@@ -605,7 +607,9 @@ export function JobCase({
               const value = effectiveName.trim();
               if (!editingLocked && await onNameChange(value)) {
                 setNameDraft({ nodeId, saved: value, value });
+                return true;
               }
+              return false;
             }}
           />
           {root ? (
@@ -677,7 +681,9 @@ export function JobCase({
                   ...current, memory: value, memoryNodeIds: [],
                 }))) {
                   clearLocalMemoryDraft();
+                  return true;
                 }
+                return false;
               }}
             />
           </div>
@@ -748,7 +754,9 @@ export function JobCase({
                   ...current, dataSources: value,
                 }))) {
                   setDataSourcesDraft({ nodeId, saved: value, value });
+                  return true;
                 }
+                return false;
               }}
             />
           </div>
@@ -797,17 +805,23 @@ export function JobCase({
               onSend={async (value) => {
                 if (await updateConfig((current) => ({ ...current, prompt: value }))) {
                   setPromptDraft({ nodeId, saved: value, value });
+                  return true;
                 }
+                return false;
               }}
             />
             {config ? (
-              <TimeSettings
-                buttonProps={buttonProps}
-                config={config}
-                disabled={editingLocked}
-                inputControlProps={inputControlProps}
-                onUpdate={updateConfig}
-              />
+              <>
+                <DestinationField key={`${nodeId}:${config.revision}`} config={config}
+                  disabled={editingLocked} inputControlProps={inputControlProps}
+                  nodes={tree.document.nodes} onUpdate={updateConfig} />
+                <TimeSettings
+                  buttonProps={buttonProps}
+                  config={config}
+                  disabled={editingLocked}
+                  onUpdate={updateConfig}
+                />
+              </>
             ) : null}
           </>
         )}
@@ -905,71 +919,41 @@ function TimeSettings({
   buttonProps,
   config,
   disabled,
-  inputControlProps,
   onUpdate,
 }: {
   buttonProps?: Omit<ButtonProps, "children" | "onClick">;
   config: JobConfigDto;
   disabled: boolean;
-  inputControlProps?: InputControlProps;
   onUpdate: (change: (current: JobConfigDto) => JobConfigDto) => Promise<boolean>;
 }) {
   const defaultZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const [due, setDue] = useState(() => config.schedule?.dueAt
-    ? toLocalDateTimeInput(config.schedule.dueAt)
-    : toLocalDateTimeInput(new Date(Date.now() + 60 * 60 * 1_000).toISOString()));
-  const [zone, setZone] = useState(config.schedule?.timeZone ?? defaultZone);
-  const schedule = config.schedule;
-  const save = () => onUpdate((current) => ({
-    ...current,
-    schedule: {
-      dueAt: new Date(due).toISOString(),
-      timeZone: zone.trim() || defaultZone,
-      enabled: current.schedule?.enabled ?? false,
-    },
-  }));
-  return (
-    <div className={styles.timeFields}>
-      <Button
-        {...buttonProps}
-        disabled={disabled}
-        selected={schedule?.enabled ?? false}
-        onClick={() => void onUpdate((current) => ({
-          ...current,
-          schedule: {
-            dueAt: current.schedule?.dueAt ?? new Date(due).toISOString(),
-            timeZone: current.schedule?.timeZone ?? zone,
-            enabled: !(current.schedule?.enabled ?? false),
-          },
-        }))}
-      >
-        {schedule?.enabled ? "Scheduled" : "Not scheduled"}
-      </Button>
-      <InputControl
-        {...inputControlProps}
-        control="input"
-        inputProps={{
-          ...inputControlProps?.inputProps,
-          "aria-label": "Job start time", label: "Start time", type: "datetime-local",
-          readOnly: disabled,
-        }}
-        value={due}
-        onChange={setDue}
-        onSend={() => void save()}
-      />
-      <InputControl
-        {...inputControlProps}
-        control="input"
-        inputProps={{
-          ...inputControlProps?.inputProps,
-          "aria-label": "Job timezone", label: "Timezone", readOnly: disabled,
-        }}
-        value={zone}
-        onChange={setZone}
-        onSend={() => void save()}
-      />
-    </div>
-  );
+  const [fallback] = useState(() => {
+    const now = Date.now();
+    return {
+      startAt: new Date(now + 60 * 60_000).toISOString(),
+      endAt: new Date(now + 2 * 60 * 60_000).toISOString(),
+      stops: [], repetitions: 0, timeZone: defaultZone, enabled: false,
+    };
+  });
+  const schedule = config.schedule ?? fallback;
+  return <ScheduleEditor key={`${config.revision}:${schedule.startAt}`} buttonProps={buttonProps} disabled={disabled} value={schedule}
+    onSave={(next) => onUpdate((current) => ({ ...current, schedule: next }))} />;
+}
+
+function DestinationField({ config, disabled, inputControlProps, nodes, onUpdate }: {
+  config: JobConfigDto; disabled: boolean; inputControlProps?: InputControlProps;
+  nodes: readonly TreeNodeDto[];
+  onUpdate: (change: (current: JobConfigDto) => JobConfigDto) => Promise<boolean>;
+}) {
+  const [value, setValue] = useState(config.destinationNodeId ?? "");
+  return <InputControl {...inputControlProps} control="input" value={value}
+    inputProps={{ ...inputControlProps?.inputProps, "aria-label": "DATA destination",
+      label: "DATA destination", placeholder: "DATA item ID, local ID or path", readOnly: disabled }}
+    onChange={setValue} onSend={(next) => {
+      const destination = next.trim() ? resolveDataSource(nodes, next) : undefined;
+      if (next.trim() && !destination) return false;
+      return onUpdate((current) => ({ ...current, destinationNodeId: destination?.id ?? null }));
+    }} />;
 }
 
 function jobOptionColor(value: string, defaultColor?: string) {
@@ -1164,10 +1148,4 @@ function isTrashNode(nodes: readonly TreeNodeDto[], id: string) {
       : undefined;
   }
   return false;
-}
-
-function toLocalDateTimeInput(value: string) {
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
 }

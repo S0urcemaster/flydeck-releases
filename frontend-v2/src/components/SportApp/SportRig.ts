@@ -13,13 +13,14 @@ const down = ([x, y, z]: RigPoint, length: number, forward: number, side: number
   y - Math.cos(radians(forward)) * Math.cos(radians(side)) * length,
   z + Math.sin(radians(forward)) * length,
 ];
-const arm = ([x, y, z]: RigPoint, length: number, forward: number, abduction: number, sign: number): RigPoint => {
-  const forwardAngle = radians(forward);
-  const sideAngle = radians(sign * (18 + abduction));
+const arm = ([x, y, z]: RigPoint, length: number, elevation: number, azimuth: number, sign: number): RigPoint => {
+  const elevationAngle = radians(elevation);
+  const azimuthAngle = radians(20 + azimuth);
+  const horizontal = Math.sin(elevationAngle) * length;
   return [
-    x + Math.sin(sideAngle) * Math.cos(forwardAngle) * length,
-    y - Math.cos(sideAngle) * Math.cos(forwardAngle) * length,
-    z + Math.sin(forwardAngle) * length,
+    x + sign * Math.cos(azimuthAngle) * horizontal,
+    y - Math.cos(elevationAngle) * length,
+    z + Math.sin(azimuthAngle) * horizontal,
   ];
 };
 const up = ([x, y, z]: RigPoint, length: number, forward: number): RigPoint => [
@@ -93,23 +94,28 @@ export function buildSportRig(pose: Pose, metrics: SportMetricValues = defaultSp
     const sign = side === "left" ? 1 : -1;
     const armColor = side === "left" ? sportGroupColors.leftArm : sportGroupColors.rightArm;
     const legColor = side === "left" ? sportGroupColors.leftLeg : sportGroupColors.rightLeg;
-    const shoulder: RigPoint = [chest[0] + sign * .26 * metrics.shoulderWidth / defaultSportMetrics.shoulderWidth, chest[1], chest[2]];
-    const shoulderForward = pose[`${side}Shoulder`];
-    const shoulderSide = pose[`${side}ShoulderSide`];
-    const elbow = arm(shoulder, .47 * metrics.upperArm / defaultSportMetrics.upperArm, shoulderForward, shoulderSide, sign);
-    const neutralHand = arm(elbow, .43 * metrics.lowerArm / defaultSportMetrics.lowerArm, shoulderForward + pose[`${side}Elbow`], shoulderSide, sign);
+    const shoulder: RigPoint = [
+      chest[0] + sign * .26 * metrics.shoulderWidth / defaultSportMetrics.shoulderWidth,
+      chest[1] + (pose[`${side}ShoulderHeight`] ?? 0) / 100,
+      chest[2] + (pose[`${side}ShoulderForward`] ?? 0) / 100,
+    ];
+    const armElevation = pose[`${side}Shoulder`];
+    const armAzimuth = pose[`${side}ShoulderSide`];
+    const elbow = arm(shoulder, .47 * metrics.upperArm / defaultSportMetrics.upperArm, armElevation, armAzimuth, sign);
+    const neutralHand = arm(elbow, .43 * metrics.lowerArm / defaultSportMetrics.lowerArm, armElevation + pose[`${side}Elbow`], armAzimuth, sign);
     const shoulderTurn = pose[`${side}ShoulderTurn`] ?? 0;
-    const hand = rotateAroundAxis(neutralHand, elbow, shoulder, shoulderTurn);
-    const neutralHandDirection = neutralHand.map((value, axis) => value - elbow[axis]) as RigPoint;
-    const directionLength = Math.hypot(...neutralHandDirection);
-    const [dx, dy, dz] = neutralHandDirection.map((value) => value / directionLength);
-    let handNormal: RigPoint = [1 - dx * dx, -dx * dy, -dx * dz];
-    if (Math.hypot(...handNormal) < .000001) handNormal = [0, -dy * dz, 1 - dz * dz];
-    const normalLength = Math.hypot(...handNormal);
-    handNormal = handNormal.map((value) => value / normalLength) as RigPoint;
-    const rotatedNormalPoint = rotateAroundAxis(handNormal.map((value, axis) => value + elbow[axis]) as RigPoint, elbow, shoulder, shoulderTurn);
+    const anatomicalShoulderTurn = sign * shoulderTurn;
+    const hand = rotateAroundAxis(neutralHand, elbow, shoulder, anatomicalShoulderTurn);
+    const armAzimuthAngle = radians(20 + armAzimuth);
+    let handNormal: RigPoint = [
+      Math.sin(armAzimuthAngle),
+      0,
+      -sign * Math.cos(armAzimuthAngle),
+    ];
+    const rotatedNormalPoint = rotateAroundAxis(handNormal.map((value, axis) => value + elbow[axis]) as RigPoint, elbow, shoulder, anatomicalShoulderTurn);
     handNormal = rotatedNormalPoint.map((value, axis) => value - elbow[axis]) as RigPoint;
-    const forearmNormalPoint = rotateAroundAxis(handNormal.map((value, axis) => value + hand[axis]) as RigPoint, hand, elbow, pose[`${side}ElbowTurn`] ?? 0);
+    const anatomicalElbowTurn = sign * (pose[`${side}ElbowTurn`] ?? 0);
+    const forearmNormalPoint = rotateAroundAxis(handNormal.map((value, axis) => value + hand[axis]) as RigPoint, hand, elbow, anatomicalElbowTurn);
     handNormal = forearmNormalPoint.map((value, axis) => value - hand[axis]) as RigPoint;
     const hip: RigPoint = [pelvis[0] + sign * .15 * metrics.hipWidth / defaultSportMetrics.hipWidth, pelvis[1], pelvis[2]];
     const knee = down(hip, .55 * metrics.upperLeg / defaultSportMetrics.upperLeg, pose[`${side}Hip`], sign * pose[`${side}HipSide`]);

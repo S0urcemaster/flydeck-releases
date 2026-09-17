@@ -1,0 +1,12 @@
+.root, .times, .stops { display: grid; gap: var(--space-2, .5rem); }
+.actions, .loopRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2, .5rem); align-items: center; }
+.stop { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2, .5rem); align-items: center; }
+.inlineField { display: grid; grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr); gap: var(--space-2, .5rem); align-items: center; min-width: 0; }
+.inlineField > span { white-space: nowrap; }
+.repetitions { display: grid; grid-template-columns: auto minmax(2.75rem, auto) minmax(3ch, 1fr) minmax(2.75rem, auto); gap: .35rem; align-items: center; min-width: 0; }
+.repetitions > span { white-space: nowrap; }
+.repetitions output { text-align: center; font-weight: 700; }
+.stepButton { min-width: 2.75rem; min-height: 2.75rem; padding: .4rem; }
+.stepButton svg { width: 1.5rem; height: 1.5rem; }
+.root input { box-sizing: border-box; width: 100%; min-height: 2.5rem; padding: .35rem; color: inherit; background: var(--color-surface); border: 1px solid currentColor; font: inherit; }
+.error { color: var(--color-error, #b22); }

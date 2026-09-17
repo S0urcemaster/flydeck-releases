@@ -53,6 +53,7 @@ export const defaultSportPose: SportPose = {
   viewAngle: 0, viewHeight: 1.95, viewZoom: 100,
   x: 0, y: 0, yaw: 0, pitch: 0, roll: 0, height: 0,
   lowerSpine: 0, spine: 0, torsoTurn: 0, head: 0, headTilt: 0, headSideTilt: 0, headTurn: 0,
+  leftShoulderHeight: 0, leftShoulderForward: 0, rightShoulderHeight: 0, rightShoulderForward: 0,
   leftShoulder: 0, leftShoulderSide: 0, leftShoulderTurn: 0, leftElbow: 0, leftElbowTurn: 0, leftHandFlex: 0,
   rightShoulder: 0, rightShoulderSide: 0, rightShoulderTurn: 0, rightElbow: 0, rightElbowTurn: 0, rightHandFlex: 0,
   leftHip: 0, leftHipSide: 0, leftKnee: 0, leftKneeTurn: 0, leftAnkle: 0,
@@ -80,7 +81,7 @@ export function parseSportExercise(content: string | undefined): SportExercise |
     if (exercise.secondsPerKeyframe !== undefined && (!Number.isFinite(exercise.secondsPerKeyframe) || exercise.secondsPerKeyframe! <= 0)) return null;
     const furniture = parseSportFurniture(exercise.furniture);
     if (exercise.furniture !== undefined && !furniture) return null;
-    const optionalAxes = new Set(["viewAngle", "viewHeight", "viewZoom", "x", "y", "height", "lowerSpine", "headTilt", "headSideTilt", "headTurn", "torsoTurn", "leftShoulderTurn", "rightShoulderTurn", "leftKneeTurn", "rightKneeTurn", "leftHandFlex", "rightHandFlex", "leftElbowTurn", "rightElbowTurn"]);
+    const optionalAxes = new Set(["viewAngle", "viewHeight", "viewZoom", "x", "y", "height", "lowerSpine", "headTilt", "headSideTilt", "headTurn", "torsoTurn", "leftShoulderHeight", "leftShoulderForward", "rightShoulderHeight", "rightShoulderForward", "leftShoulderTurn", "rightShoulderTurn", "leftKneeTurn", "rightKneeTurn", "leftHandFlex", "rightHandFlex", "leftElbowTurn", "rightElbowTurn"]);
     if (!exercise.keyframes.every((frame) => frame && typeof frame.id === "string" && frame.values && typeof frame.values === "object" && Object.keys(defaultSportPose).every((key) => (optionalAxes.has(key) && frame.values[key] === undefined) || Number.isFinite(frame.values[key])))) return null;
     return {
       schema: "flydeck.sport.exercise/v1",
@@ -124,7 +125,7 @@ function parseSportFurniture(value: unknown): SportFurniture | null {
   return { table, chair, bench: bench as SportFurniture["bench"], dumbbells: candidate.dumbbells, dumbbellSize: Number.isFinite(candidate.dumbbellSize) ? candidate.dumbbellSize! : 100, dumbbellColor: color(candidate.dumbbellColor, defaultSportFurniture.dumbbellColor), wallBar, plant, mat, poster };
 }
 
-const armAxes = ["Shoulder", "ShoulderSide", "ShoulderTurn", "Elbow", "ElbowTurn", "HandFlex"] as const;
+const armAxes = ["ShoulderHeight", "ShoulderForward", "Shoulder", "ShoulderSide", "ShoulderTurn", "Elbow", "ElbowTurn", "HandFlex"] as const;
 const legAxes = ["Hip", "HipSide", "Knee", "KneeTurn", "Ankle"] as const;
 
 export function mirrorSportLimb(pose: SportPose, limb: "arm" | "leg", source: "left" | "right" = "left"): SportPose {

@@ -1,11 +1,11 @@
-import type { JobService } from "./JobService.js";
+type DueJobRunner = { runDueJobs(limit: number): Promise<number> };
 
 export class JobScheduler {
   private interval?: NodeJS.Timeout;
   private running = false;
 
   constructor(
-    private readonly jobs: JobService,
+    private readonly jobs: DueJobRunner,
     private readonly intervalMs: number,
   ) {}
 

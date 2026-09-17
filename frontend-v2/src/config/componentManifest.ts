@@ -85,6 +85,7 @@ export const componentManifest = defineComponentManifest({
   Keyboard: { parent: "Base", source: "components/Keyboard/Keyboard.tsx", labGroup: "individual" },
   InputControl: { parent: "Base", source: "components/InputControl/InputControl.tsx", labGroup: "browser" },
   PromptInput: { parent: "InputControl", source: "components/PromptInput/PromptInput.tsx", labGroup: "browser" },
+  ScheduleEditor: { parent: "Base", source: "components/ScheduleEditor/ScheduleEditor.tsx", labGroup: "individual" },
   NodeIdInput: { parent: "InputControl", source: "components/NodeIdInput/NodeIdInput.tsx", labGroup: "individual" },
   ItemList: { parent: "Base", source: "components/ItemList/ItemList.tsx", labGroup: "individual" },
   ListControl: { parent: "Base", source: "components/ListControl/ListControl.tsx", labGroup: "browser" },
@@ -110,6 +111,7 @@ export const componentManifest = defineComponentManifest({
   DeviceInfoView: { parent: "AppView", source: "components/DeviceInfoView/DeviceInfoView.tsx", labGroup: "individual" },
   InventoryApp: { parent: "AppView", source: "components/InventoryApp/InventoryApp.tsx", labGroup: "individual" },
   ShoppingListView: { parent: "AppView", source: "components/ShoppingListView/ShoppingListView.tsx", labGroup: "individual" },
+  SchedulerApp: { parent: "AppView", source: "components/SchedulerApp/SchedulerApp.tsx", labGroup: "individual" },
 
   AgentModule: { parent: "Module", source: "modules/AgentModule/AgentModule.tsx", labGroup: "module" },
   DataModule: { parent: "Module", source: "modules/DataModule/DataModule.tsx", labGroup: "module" },

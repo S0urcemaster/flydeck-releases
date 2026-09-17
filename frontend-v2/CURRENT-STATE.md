@@ -208,7 +208,12 @@ rules belong in `AGENTS.md`; architecture and migration intent belong in
   textareas. All textareas initially select the keyboard's `S` font stage.
   DATA also retains its one-level four-item source list resolving
   only normal DATA-tree IDs/paths. PROMPT owns the keyboard Save action and the
-  persisted model/effort cycles and the one-shot schedule. `IMPRT` accepts a
+  persisted model/effort cycles, a DATA destination, and a loop schedule. A
+  schedule has a start, an exclusive end, ordered intermediate fire points,
+  and a repetition count; every loop fires at its start and intermediate
+  points, never at its end. Completed agent output is imported below the DATA
+  destination using the same repeated-`|-` tree format, with plain output
+  falling back to one `Agent response` item. `IMPRT` accepts a
   repeated-`|-` tree, validates it after a two-second edit pause, and shows
   either a local preview or the parser error. Its source text is retained per
   job in scoped client storage across tabs, jobs, and browser reloads. Its

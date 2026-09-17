@@ -52,6 +52,7 @@ describe("getVisibleFunctionsAppTabs", () => {
       shoppingListActive: false,
       shoppingCategories: [],
       sportActive: false,
+      schedulerActive: false,
     })).toEqual(["BROWSER", "COMPASS", "INVENTORY"]);
   });
 });

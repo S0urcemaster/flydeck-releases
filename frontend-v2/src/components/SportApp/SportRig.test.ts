@@ -43,17 +43,38 @@ describe("sport figure rig", () => {
     const leftArm = (values: Record<string, number>) => buildSportRig({ ...defaultSportPose, ...values }).segments
       .filter((part) => part.color === "#75c5b3");
     const neutral = leftArm({});
-    const forward = leftArm({ leftShoulder: 60 });
-    const sideways = leftArm({ leftShoulderSide: 60 });
+    const raised = leftArm({ leftShoulder: 90, leftShoulderSide: -20 });
+    const forward = leftArm({ leftShoulder: 90, leftShoulderSide: 40 });
     const bent = leftArm({ leftElbow: 90 });
-    expect(forward[1].end[2]).toBeGreaterThan(neutral[1].end[2]);
-    expect(sideways[1].end[0]).toBeGreaterThan(neutral[1].end[0]);
-    expect(sideways[2].end[0]).toBeGreaterThan(neutral[2].end[0]);
+    expect(raised[1].end[1]).toBeCloseTo(raised[1].start[1]);
+    expect(raised[1].end[0]).toBeGreaterThan(neutral[1].end[0]);
+    expect(forward[1].end[2]).toBeGreaterThan(raised[1].end[2]);
+    expect(forward[2].end[2]).toBeGreaterThan(raised[2].end[2]);
     expect(bent[2].end[2]).toBeGreaterThan(bent[2].start[2]);
     const length = (part: typeof neutral[number]) => Math.hypot(
       part.end[0] - part.start[0], part.end[1] - part.start[1], part.end[2] - part.start[2],
     );
-    expect(length(leftArm({ leftShoulder: 60, leftShoulderSide: 60 })[1])).toBeCloseTo(.47);
+    expect(length(leftArm({ leftShoulder: 120, leftShoulderSide: 40 })[1])).toBeCloseTo(.47);
+  });
+
+  it("moves each shoulder and its complete arm in the torso frame", () => {
+    const neutral = buildSportRig(defaultSportPose).segments.filter((part) => part.color === "#75c5b3");
+    const moved = buildSportRig({ ...defaultSportPose, leftShoulderHeight: 8, leftShoulderForward: 6 }).segments.filter((part) => part.color === "#75c5b3");
+    for (const index of [0, 1, 2]) {
+      expect(moved[index].end[1] - neutral[index].end[1]).toBeCloseTo(.08);
+      expect(moved[index].end[2] - neutral[index].end[2]).toBeCloseTo(.06);
+    }
+  });
+
+  it("turns the hand reference plane with the arm azimuth", () => {
+    const hand = (azimuth: number) => buildSportRig({
+      ...defaultSportPose, leftShoulder: 90, leftShoulderSide: azimuth,
+    }).joints.find((joint) => joint.shape === "hand" && joint.color === "#75c5b3")!;
+    const sideways = hand(-20);
+    const forward = hand(40);
+    expect(sideways.normal?.[0]).toBeCloseTo(0);
+    expect(forward.normal?.[0]).toBeGreaterThan(.8);
+    expect(forward.normal?.[2]).toBeGreaterThan(sideways.normal![2]);
   });
 
   it("rotates each bent forearm around its fixed upper-arm axis", () => {
@@ -66,6 +87,37 @@ describe("sport figure rig", () => {
       expect(turned[2].end[0]).not.toBeCloseTo(neutral[2].end[0]);
       expect(Math.hypot(...turned[2].end.map((value, index) => value - turned[2].start[index]))).toBeCloseTo(.43);
     }
+  });
+
+  it("mirrors shoulder rotation anatomically between left and right", () => {
+    const rig = buildSportRig({
+      ...defaultSportPose,
+      leftShoulder: 90, rightShoulder: 90,
+      leftShoulderSide: -20, rightShoulderSide: -20,
+      leftElbow: 90, rightElbow: 90,
+      leftShoulderTurn: 70, rightShoulderTurn: 70,
+    });
+    const left = rig.segments.filter((part) => part.color === "#75c5b3")[2].end;
+    const right = rig.segments.filter((part) => part.color === "#87aee0")[2].end;
+    expect(left[0]).toBeCloseTo(-right[0]);
+    expect(left[1]).toBeCloseTo(right[1]);
+    expect(left[2]).toBeCloseTo(right[2]);
+  });
+
+  it("mirrors elbow rotation anatomically between left and right", () => {
+    const rig = buildSportRig({
+      ...defaultSportPose,
+      leftShoulder: 75, rightShoulder: 75,
+      leftShoulderSide: 15, rightShoulderSide: 15,
+      leftElbow: 80, rightElbow: 80,
+      leftShoulderTurn: 45, rightShoulderTurn: 45,
+      leftElbowTurn: -65, rightElbowTurn: -65,
+    });
+    const left = rig.joints.find((joint) => joint.shape === "hand" && joint.color === "#75c5b3")!;
+    const right = rig.joints.find((joint) => joint.shape === "hand" && joint.color === "#87aee0")!;
+    expect(left.normal?.[0]).toBeCloseTo(right.normal![0]);
+    expect(left.normal?.[1]).toBeCloseTo(-right.normal![1]);
+    expect(left.normal?.[2]).toBeCloseTo(-right.normal![2]);
   });
 
   it("moves each foot with its ankle and keeps the lowest contact grounded", () => {

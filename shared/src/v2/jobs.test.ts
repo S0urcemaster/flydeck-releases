@@ -20,7 +20,9 @@ describe("V2 job contracts", () => {
       modelTier: "MEDI",
       effort: "DEEP",
       schedule: {
-        dueAt: "2026-08-31T08:00:00.000Z",
+        startAt: "2026-08-31T08:00:00.000Z",
+        endAt: "2026-08-31T09:00:00.000Z",
+        stops: [], repetitions: 0,
         timeZone: "Europe/Berlin",
         enabled: true,
       },

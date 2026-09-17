@@ -4,7 +4,7 @@ export type AccountType = "personal" | "guest" | "probe" | "test";
 
 export const trialTreeItemLimit = 20;
 export const trialItemTitleLimit = 100;
-export const trialItemContentLimit = 500;
+export const trialItemContentLimit = 250_000;
 
 export function assertTreeItemCapacity(accountType: AccountType, itemCount: number) {
   if (accountType === "probe" && itemCount >= trialTreeItemLimit) {

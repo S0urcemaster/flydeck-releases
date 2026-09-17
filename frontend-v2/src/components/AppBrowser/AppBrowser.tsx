@@ -56,6 +56,7 @@ export type AppBrowserOutputState = {
   inventoryActive: boolean;
   shoppingListActive: boolean;
   sportActive: boolean;
+  schedulerActive: boolean;
   shoppingCategories: ShoppingListOutputCategory[];
 };
 
@@ -67,7 +68,7 @@ export type ShoppingListOutputCategory = {
 
 export type AppData =
   | { kind: "group"; groupId: "system" }
-  | { kind: "view-generator"; viewId: "bluesky" | "compass" | "gps-events" | "inventory" | "shopping-list" | "sport" }
+  | { kind: "view-generator"; viewId: "bluesky" | "compass" | "gps-events" | "inventory" | "shopping-list" | "scheduler" | "sport" }
   | { kind: "category"; category: string }
   | { kind: "shopping-category"; category: string }
   | { kind: "shopping-item"; label: string }
@@ -231,7 +232,7 @@ const checkedAppsSlice: ClientStateSlice<string[]> = {
 };
 
 const rootAppIds = new Set([
-  "compass", "inventory", "shopping-list", "bluesky", "gps-events", "sport", "_system",
+  "compass", "inventory", "shopping-list", "bluesky", "gps-events", "scheduler", "sport", "_system",
 ]);
 
 const appSettingsByViewId = {
@@ -241,6 +242,7 @@ const appSettingsByViewId = {
   bluesky: { componentName: "BlueskyApp", defaultDataSource: "" },
   "gps-events": { componentName: "GpsEventsApp", defaultDataSource: "" },
   sport: { componentName: "SportApp", defaultDataSource: "" },
+  scheduler: { componentName: "SchedulerApp", defaultDataSource: "" },
 } as const;
 
 const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
@@ -282,6 +284,14 @@ const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
     enabled: false,
     contentVisible: false,
     data: { kind: "view-generator", viewId: "gps-events" },
+    children: [],
+  },
+  {
+    id: "scheduler",
+    label: "Scheduler",
+    enabled: false,
+    contentVisible: false,
+    data: { kind: "view-generator", viewId: "scheduler" },
     children: [],
   },
   {
@@ -429,6 +439,9 @@ export function generateFunctionOutput(
   const sport = nodes.find(
     ({ data }) => data?.kind === "view-generator" && data.viewId === "sport",
   );
+  const scheduler = nodes.find(
+    ({ data }) => data?.kind === "view-generator" && data.viewId === "scheduler",
+  );
   const compassActive = Boolean(compass?.enabled);
   const shoppingListActive = Boolean(shopping?.enabled);
   return {
@@ -456,6 +469,7 @@ export function generateFunctionOutput(
       : [],
     shoppingListActive,
     sportActive: Boolean(sport?.enabled),
+    schedulerActive: Boolean(scheduler?.enabled),
     shoppingCategories: shoppingListActive && shopping
       ? shopping.children
           .filter(({ enabled }) => enabled)

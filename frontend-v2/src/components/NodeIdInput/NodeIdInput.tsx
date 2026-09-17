@@ -69,8 +69,9 @@ export function NodeIdInput({
       onChange={(nextValue) => onChange(normalizeNodeId(nextValue))}
       onSend={(nextValue) => {
         if (!disabled && valid && (actionEnabled ?? nextValue !== savedValue)) {
-          void onSave(nextValue);
+          return onSave(nextValue);
         }
+        return false;
       }}
     />
   );

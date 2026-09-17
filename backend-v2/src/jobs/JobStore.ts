@@ -8,6 +8,7 @@ import {
   type JobRunStatus,
   type JobTrigger,
   type UpdateJobConfigRequest,
+  scheduleOccurrences,
 } from "@flydeck/shared/v2";
 import type { Database, Queryable } from "../db/database.js";
 import { HttpError } from "../http/HttpError.js";
@@ -19,10 +20,16 @@ type JobRow = {
   memory: string;
   data_source_node_ids: string[];
   data_sources: string;
+  destination_node_id: string | null;
   prompt: string;
   model_tier: JobConfigDto["modelTier"];
   effort: JobConfigDto["effort"];
   schedule_due_at: Date | null;
+  schedule_start_at: Date | null;
+  schedule_end_at: Date | null;
+  schedule_stops: Date[];
+  schedule_repetitions: number;
+  schedule_occurrence: number;
   schedule_time_zone: string | null;
   schedule_enabled: boolean;
 };
@@ -47,6 +54,7 @@ export type JobExecution = {
   userInput: string;
   modelTier: JobConfigDto["modelTier"];
   effort: JobConfigDto["effort"];
+  destinationNodeId: string | null;
 };
 
 export class JobStore {
@@ -82,27 +90,31 @@ export class JobStore {
     assertUnique(input.dataSourceNodeIds, "Datasource selection contains duplicate items");
     if (input.schedule) assertTimeZone(input.schedule.timeZone);
     await this.assertReferences(workspaceId, input.dataSourceNodeIds);
+    if (input.destinationNodeId) await this.assertReferences(workspaceId, [input.destinationNodeId]);
     const result = await this.database.query<JobRow>(`
       WITH updated AS (
         UPDATE agent_jobs SET
           memory_node_ids = '{}'::uuid[], data_source_node_ids = $1::uuid[],
-          memory = $2, data_sources = $3, prompt = $4,
-          model_tier = $5, effort = $6,
-          schedule_due_at = $7, schedule_time_zone = $8,
-          schedule_enabled = $9, schedule_claimed_at = NULL,
+          memory = $2, data_sources = $3, prompt = $4, destination_node_id = $5,
+          model_tier = $6, effort = $7,
+          schedule_due_at = $8, schedule_start_at = $8, schedule_end_at = $9,
+          schedule_stops = $10::timestamptz[], schedule_repetitions = $11,
+          schedule_occurrence = 0, schedule_time_zone = $12,
+          schedule_enabled = $13, schedule_claimed_at = NULL,
           revision = agent_jobs.revision + 1, updated_at = now()
-        WHERE job_id = $10 AND revision = $11
+        WHERE job_id = $14 AND revision = $15
         RETURNING agent_jobs.*
       ), inserted AS (
         INSERT INTO agent_jobs (
           job_id, revision, memory_node_ids, data_source_node_ids,
-          memory, data_sources, prompt,
-          model_tier, effort, schedule_due_at, schedule_time_zone,
-          schedule_enabled, schedule_claimed_at
+          memory, data_sources, prompt, destination_node_id,
+          model_tier, effort, schedule_due_at, schedule_start_at, schedule_end_at,
+          schedule_stops, schedule_repetitions, schedule_occurrence,
+          schedule_time_zone, schedule_enabled, schedule_claimed_at
         )
-        SELECT $10, 1, '{}'::uuid[], $1::uuid[], $2, $3, $4, $5, $6,
-               $7, $8, $9, NULL
-        WHERE $11 = 0 AND NOT EXISTS (SELECT 1 FROM updated)
+        SELECT $14, 1, '{}'::uuid[], $1::uuid[], $2, $3, $4, $5, $6, $7,
+               $8, $8, $9, $10::timestamptz[], $11, 0, $12, $13, NULL
+        WHERE $15 = 0 AND NOT EXISTS (SELECT 1 FROM updated)
         ON CONFLICT (job_id) DO NOTHING
         RETURNING agent_jobs.*
       )
@@ -114,9 +126,13 @@ export class JobStore {
       input.memory,
       input.dataSources,
       input.prompt,
+      input.destinationNodeId,
       input.modelTier,
       input.effort,
-      input.schedule?.dueAt ?? null,
+      input.schedule?.startAt ?? null,
+      input.schedule?.endAt ?? null,
+      input.schedule?.stops ?? [],
+      input.schedule?.repetitions ?? 0,
       input.schedule?.timeZone ?? null,
       input.schedule?.enabled ?? false,
       jobId,
@@ -159,6 +175,7 @@ export class JobStore {
           run: mapRun(existing.rows[0]), workingDirectory,
           memory: resolved.memory, userInput: resolved.userInput,
           modelTier: config.modelTier, effort: config.effort,
+          destinationNodeId: config.destinationNodeId,
         },
         created: false,
       };
@@ -264,6 +281,7 @@ export class JobStore {
         run: mapRun(created.row), workingDirectory,
         memory: resolved.memory, userInput: resolved.userInput,
         modelTier: config.modelTier, effort: config.effort,
+        destinationNodeId: config.destinationNodeId,
       },
       created: created.inserted,
     };
@@ -339,8 +357,8 @@ export class JobStore {
 
   async claimDueJobs(limit = 20) {
     return this.database.transaction(async (client) => {
-      const result = await client.query<{ job_id: string }>(`
-        SELECT job_id FROM agent_jobs
+      const result = await client.query<JobRow>(`
+        SELECT * FROM agent_jobs
         WHERE schedule_enabled = true AND schedule_claimed_at IS NULL
           AND schedule_due_at <= now()
           AND EXISTS (
@@ -361,16 +379,26 @@ export class JobStore {
             WHERE child.parent_id = agent_jobs.job_id
               AND child.kind IN ('agent-job', 'agent-job-group')
           )
+          AND NOT EXISTS (
+            SELECT 1 FROM agent_job_runs run
+            WHERE run.job_id = agent_jobs.job_id
+              AND run.status IN ('queued', 'running')
+          )
         ORDER BY schedule_due_at, job_id
         FOR UPDATE SKIP LOCKED LIMIT $1
       `, [limit]);
-      if (result.rows.length) {
+      for (const row of result.rows) {
+        const plan = mapConfig(row).schedule!;
+        const occurrences = scheduleOccurrences(plan);
+        const nextIndex = row.schedule_occurrence + 1;
+        const nextDue = occurrences[nextIndex] ?? null;
         await client.query(`
-          UPDATE agent_jobs
-          SET schedule_enabled = false, schedule_claimed_at = now(),
-              revision = revision + 1, updated_at = now()
-          WHERE job_id = ANY($1::uuid[])
-        `, [result.rows.map(({ job_id }) => job_id)]);
+          UPDATE agent_jobs SET schedule_due_at = COALESCE($2, schedule_due_at),
+            schedule_occurrence = $3, schedule_enabled = $4,
+            schedule_claimed_at = CASE WHEN $4 THEN NULL ELSE now() END,
+            revision = revision + 1, updated_at = now()
+          WHERE job_id = $1
+        `, [row.job_id, nextDue, nextIndex, Boolean(nextDue)]);
       }
       return result.rows.map(({ job_id }) => job_id);
     });
@@ -390,6 +418,50 @@ export class JobStore {
     `, [jobId]);
     if (!result.rows[0]) throw new HttpError(404, "NOT_FOUND", "Job was not found");
     return result.rows[0].workspace_id;
+  }
+
+  async importAgentOutput(workspaceId: string, destinationNodeId: string, output: string) {
+    const parsed = parseAgentTree(output);
+    await this.database.transaction(async (client) => {
+      const destination = await client.query<{ tree_id: string; list_editable: boolean }>(`
+        SELECT n.tree_id, n.list_editable FROM tree_nodes n
+        JOIN trees t ON t.id = n.tree_id
+        WHERE n.id = $1 AND t.workspace_id = $2 AND t.kind = 'data'
+        FOR UPDATE OF n
+      `, [destinationNodeId, workspaceId]);
+      if (!destination.rows[0]?.list_editable) {
+        throw new Error("The configured DATA destination cannot contain items");
+      }
+      const owner = await client.query<{ user_id: string }>(`
+        SELECT user_id FROM workspace_memberships
+        WHERE workspace_id = $1 AND role = 'owner' ORDER BY user_id LIMIT 1
+      `, [workspaceId]);
+      const parents = new Map<number, string>([[0, destinationNodeId]]);
+      for (const item of parsed) {
+        const parentId = parents.get(item.depth - 1);
+        if (!parentId) throw new Error("Agent response skips a tree level");
+        const id = randomUUID();
+        const position = await client.query<{ position: number }>(`
+          SELECT COALESCE(MAX(position) + 1, 0)::int AS position
+          FROM tree_nodes WHERE tree_id = $1 AND parent_id = $2
+        `, [destination.rows[0].tree_id, parentId]);
+        await client.query(`INSERT INTO tree_nodes (
+          id, tree_id, parent_id, kind, label, local_id, position,
+          content_editable, list_editable
+        ) VALUES ($1, $2, $3, 'data-item', $4, $5, $6, true, true)`, [
+          id, destination.rows[0].tree_id, parentId, item.label,
+          `agent-${id.slice(0, 8)}`, position.rows[0].position,
+        ]);
+        await client.query(`INSERT INTO node_contents (node_id, format, content)
+          VALUES ($1, 'markdown', $2)`, [id, item.content]);
+        if (owner.rows[0]) await client.query(`INSERT INTO node_user_states
+          (node_id, user_id, enabled, revision) VALUES ($1, $2, true, 1)`,
+        [id, owner.rows[0].user_id]);
+        parents.set(item.depth, id);
+        for (const depth of [...parents.keys()]) if (depth > item.depth) parents.delete(depth);
+      }
+      await client.query("UPDATE trees SET revision = revision + 1, updated_at = now() WHERE id = $1", [destination.rows[0].tree_id]);
+    });
   }
 
   private async ensureJob(workspaceId: string, jobId: string, configured = true) {
@@ -563,11 +635,15 @@ function mapConfig(row: JobRow): JobConfigDto {
     memory: row.memory,
     dataSourceNodeIds: row.data_source_node_ids,
     dataSources: row.data_sources,
+    destinationNodeId: row.destination_node_id,
     prompt: row.prompt,
     modelTier: row.model_tier,
     effort: row.effort,
-    schedule: row.schedule_due_at && row.schedule_time_zone ? {
-      dueAt: row.schedule_due_at.toISOString(),
+    schedule: row.schedule_start_at && row.schedule_end_at && row.schedule_time_zone ? {
+      startAt: row.schedule_start_at.toISOString(),
+      endAt: row.schedule_end_at.toISOString(),
+      stops: row.schedule_stops.map((stop) => stop.toISOString()),
+      repetitions: row.schedule_repetitions,
       timeZone: row.schedule_time_zone,
       enabled: row.schedule_enabled,
     } : null,
@@ -582,6 +658,7 @@ function defaultConfig(jobId: string): JobConfigDto {
     memory: "",
     dataSourceNodeIds: [],
     dataSources: "",
+    destinationNodeId: null,
     prompt: "",
     modelTier: "ECON",
     effort: "FAST",
@@ -611,6 +688,21 @@ function requiredContent(
   const value = byId.get(id);
   if (!value) throw new HttpError(400, "INVALID_REQUEST", `Referenced item ${id} has no content`);
   return value;
+}
+
+function parseAgentTree(source: string) {
+  const items: Array<{ depth: number; label: string; content: string }> = [];
+  for (const line of source.replace(/\r\n?/g, "\n").split("\n")) {
+    const match = line.match(/^((?:\|-)+)[ \t]*(.*)$/);
+    if (match) {
+      items.push({ depth: match[1].length / 2, label: match[2].trim().slice(0, 100), content: "" });
+    } else if (items.length) {
+      const item = items[items.length - 1];
+      item.content += `${item.content ? "\n" : ""}${line}`;
+    }
+  }
+  if (!items.length) return [{ depth: 1, label: "Agent response", content: source.trim() }];
+  return items.map((item) => ({ ...item, content: item.content.trim() }));
 }
 
 function assertUnique(values: readonly string[], message: string) {
