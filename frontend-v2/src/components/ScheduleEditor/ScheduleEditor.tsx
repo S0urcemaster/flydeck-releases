@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { SchedulePlan } from "@flydeck/shared/v2";
 import { Minus, Plus } from "lucide-react";
 import { Button, type ButtonProps } from "../Button";
@@ -35,16 +35,6 @@ export function ScheduleEditor({ value, disabled, buttonProps, onSave, ...basePr
       setSaving(false);
     }
   }
-  useEffect(() => {
-    if (!dirty || !valid || saving || disabled) return;
-    const timeout = window.setTimeout(() => {
-      setSaving(true);
-      void Promise.resolve(onSave(draft)).then((result) => {
-        if (result !== false) setSaved(draft);
-      }).catch(() => undefined).finally(() => setSaving(false));
-    }, 2_000);
-    return () => window.clearTimeout(timeout);
-  }, [dirty, disabled, draft, onSave, valid, saving]);
   return <Base {...baseProps} componentName="ScheduleEditor" className={styles.root}>
     <div className={styles.times}>
       <DateField label="[Start" value={draft.startAt} disabled={disabled} onChange={(startAt) => update({ startAt })} />

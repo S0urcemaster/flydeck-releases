@@ -18,4 +18,10 @@ describe("sport playback", () => {
     expect(interpolateSportPose(poses, 2.5, ["angle"]).angle).toBe(60);
     expect(interpolateSportPose(poses, 3, ["angle"]).angle).toBe(0);
   });
+
+  it("optionally eases motion and takes the shortest cyclic rotation", () => {
+    const poses = [{ values: { yaw: 170 } }, { values: { yaw: -170 } }];
+    expect(interpolateSportPose(poses, .25, ["yaw"], { shortestRotation: true }).yaw).toBe(175);
+    expect(interpolateSportPose([{ values: { yaw: 0 } }, { values: { yaw: 100 } }], .25, ["yaw"], { smoothMotion: true }).yaw).toBeCloseTo(15.625);
+  });
 });

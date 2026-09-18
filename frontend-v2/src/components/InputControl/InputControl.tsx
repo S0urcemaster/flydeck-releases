@@ -156,20 +156,6 @@ export function InputControl({
       closeActiveKeyboard = null;
     }
   }, []);
-  useEffect(() => {
-    if (!dirty || !onSend || saving || saveDisabled) return;
-    const timeout = window.setTimeout(() => {
-      setSaving(true);
-      void Promise.resolve(onSend(currentValue)).then((result) => {
-        if (result !== false) {
-          setSavedValue(currentValue);
-          setEdited(latestValue.current !== currentValue);
-        }
-      }).catch(() => undefined).finally(() => setSaving(false));
-    }, 2_000);
-    return () => window.clearTimeout(timeout);
-  }, [currentValue, dirty, onSend, saveDisabled, saving]);
-
   function toggleSmartphoneKeyboard() {
     const enabled = !smartphoneKeyboardEnabled;
     setSmartphoneKeyboardEnabled(enabled);

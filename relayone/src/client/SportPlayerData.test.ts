@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSportPose, interpolateSportPose, isSportExerciseContent, parseSportExercise } from "./SportPlayerData";
+import { defaultSportPose, interpolateSportPose, isSportExerciseContent, parseSportExercise, sportKeyframeComment } from "./SportPlayerData";
 
 const exercise = {
   schema: "flydeck.sport.exercise/v1",
@@ -16,15 +16,27 @@ describe("Relay One sport player data", () => {
     expect(isSportExerciseContent(content)).toBe(true);
     const parsed = parseSportExercise(content)!;
     expect(parsed.comment).toBe("Keep moving");
+    expect(parsed.keyframes[0].comment).toBe("Keep moving");
     expect(parsed.secondsPerKeyframe).toBe(1.2);
     expect(parsed.furniture.dumbbells).toBe(false);
     expect(parsed.furniture.wallBar.enabled).toBe(false);
     expect(parsed.furniture.mat.width).toBe(1);
     expect(parsed.furniture.poster.enabled).toBe(true);
+    expect(parsed.furniture.coordinateAxes).toBe(true);
     expect(parsed.furniture.table.color).toBe("#9a7256");
     expect(parsed.metrics.bodyHeight).toBe(180);
+    expect(parsed.modelSettings.smoothMotion).toBe(false);
     const legacy = { ...exercise, keyframes: [{ id: "old", values: { ...defaultSportPose, leftElbowTurn: undefined, leftHandTurn: 45 } }] };
     expect(parseSportExercise(JSON.stringify(legacy))?.keyframes[0].values.leftElbowTurn).toBe(45);
+  });
+
+  it("retains the previous non-empty scene comment across empty frames and the loop", () => {
+    const parsed = parseSportExercise(JSON.stringify({ ...exercise, comment: "", keyframes: [
+      { ...exercise.keyframes[0], comment: "First instruction" },
+      { ...exercise.keyframes[1], comment: "" },
+    ] }))!;
+    expect(sportKeyframeComment(parsed.keyframes, 1)).toBe("First instruction");
+    expect(sportKeyframeComment(parsed.keyframes, 0)).toBe("First instruction");
   });
 
   it("interpolates the closing transition without a hard loop cut", () => {

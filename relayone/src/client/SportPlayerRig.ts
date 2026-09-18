@@ -1,5 +1,5 @@
-import type { SportMetrics, SportPose } from "./SportPlayerData";
-import { defaultSportMetrics } from "./SportPlayerData";
+import type { SportMetrics, SportModelSettings, SportPose } from "./SportPlayerData";
+import { defaultSportMetrics, defaultSportModelSettings } from "./SportPlayerData";
 
 export type Point = [number, number, number];
 export type Segment = { start: Point; end: Point; color: number; radius: number; shape?: "ellipsoid"; profile?: "foot"; normal?: Point; upper?: boolean };
@@ -8,10 +8,11 @@ export type Rig = { segments: Segment[]; joints: Joint[] };
 
 const colors = { torso: 0xd6af73, leftArm: 0x75c5b3, rightArm: 0x87aee0, leftLeg: 0xe69c73, rightLeg: 0xba9ddc, skin: 0xf4dcc0 };
 const radians = (value: number) => value * Math.PI / 180;
+const softLimit = (value: number, min: number, max: number, enabled: boolean) => value < min && enabled ? min + 5 * Math.tanh((value - min) / 5) : value > max && enabled ? max + 5 * Math.tanh((value - max) / 5) : value;
 const down = ([x, y, z]: Point, length: number, forward: number, side: number): Point => [x + Math.sin(radians(side)) * length, y - Math.cos(radians(forward)) * Math.cos(radians(side)) * length, z + Math.sin(radians(forward)) * length];
-const arm = ([x, y, z]: Point, length: number, forward: number, abduction: number, sign: number): Point => {
-  const forwardAngle = radians(forward); const sideAngle = radians(sign * (18 + abduction));
-  return [x + Math.sin(sideAngle) * Math.cos(forwardAngle) * length, y - Math.cos(sideAngle) * Math.cos(forwardAngle) * length, z + Math.sin(forwardAngle) * length];
+const arm = ([x, y, z]: Point, length: number, elevation: number, azimuth: number, sign: number): Point => {
+  const elevationAngle = radians(elevation); const azimuthAngle = radians(20 + azimuth); const horizontal = Math.sin(elevationAngle) * length;
+  return [x + sign * Math.cos(azimuthAngle) * horizontal, y - Math.cos(elevationAngle) * length, z + Math.sin(azimuthAngle) * horizontal];
 };
 const up = ([x, y, z]: Point, length: number, forward: number): Point => [x, y + Math.cos(radians(forward)) * length, z + Math.sin(radians(forward)) * length];
 const sole = ([x, y, z]: Point, offset: number, shin: number, ankle: number): Point => {
@@ -31,7 +32,7 @@ const turn = ([x, y, z]: Point, [px, py, pz]: Point, angle: number): Point => {
   return [px + dx * Math.cos(rotation) + dz * Math.sin(rotation), py + (y - py), pz - dx * Math.sin(rotation) + dz * Math.cos(rotation)];
 };
 
-export function buildRig(pose: SportPose, metrics: SportMetrics = defaultSportMetrics): Rig {
+export function buildRig(pose: SportPose, metrics: SportMetrics = defaultSportMetrics, settings: SportModelSettings = defaultSportModelSettings): Rig {
   const pelvis: Point = [0, 0, 0]; const torsoRatio = metrics.hipShoulder / defaultSportMetrics.hipShoulder;
   const waist = up(pelvis, .29 * torsoRatio, pose.lowerSpine); const upperBend = pose.lowerSpine + pose.spine;
   const chest = up(waist, .43 * torsoRatio, upperBend); const neckAngle = upperBend + pose.head;
@@ -50,19 +51,23 @@ export function buildRig(pose: SportPose, metrics: SportMetrics = defaultSportMe
   ];
   for (const side of ["left", "right"] as const) {
     const sign = side === "left" ? 1 : -1; const armColor = side === "left" ? colors.leftArm : colors.rightArm; const legColor = side === "left" ? colors.leftLeg : colors.rightLeg;
-    const shoulder: Point = [chest[0] + sign * .26 * metrics.shoulderWidth / defaultSportMetrics.shoulderWidth, chest[1], chest[2]];
-    const shoulderForward = pose[`${side}Shoulder`]; const shoulderSide = pose[`${side}ShoulderSide`];
-    const elbow = arm(shoulder, .47 * metrics.upperArm / defaultSportMetrics.upperArm, shoulderForward, shoulderSide, sign);
-    const neutralHand = arm(elbow, .43 * metrics.lowerArm / defaultSportMetrics.lowerArm, shoulderForward + pose[`${side}Elbow`], shoulderSide, sign); const shoulderTurn = pose[`${side}ShoulderTurn`];
-    const hand = rotateAxis(neutralHand, elbow, shoulder, shoulderTurn);
-    const neutralDirection = neutralHand.map((value, axis) => value - elbow[axis]) as Point; const directionLength = Math.hypot(...neutralDirection); const [dx, dy, dz] = neutralDirection.map((value) => value / directionLength);
-    let handNormal: Point = [1 - dx * dx, -dx * dy, -dx * dz]; if (Math.hypot(...handNormal) < .000001) handNormal = [0, -dy * dz, 1 - dz * dz]; const normalLength = Math.hypot(...handNormal); handNormal = handNormal.map((value) => value / normalLength) as Point;
-    const handNormalPoint = rotateAxis(handNormal.map((value, axis) => value + elbow[axis]) as Point, elbow, shoulder, shoulderTurn); handNormal = handNormalPoint.map((value, axis) => value - elbow[axis]) as Point;
-    const forearmNormalPoint = rotateAxis(handNormal.map((value, axis) => value + hand[axis]) as Point, hand, elbow, pose[`${side}ElbowTurn`]); handNormal = forearmNormalPoint.map((value, axis) => value - hand[axis]) as Point;
+    const shoulderRadius = .26 * metrics.shoulderWidth / defaultSportMetrics.shoulderWidth;
+    const armElevation = softLimit(pose[`${side}Shoulder`], 0, 180, settings.softJointLimits);
+    const rhythm = settings.shoulderRhythm ? Math.max(0, Math.min(15, (armElevation - 90) * 15 / 90)) : 0;
+    const shoulderLift = radians((pose[`${side}ShoulderHeight`] ?? 0) + rhythm); const shoulderForward = radians(pose[`${side}ShoulderForward`] ?? 0);
+    const shoulder: Point = [chest[0] + sign * shoulderRadius * Math.cos(shoulderLift) * Math.cos(shoulderForward), chest[1] + shoulderRadius * Math.sin(shoulderLift), chest[2] + shoulderRadius * Math.cos(shoulderLift) * Math.sin(shoulderForward)];
+    const armAzimuth = pose[`${side}ShoulderSide`];
+    const elbow = arm(shoulder, .47 * metrics.upperArm / defaultSportMetrics.upperArm, armElevation, armAzimuth, sign);
+    const neutralHand = arm(elbow, .43 * metrics.lowerArm / defaultSportMetrics.lowerArm, armElevation + softLimit(pose[`${side}Elbow`], 0, 145, settings.softJointLimits), armAzimuth, sign);
+    const anatomicalShoulderTurn = sign * pose[`${side}ShoulderTurn`]; const hand = rotateAxis(neutralHand, elbow, shoulder, anatomicalShoulderTurn);
+    const armAzimuthAngle = radians(20 + armAzimuth); let handNormal: Point = [Math.sin(armAzimuthAngle), 0, -sign * Math.cos(armAzimuthAngle)];
+    const handNormalPoint = rotateAxis(handNormal.map((value, axis) => value + elbow[axis]) as Point, elbow, shoulder, anatomicalShoulderTurn); handNormal = handNormalPoint.map((value, axis) => value - elbow[axis]) as Point;
+    const anatomicalElbowTurn = sign * pose[`${side}ElbowTurn`]; const forearmNormalPoint = rotateAxis(handNormal.map((value, axis) => value + hand[axis]) as Point, hand, elbow, anatomicalElbowTurn); handNormal = forearmNormalPoint.map((value, axis) => value - hand[axis]) as Point;
     const hip: Point = [pelvis[0] + sign * .15 * metrics.hipWidth / defaultSportMetrics.hipWidth, 0, 0];
-    const knee = down(hip, .55 * metrics.upperLeg / defaultSportMetrics.upperLeg, pose[`${side}Hip`], sign * pose[`${side}HipSide`]);
-    const shin = pose[`${side}Hip`] - pose[`${side}Knee`]; const ankle = down(knee, .53 * metrics.lowerLeg / defaultSportMetrics.lowerLeg, shin, 0);
-    const kneeTurn = sign * pose[`${side}KneeTurn`];
+    const hipFlex = softLimit(pose[`${side}Hip`], -45, 120, settings.softJointLimits); const hipSide = softLimit(pose[`${side}HipSide`], -50, 50, settings.softJointLimits); const kneeFlex = softLimit(pose[`${side}Knee`], 0, 140, settings.softJointLimits);
+    const knee = down(hip, .55 * metrics.upperLeg / defaultSportMetrics.upperLeg, hipFlex, sign * hipSide);
+    const shin = hipFlex - kneeFlex; const ankle = down(knee, .53 * metrics.lowerLeg / defaultSportMetrics.lowerLeg, shin, 0);
+    const rawKneeTurn = pose[`${side}KneeTurn`]; const turnRange = 5 + 35 * Math.sin(radians(Math.min(90, Math.max(0, kneeFlex)))); const kneeTurn = sign * (settings.kneeRotationLimits ? turnRange * Math.tanh(rawKneeTurn / turnRange) : rawKneeTurn);
     const heel = rotateAxis(sole(ankle, -.13, shin, pose[`${side}Ankle`]), ankle, knee, kneeTurn);
     const toe = rotateAxis(sole(ankle, .25, shin, pose[`${side}Ankle`]), ankle, knee, kneeTurn);
     const neutralNormal = soleNormal(shin, pose[`${side}Ankle`]); const normalPoint = rotateAxis(neutralNormal.map((value, axis) => value + ankle[axis]) as Point, ankle, knee, kneeTurn); const footNormal = normalPoint.map((value, axis) => value - ankle[axis]) as Point;
@@ -72,12 +77,14 @@ export function buildRig(pose: SportPose, metrics: SportMetrics = defaultSportMe
   const ratio = metrics.bodyHeight / defaultSportMetrics.bodyHeight; const size = (point: Point): Point => point.map((value) => value * ratio) as Point;
   return {
     segments: segments.map((part) => ({ ...part, start: size(part.upper ? turn(part.start, waist, pose.torsoTurn) : part.start), end: size(part.upper ? turn(part.end, waist, pose.torsoTurn) : part.end), radius: part.radius * ratio })),
-    joints: joints.map((joint) => ({ ...joint, point: size(joint.upper ? turn(joint.point, waist, pose.torsoTurn) : joint.point), direction: joint.direction ? size(joint.upper ? turn(joint.direction, [0, 0, 0], pose.torsoTurn) : joint.direction) : undefined, normal: joint.normal ? size(joint.upper ? turn(joint.normal, [0, 0, 0], pose.torsoTurn) : joint.normal) : undefined, radius: joint.radius * ratio })),
+    joints: joints.map((joint) => ({ ...joint, point: size(joint.upper ? turn(joint.point, waist, pose.torsoTurn) : joint.point), direction: joint.direction ? size(joint.upper ? turn(joint.direction, [0, 0, 0], pose.torsoTurn) : joint.direction) : undefined, normal: joint.normal ? size(joint.upper ? turn(joint.normal, [0, 0, 0], pose.torsoTurn) : joint.normal) : undefined, turn: joint.shape === "head" ? (joint.turn ?? 0) + pose.torsoTurn : joint.turn, radius: joint.radius * ratio })),
   };
 }
 
-export function groundHeight(rig: Rig, pose: SportPose): number {
+export function groundHeight(rig: Rig, pose: SportPose, settings: SportModelSettings = defaultSportModelSettings): number {
   const pitch = radians(pose.pitch); const roll = radians(pose.roll);
   const lowest = Math.min(...[...rig.segments.flatMap(({ start, end }) => [start, end]), ...rig.joints.map(({ point }) => point)].map(([x, y, z]) => (x * Math.sin(roll) + y * Math.cos(roll)) * Math.cos(pitch) - z * Math.sin(pitch)));
-  return -lowest + Math.max(0, pose.height) / 100;
+  const lift = Math.max(0, pose.height) / 100;
+  if (settings.footContact && Math.abs(pose.pitch) < 45 && Math.abs(pose.roll) < 45) return -Math.min(...rig.segments.filter((part) => part.color === colors.leftLeg || part.color === colors.rightLeg).flatMap((part) => [part.start[1], part.end[1]])) + lift;
+  return -lowest + lift;
 }

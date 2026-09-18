@@ -28,7 +28,7 @@ export class SportPlayerScene {
     const fill = new THREE.PointLight(0x73b9da, 1.3, 5); fill.position.set(-1.8, 2.6, -1.4); this.scene.add(fill);
     this.scene.add(this.bodyYaw); this.bodyYaw.add(this.bodyTilt);
     this.createRoom(); this.createFurniture();
-    const rig = buildRig(exercise.keyframes[0].values, exercise.metrics);
+    const rig = buildRig(exercise.keyframes[0].values, exercise.metrics, exercise.modelSettings);
     rig.segments.forEach((segment) => this.segments.push(this.createSegment(segment)));
     rig.joints.forEach((joint) => this.joints.push(this.createJoint(joint)));
     rig.joints.filter(({ shape }) => shape === "hand").forEach(() => this.dumbbells.push(this.createDumbbell()));
@@ -46,8 +46,8 @@ export class SportPlayerScene {
 
   update(pose: SportPose) {
     this.currentPose = pose;
-    const rig = buildRig(pose, this.exercise.metrics);
-    this.bodyYaw.position.set(pose.x ?? 0, groundHeight(rig, pose), pose.y ?? 0);
+    const rig = buildRig(pose, this.exercise.metrics, this.exercise.modelSettings);
+    this.bodyYaw.position.set(pose.x ?? 0, groundHeight(rig, pose, this.exercise.modelSettings), pose.y ?? 0);
     this.bodyYaw.rotation.set(0, radians(pose.yaw), 0);
     this.bodyTilt.rotation.set(radians(pose.pitch), 0, radians(pose.roll), "XYZ");
     rig.segments.forEach((segment, index) => this.updateSegment(this.segments[index], segment));
@@ -117,6 +117,13 @@ export class SportPlayerScene {
   }
   private createFurniture() {
     const { table, chair, bench, wallBar, plant, mat, poster } = this.exercise.furniture;
+    if (this.exercise.furniture.coordinateAxes) {
+      const axes = new THREE.Group(); axes.position.set(-2.34, .055, -2.34);
+      axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), .9, 0xef6b68, .14, .08));
+      axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), .9, 0x77cc80, .14, .08));
+      axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(), .9, 0x67a9ef, .14, .08));
+      this.scene.add(axes);
+    }
     if (table.enabled) { const group = placedGroup(table); group.add(box([table.width, .09, table.depth], table.color, [0, table.height - .045, 0])); for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) group.add(box([.08, table.height - .09, .08], table.color, [x * (table.width / 2 - .09), (table.height - .09) / 2, z * (table.depth / 2 - .09)])); this.scene.add(group); }
     if (chair.enabled) { const group = placedGroup(chair); group.add(box([.52, .1, .52], chair.color, [0, .48, 0]), box([.52, .62, .08], chair.color, [0, .82, -.23])); for (const position of [[-.2, .23, -.2], [.2, .23, -.2], [-.2, .23, .2], [.2, .23, .2]] as Point[]) group.add(box([.065, .46, .065], 0x6f5545, position)); this.scene.add(group); }
     if (bench.enabled) { const group = placedGroup(bench); group.add(box([.58, .12, .72], bench.color, [0, .43, .38]), box([.42, .42, .08], 0x4a5660, [0, .21, .25])); const back = new THREE.Group(); back.position.set(0, .43, .02); back.rotation.x = radians(bench.backrest); back.add(box([.58, .12, .82], bench.color, [0, .02, -.42])); group.add(back); this.scene.add(group); }

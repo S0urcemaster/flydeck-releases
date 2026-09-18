@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { interpolateSportPose, parseSportExercise } from "./SportPlayerData";
+import { interpolateSportPose, parseSportExercise, sportKeyframeComment } from "./SportPlayerData";
 import { SportPlayerScene } from "./SportPlayerScene";
 
 export function SportPlayer({ content }: { content: string }) {
@@ -31,7 +31,7 @@ export function SportPlayer({ content }: { content: string }) {
         else { next = end; stopped = true; setPlaying(false); }
       }
       progressRef.current = next;
-      sceneRef.current?.update(interpolateSportPose(exercise.keyframes, next));
+      sceneRef.current?.update(interpolateSportPose(exercise.keyframes, next, exercise.modelSettings));
       if (now - lastControlUpdate > 32 || stopped) { lastControlUpdate = now; setProgress(next); }
       if (!stopped) frame = requestAnimationFrame(animate);
     };
@@ -47,9 +47,10 @@ export function SportPlayer({ content }: { content: string }) {
 
   if (!exercise) return <p className="sportPlayerError">This exercise cannot be played.</p>;
   const end = loop ? exercise.keyframes.length : Math.max(0, exercise.keyframes.length - 1);
+  const currentKeyframe = Math.round(progress) % exercise.keyframes.length;
   const seek = (value: number) => {
     progressRef.current = value; setProgress(value); setPlaying(false);
-    sceneRef.current?.update(interpolateSportPose(exercise.keyframes, value));
+    sceneRef.current?.update(interpolateSportPose(exercise.keyframes, value, exercise.modelSettings));
   };
   return <section className="sportPlayer" aria-label="Exercise player">
     <div className="sportViewport"
@@ -59,11 +60,14 @@ export function SportPlayer({ content }: { content: string }) {
       onPointerUp={(event) => { if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
       onPointerCancel={() => { dragRef.current = null; }}
     ><canvas ref={canvasRef} aria-label="Animated three-dimensional exercise figure. Drag horizontally to rotate the view." /></div>
+    <div className="sportPlayerKeyframes" aria-label="Keyframes">
+      {exercise.keyframes.map((frame, index) => <button key={frame.id} type="button" className={currentKeyframe === index ? "sportKeyframeActive" : undefined} aria-label={`Show keyframe ${index + 1}`} aria-pressed={currentKeyframe === index} onClick={() => seek(index)}><span>{index + 1}</span></button>)}
+    </div>
     <div className="sportPlayerControls">
       <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={() => { if (progressRef.current >= end) seek(0); setPlaying((value) => !value); }}>{playing ? "Ⅱ" : "▶"}</button>
       <input aria-label="Playback position" type="range" min="0" max={exercise.keyframes.length} step="0.01" value={progress} onChange={(event) => seek(Number(event.target.value))} />
       <button type="button" className={loop ? "sportLoopActive" : undefined} aria-label={loop ? "Turn loop off" : "Turn loop on"} aria-pressed={loop} onClick={() => setLoop((value) => !value)}>↻</button>
     </div>
-    {exercise.comment ? <p className="sportPlayerComment">{exercise.comment}</p> : null}
+    {sportKeyframeComment(exercise.keyframes, currentKeyframe) ? <p className="sportPlayerComment">{sportKeyframeComment(exercise.keyframes, currentKeyframe)}</p> : null}
   </section>;
 }

@@ -7,7 +7,7 @@
 .view canvas { display: block; }
 .tabLayout { display: grid; grid-template-columns: minmax(0, 4fr) minmax(32px, .75fr); gap: 3px; }
 .poseTabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
-.utilityTabs { display: grid; grid-template-rows: repeat(3, 32px); align-content: center; gap: 3px; }
+.utilityTabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, 32px); align-content: center; gap: 3px; }
 .tab, .activeTab { display: flex; justify-content: center; align-items: center; gap: 2px; height: 42px; min-width: 0; border: var(--border-standard); border-radius: var(--radius-control); background: color-mix(in srgb, var(--sport-group-color) 8%, var(--color-surface)); color: var(--sport-group-color); }
 .activeTab { border-color: var(--sport-group-color); background: color-mix(in srgb, var(--sport-group-color) 24%, var(--color-surface)); }
 .utilityTabs .tab, .utilityTabs .activeTab { height: 32px; }
@@ -39,7 +39,7 @@
 .slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--color-accent-one); }
 .sliderAction { min-height: 100%; padding: var(--space-xs); }
 .frames { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-block: 2px; }
-.frameActions { display: flex; flex: 0 0 auto; align-items: center; gap: var(--space-xs); }
+.frameActions { display: flex; flex: 0 0 100%; width: 100%; align-items: center; gap: var(--space-xs); }
 .frame, .activeFrame { display: flex; align-items: center; justify-content: center; flex: 0 0 var(--button-width); min-width: var(--button-width); min-height: var(--button-width); padding: var(--space-xs); border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
 .activeFrame { border-color: var(--color-accent-one); background: var(--color-app); }
 .frame span, .activeFrame span { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 12px; }

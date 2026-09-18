@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Euler, Vector3 } from "three";
-import { defaultSportPose } from "./SportExercise";
+import { defaultSportModelSettings, defaultSportPose } from "./SportExercise";
 import { buildSportRig, groundedSportFigureHeight } from "./SportRig";
 import { defaultSportMetrics } from "./SportMetrics";
 
@@ -57,13 +57,28 @@ describe("sport figure rig", () => {
     expect(length(leftArm({ leftShoulder: 120, leftShoulderSide: 40 })[1])).toBeCloseTo(.47);
   });
 
-  it("moves each shoulder and its complete arm in the torso frame", () => {
+  it("optionally adds shoulder rhythm and limits knee rotation", () => {
+    const unrestricted = { ...defaultSportModelSettings, shoulderRhythm: false, kneeRotationLimits: false };
+    const raised = { ...defaultSportPose, leftShoulder: 180 };
+    const plainShoulder = buildSportRig(raised, defaultSportMetrics, unrestricted).segments.filter((part) => part.color === "#75c5b3")[0].end;
+    const rhythmicShoulder = buildSportRig(raised, defaultSportMetrics, { ...defaultSportModelSettings, shoulderRhythm: true }).segments.filter((part) => part.color === "#75c5b3")[0].end;
+    expect(rhythmicShoulder[1]).toBeGreaterThan(plainShoulder[1]);
+    const turned = { ...defaultSportPose, leftKneeTurn: 90 };
+    const freeFoot = buildSportRig(turned, defaultSportMetrics, unrestricted).segments.filter((part) => part.color === "#e69c73").at(-1)!.end;
+    const limitedFoot = buildSportRig(turned, defaultSportMetrics, { ...defaultSportModelSettings, kneeRotationLimits: true }).segments.filter((part) => part.color === "#e69c73").at(-1)!.end;
+    expect(Math.abs(limitedFoot[0] - freeFoot[0])).toBeGreaterThan(.1);
+  });
+
+  it("moves each shoulder and its complete arm around the chest pivot", () => {
     const neutral = buildSportRig(defaultSportPose).segments.filter((part) => part.color === "#75c5b3");
-    const moved = buildSportRig({ ...defaultSportPose, leftShoulderHeight: 8, leftShoulderForward: 6 }).segments.filter((part) => part.color === "#75c5b3");
-    for (const index of [0, 1, 2]) {
-      expect(moved[index].end[1] - neutral[index].end[1]).toBeCloseTo(.08);
-      expect(moved[index].end[2] - neutral[index].end[2]).toBeCloseTo(.06);
-    }
+    const moved = buildSportRig({ ...defaultSportPose, leftShoulderHeight: 12, leftShoulderForward: 10 }).segments.filter((part) => part.color === "#75c5b3");
+    const distance = (part: typeof neutral[number]) => Math.hypot(...part.end.map((value, index) => value - part.start[index]));
+    expect(distance(moved[0])).toBeCloseTo(distance(neutral[0]));
+    expect(moved[0].end[0]).toBeLessThan(neutral[0].end[0]);
+    expect(moved[0].end[1]).toBeGreaterThan(neutral[0].end[1]);
+    expect(moved[0].end[2]).toBeGreaterThan(neutral[0].end[2]);
+    expect(moved[1].end[1]).toBeGreaterThan(neutral[1].end[1]);
+    expect(moved[2].end[2]).toBeGreaterThan(neutral[2].end[2]);
   });
 
   it("turns the hand reference plane with the arm azimuth", () => {

@@ -5,7 +5,7 @@ import { Base, type BaseStyleProps } from "../Base";
 import { buildSportRig, groundedSportFigureHeight, type RigJoint, type RigPoint, type RigSegment } from "./SportRig";
 import { defaultSportMetrics, type SportMetricValues } from "./SportMetrics";
 import { defaultSportCamera, sportCameraView, type SportCameraControls } from "./SportCamera";
-import { defaultSportFurniture, type SportFurniture } from "./SportExercise";
+import { defaultSportFurniture, defaultSportModelSettings, type SportFurniture, type SportModelSettings } from "./SportExercise";
 import styles from "./SportApp.module.css";
 
 type Pose = Record<string, number>;
@@ -137,7 +137,7 @@ const SportFurnitureScene = memo(function SportFurnitureScene({ furniture }: { f
   const chair = furniture.chair;
   const bench = furniture.bench;
   return <>
-    <RoomAxes />
+    {furniture.coordinateAxes ? <RoomAxes /> : null}
     {table.enabled ? <group position={[table.x, 0, table.y]} rotation={[0, degrees(table.rotation), 0]}>
       <mesh position={[0, table.height - .045, 0]}><boxGeometry args={[table.width, .09, table.depth]} /><meshStandardMaterial color={table.color} roughness={.82} /></mesh>
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], index) => <mesh key={index} position={[x * (table.width / 2 - .09), (table.height - .09) / 2, z * (table.depth / 2 - .09)]}><boxGeometry args={[.08, table.height - .09, .08]} /><meshStandardMaterial color={table.color} roughness={.88} /></mesh>)}
@@ -185,11 +185,11 @@ function HandDumbbell({ joint, size, color }: { joint: RigJoint; size: number; c
   </group></group></group>;
 }
 
-export type SportFigure3DProps = BaseStyleProps & { pose: Pose; metrics?: SportMetricValues; furniture?: SportFurniture; cameraControls?: SportCameraControls; onCameraAngleChange?: (angle: number) => void; onCameraReset?: () => void };
+export type SportFigure3DProps = BaseStyleProps & { pose: Pose; metrics?: SportMetricValues; furniture?: SportFurniture; modelSettings?: SportModelSettings; cameraControls?: SportCameraControls; onCameraAngleChange?: (angle: number) => void; onCameraReset?: () => void };
 
-export function SportFigure3D({ pose, metrics = defaultSportMetrics, furniture = defaultSportFurniture, cameraControls = defaultSportCamera, onCameraAngleChange, onCameraReset, ...baseProps }: SportFigure3DProps) {
-  const figure = useMemo(() => buildSportRig(pose, metrics), [pose, metrics]);
-  const figureHeight = groundedSportFigureHeight(figure, pose);
+export function SportFigure3D({ pose, metrics = defaultSportMetrics, furniture = defaultSportFurniture, modelSettings = defaultSportModelSettings, cameraControls = defaultSportCamera, onCameraAngleChange, onCameraReset, ...baseProps }: SportFigure3DProps) {
+  const figure = useMemo(() => buildSportRig(pose, metrics, modelSettings), [pose, metrics, modelSettings]);
+  const figureHeight = groundedSportFigureHeight(figure, pose, modelSettings);
   const drag = useRef<{ pointerId: number; x: number; angle: number } | null>(null);
   return <Base {...baseProps} className={styles.view} componentName="SportFigure3D" role="img" aria-label="Three-dimensional joint figure. Drag horizontally to rotate the view."
     onDoubleClick={onCameraReset}

@@ -1,5 +1,5 @@
 export type SportPose = Record<string, number>;
-export type SportKeyframe = { id: string; values: SportPose };
+export type SportKeyframe = { id: string; values: SportPose; comment: string };
 export type PlacedFurniture = { enabled: boolean; x: number; y: number; rotation: number; color: string };
 export type SportFurniture = {
   table: PlacedFurniture & { height: number; width: number; depth: number };
@@ -12,11 +12,13 @@ export type SportFurniture = {
   plant: { enabled: boolean; x: number; y: number; color: string };
   mat: PlacedFurniture & { width: number; depth: number };
   poster: { enabled: boolean; y: number; z: number; width: number; color: string };
+  coordinateAxes: boolean;
 };
 export type SportMetrics = {
   bodyHeight: number; shoulderWidth: number; hipWidth: number; upperLeg: number;
   lowerLeg: number; upperArm: number; lowerArm: number; hipShoulder: number;
 };
+export type SportModelSettings = { kneeRotationLimits: boolean; shoulderRhythm: boolean; softJointLimits: boolean; shortestRotation: boolean; smoothMotion: boolean; footContact: boolean };
 export type SportExercise = {
   schema: "flydeck.sport.exercise/v1";
   comment: string;
@@ -24,12 +26,15 @@ export type SportExercise = {
   keyframes: SportKeyframe[];
   furniture: SportFurniture;
   metrics: SportMetrics;
+  modelSettings: SportModelSettings;
 };
+export const defaultSportModelSettings: SportModelSettings = { kneeRotationLimits: false, shoulderRhythm: false, softJointLimits: false, shortestRotation: false, smoothMotion: false, footContact: false };
 
 export const defaultSportPose: SportPose = {
   viewAngle: 0, viewHeight: 1.95, viewZoom: 100,
   x: 0, y: 0, yaw: 0, pitch: 0, roll: 0, height: 0,
   lowerSpine: 0, spine: 0, torsoTurn: 0, head: 0, headTilt: 0, headSideTilt: 0, headTurn: 0,
+  leftShoulderHeight: 0, leftShoulderForward: 0, rightShoulderHeight: 0, rightShoulderForward: 0,
   leftShoulder: 0, leftShoulderSide: 0, leftShoulderTurn: 0, leftElbow: 0, leftElbowTurn: 0, leftHandFlex: 0,
   rightShoulder: 0, rightShoulderSide: 0, rightShoulderTurn: 0, rightElbow: 0, rightElbowTurn: 0, rightHandFlex: 0,
   leftHip: 0, leftHipSide: 0, leftKnee: 0, leftKneeTurn: 0, leftAnkle: 0,
@@ -48,6 +53,7 @@ export const defaultSportFurniture: SportFurniture = {
   plant: { enabled: false, x: -2.05, y: -2.05, color: "#5d9368" },
   mat: { enabled: true, x: 0, y: 0, rotation: 0, color: "#365f69", width: 1, depth: 2 },
   poster: { enabled: true, y: 1.55, z: .82, width: .68, color: "#31566a" },
+  coordinateAxes: true,
 };
 
 export function isSportExerciseContent(content: string): boolean {
@@ -60,10 +66,10 @@ export function parseSportExercise(content: string): SportExercise | null {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     const value = raw as Partial<SportExercise>;
     if (value.schema !== "flydeck.sport.exercise/v1" || !Array.isArray(value.keyframes) || value.keyframes.length === 0) return null;
-    const keyframes = value.keyframes.map((frame) => {
+    const keyframes = value.keyframes.map((frame, index) => {
       if (!frame || typeof frame.id !== "string" || !frame.values || typeof frame.values !== "object") return null;
       if (!sportPoseAxes.every((axis) => frame.values[axis] === undefined || Number.isFinite(frame.values[axis]))) return null;
-      return { id: frame.id, values: {
+      return { id: frame.id, comment: typeof frame.comment === "string" ? frame.comment : index === 0 && typeof value.comment === "string" ? value.comment : "", values: {
         ...defaultSportPose, ...frame.values,
         leftElbowTurn: frame.values.leftElbowTurn ?? frame.values.leftHandTurn ?? 0,
         rightElbowTurn: frame.values.rightElbowTurn ?? frame.values.rightHandTurn ?? 0,
@@ -77,18 +83,35 @@ export function parseSportExercise(content: string): SportExercise | null {
       keyframes: keyframes as SportKeyframe[],
       furniture: normalizeFurniture(value.furniture),
       metrics: normalizeMetrics(value.metrics),
+      modelSettings: normalizeModelSettings(value.modelSettings),
     };
   } catch { return null; }
 }
 
-export function interpolateSportPose(keyframes: readonly SportKeyframe[], progress: number): SportPose {
+export function sportKeyframeComment(keyframes: readonly SportKeyframe[], index: number): string {
+  if (!keyframes.length) return "";
+  for (let offset = 0; offset < keyframes.length; offset += 1) {
+    const comment = keyframes[(index - offset + keyframes.length) % keyframes.length].comment;
+    if (comment.trim()) return comment;
+  }
+  return "";
+}
+
+export function interpolateSportPose(keyframes: readonly SportKeyframe[], progress: number, settings: SportModelSettings = defaultSportModelSettings): SportPose {
   const wrapped = ((progress % keyframes.length) + keyframes.length) % keyframes.length;
   const first = Math.floor(wrapped);
   const second = (first + 1) % keyframes.length;
-  const mix = wrapped - first;
+  const linearMix = wrapped - first;
+  const mix = settings.smoothMotion ? linearMix * linearMix * (3 - 2 * linearMix) : linearMix;
   return Object.fromEntries(sportPoseAxes.map((axis) => [axis,
-    keyframes[first].values[axis] * (1 - mix) + keyframes[second].values[axis] * mix,
+    keyframes[first].values[axis] + (settings.shortestRotation && (axis === "yaw" || axis === "viewAngle") ? ((keyframes[second].values[axis] - keyframes[first].values[axis] + 540) % 360) - 180 : keyframes[second].values[axis] - keyframes[first].values[axis]) * mix,
   ]));
+}
+
+function normalizeModelSettings(value: unknown): SportModelSettings {
+  if (!value || typeof value !== "object") return { ...defaultSportModelSettings };
+  const candidate = value as Partial<SportModelSettings>;
+  return Object.fromEntries(Object.keys(defaultSportModelSettings).map((key) => [key, candidate[key as keyof SportModelSettings] === true])) as SportModelSettings;
 }
 
 function normalizeMetrics(value: unknown): SportMetrics {
@@ -124,6 +147,7 @@ function normalizeFurniture(value: unknown): SportFurniture {
     plant: numericObject(candidate.plant, defaultSportFurniture.plant),
     mat: placed(candidate.mat, defaultSportFurniture.mat),
     poster: numericObject(candidate.poster, defaultSportFurniture.poster),
+    coordinateAxes: typeof candidate.coordinateAxes === "boolean" ? candidate.coordinateAxes : true,
   };
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  addSportKeyframe, createSportExercise, defaultSportPose, deleteSportKeyframe,
-  changeSportPoseAxis, mirrorSportLimb, moveSportKeyframe, parseSportExercise,
+  addInterpolatedSportKeyframe, addSportKeyframe, createSportExercise, defaultSportPose, deleteSportKeyframe,
+  changeSportPoseAxis, mirrorSportLimb, moveSportKeyframe, parseSportExercise, sportKeyframeComment,
 } from "./SportExercise";
 
 describe("sport exercise content", () => {
@@ -14,8 +14,33 @@ describe("sport exercise content", () => {
     expect(exercise.keyframes[0].values.viewHeight).toBe(1.95);
     expect(exercise.keyframes[0].values.viewZoom).toBe(100);
     expect(exercise.comment).toBe("");
+    expect(exercise.keyframes[0].comment).toBe("");
     expect(exercise.secondsPerKeyframe).toBe(1.2);
+    expect(exercise.modelSettings.shoulderRhythm).toBe(true);
     expect(parseSportExercise(JSON.stringify(exercise))).toEqual(exercise);
+  });
+
+  it("stores model settings and defaults older exercises to disabled", () => {
+    const exercise = createSportExercise();
+    exercise.modelSettings = { ...exercise.modelSettings, shoulderRhythm: true, smoothMotion: true };
+    expect(parseSportExercise(JSON.stringify(exercise))?.modelSettings).toEqual(exercise.modelSettings);
+    const legacy = { ...exercise, modelSettings: undefined };
+    expect(parseSportExercise(JSON.stringify(legacy))?.modelSettings).toEqual({
+      kneeRotationLimits: false, shoulderRhythm: false, softJointLimits: false,
+      shortestRotation: false, smoothMotion: false, footContact: false,
+    });
+  });
+
+  it("inserts the midpoint to the next keyframe including the loop edge", () => {
+    const first = createSportExercise();
+    first.keyframes[0].values.leftElbow = 20;
+    const two = addSportKeyframe(first, 0);
+    two.keyframes[1].values.leftElbow = 100;
+    const middle = addInterpolatedSportKeyframe(two, 0);
+    expect(middle.keyframes[1].values.leftElbow).toBe(60);
+    expect(middle.keyframes[1].comment).toBe("");
+    const loopMiddle = addInterpolatedSportKeyframe(two, 1);
+    expect(loopMiddle.keyframes[2].values.leftElbow).toBe(60);
   });
 
   it("keeps at least one pose while adding, moving and deleting keyframes", () => {
@@ -24,6 +49,7 @@ describe("sport exercise content", () => {
     const second = addSportKeyframe(first, 0);
     expect(second.keyframes).toHaveLength(2);
     expect(second.keyframes[1].values).toEqual(first.keyframes[0].values);
+    expect(second.keyframes[1].comment).toBe("");
     const moved = moveSportKeyframe(second, 1, -1);
     expect(moved.keyframes[0].id).toBe(second.keyframes[1].id);
     expect(deleteSportKeyframe(moved, 0).keyframes[0].id).toBe(first.keyframes[0].id);
@@ -34,10 +60,11 @@ describe("sport exercise content", () => {
     expect(parseSportExercise(JSON.stringify({ schema: "flydeck.sport.exercise/v1", keyframes: [] }))).toBeNull();
   });
 
-  it("keeps a comment and reads older exercise items without one", () => {
+  it("migrates an old exercise comment to its first keyframe", () => {
     const exercise = createSportExercise();
     exercise.comment = "Keep knees over feet";
-    expect(parseSportExercise(JSON.stringify(exercise))?.comment).toBe(exercise.comment);
+    const legacyComment = { ...exercise, keyframes: exercise.keyframes.map((frame) => ({ id: frame.id, values: frame.values })) };
+    expect(parseSportExercise(JSON.stringify(legacyComment))?.keyframes[0].comment).toBe(exercise.comment);
     const oldValues = Object.fromEntries(Object.entries(exercise.keyframes[0].values).filter(([key]) => !["viewAngle", "viewHeight", "viewZoom", "x", "y", "height", "lowerSpine", "headTilt", "headSideTilt", "headTurn", "torsoTurn", "leftShoulderHeight", "leftShoulderForward", "rightShoulderHeight", "rightShoulderForward", "leftShoulderTurn", "rightShoulderTurn", "leftKneeTurn", "rightKneeTurn", "leftHandFlex", "leftElbowTurn", "rightHandFlex", "rightElbowTurn"].includes(key)));
     const oldContent = { ...exercise, comment: undefined, secondsPerKeyframe: undefined, keyframes: [{ id: exercise.keyframes[0].id, label: "Stand", values: oldValues }] };
     expect(parseSportExercise(JSON.stringify(oldContent))?.comment).toBe("");
@@ -61,6 +88,14 @@ describe("sport exercise content", () => {
     const withoutFurniture: Partial<typeof oldContent> = { ...oldContent };
     delete withoutFurniture.furniture;
     expect(parseSportExercise(JSON.stringify(withoutFurniture))?.furniture).toEqual(createSportExercise().furniture);
+  });
+
+  it("keeps the previous scene comment when a keyframe comment is empty", () => {
+    const exercise = createSportExercise();
+    const frames = addSportKeyframe(addSportKeyframe(exercise, 0), 1).keyframes.map((frame, index) => ({ ...frame, comment: index === 1 ? "Hold this position" : "" }));
+    expect(sportKeyframeComment(frames, 1)).toBe("Hold this position");
+    expect(sportKeyframeComment(frames, 2)).toBe("Hold this position");
+    expect(sportKeyframeComment(frames, 0)).toBe("Hold this position");
   });
 
   it("stores furniture once per exercise rather than in its keyframes", () => {

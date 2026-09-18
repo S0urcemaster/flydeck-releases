@@ -1,5 +1,6 @@
 import { defaultSportMetrics, type SportMetricValues } from "./SportMetrics";
 import { sportGroupColors } from "./SportPalette";
+import { defaultSportModelSettings, type SportModelSettings } from "./SportExercise";
 
 export type RigPoint = [number, number, number];
 export type RigSegment = { start: RigPoint; end: RigPoint; color: string; radius: number; shape?: "ellipsoid"; profile?: "foot"; normal?: RigPoint; upper?: boolean };
@@ -8,6 +9,12 @@ export type SportRig = { segments: RigSegment[]; joints: RigJoint[]; pelvisHeigh
 type Pose = Record<string, number>;
 
 const radians = (value: number) => value * Math.PI / 180;
+const softLimit = (value: number, min: number, max: number, enabled: boolean) => {
+  if (!enabled) return value;
+  if (value < min) return min + 5 * Math.tanh((value - min) / 5);
+  if (value > max) return max + 5 * Math.tanh((value - max) / 5);
+  return value;
+};
 const down = ([x, y, z]: RigPoint, length: number, forward: number, side: number): RigPoint => [
   x + Math.sin(radians(side)) * length,
   y - Math.cos(radians(forward)) * Math.cos(radians(side)) * length,
@@ -61,7 +68,7 @@ const rotateAroundAxis = (point: RigPoint, pivot: RigPoint, axisPoint: RigPoint,
   ];
 };
 
-export function buildSportRig(pose: Pose, metrics: SportMetricValues = defaultSportMetrics): SportRig {
+export function buildSportRig(pose: Pose, metrics: SportMetricValues = defaultSportMetrics, settings: SportModelSettings = defaultSportModelSettings): SportRig {
   const pelvis: RigPoint = [0, 0, 0];
   const torsoRatio = metrics.hipShoulder / defaultSportMetrics.hipShoulder;
   const waist = up(pelvis, .29 * torsoRatio, pose.lowerSpine ?? 0);
@@ -94,15 +101,20 @@ export function buildSportRig(pose: Pose, metrics: SportMetricValues = defaultSp
     const sign = side === "left" ? 1 : -1;
     const armColor = side === "left" ? sportGroupColors.leftArm : sportGroupColors.rightArm;
     const legColor = side === "left" ? sportGroupColors.leftLeg : sportGroupColors.rightLeg;
+    const shoulderRadius = .26 * metrics.shoulderWidth / defaultSportMetrics.shoulderWidth;
+    const armElevation = softLimit(pose[`${side}Shoulder`], 0, 180, settings.softJointLimits);
+    const shoulderRhythm = settings.shoulderRhythm ? Math.max(0, Math.min(15, (armElevation - 90) * 15 / 90)) : 0;
+    const shoulderLift = radians((pose[`${side}ShoulderHeight`] ?? 0) + shoulderRhythm);
+    const shoulderForward = radians(pose[`${side}ShoulderForward`] ?? 0);
     const shoulder: RigPoint = [
-      chest[0] + sign * .26 * metrics.shoulderWidth / defaultSportMetrics.shoulderWidth,
-      chest[1] + (pose[`${side}ShoulderHeight`] ?? 0) / 100,
-      chest[2] + (pose[`${side}ShoulderForward`] ?? 0) / 100,
+      chest[0] + sign * shoulderRadius * Math.cos(shoulderLift) * Math.cos(shoulderForward),
+      chest[1] + shoulderRadius * Math.sin(shoulderLift),
+      chest[2] + shoulderRadius * Math.cos(shoulderLift) * Math.sin(shoulderForward),
     ];
-    const armElevation = pose[`${side}Shoulder`];
     const armAzimuth = pose[`${side}ShoulderSide`];
     const elbow = arm(shoulder, .47 * metrics.upperArm / defaultSportMetrics.upperArm, armElevation, armAzimuth, sign);
-    const neutralHand = arm(elbow, .43 * metrics.lowerArm / defaultSportMetrics.lowerArm, armElevation + pose[`${side}Elbow`], armAzimuth, sign);
+    const elbowFlex = softLimit(pose[`${side}Elbow`], 0, 145, settings.softJointLimits);
+    const neutralHand = arm(elbow, .43 * metrics.lowerArm / defaultSportMetrics.lowerArm, armElevation + elbowFlex, armAzimuth, sign);
     const shoulderTurn = pose[`${side}ShoulderTurn`] ?? 0;
     const anatomicalShoulderTurn = sign * shoulderTurn;
     const hand = rotateAroundAxis(neutralHand, elbow, shoulder, anatomicalShoulderTurn);
@@ -118,10 +130,16 @@ export function buildSportRig(pose: Pose, metrics: SportMetricValues = defaultSp
     const forearmNormalPoint = rotateAroundAxis(handNormal.map((value, axis) => value + hand[axis]) as RigPoint, hand, elbow, anatomicalElbowTurn);
     handNormal = forearmNormalPoint.map((value, axis) => value - hand[axis]) as RigPoint;
     const hip: RigPoint = [pelvis[0] + sign * .15 * metrics.hipWidth / defaultSportMetrics.hipWidth, pelvis[1], pelvis[2]];
-    const knee = down(hip, .55 * metrics.upperLeg / defaultSportMetrics.upperLeg, pose[`${side}Hip`], sign * pose[`${side}HipSide`]);
-    const shinForward = pose[`${side}Hip`] - pose[`${side}Knee`];
+    const hipFlex = softLimit(pose[`${side}Hip`], -45, 120, settings.softJointLimits);
+    const hipSide = softLimit(pose[`${side}HipSide`], -50, 50, settings.softJointLimits);
+    const kneeFlex = softLimit(pose[`${side}Knee`], 0, 140, settings.softJointLimits);
+    const knee = down(hip, .55 * metrics.upperLeg / defaultSportMetrics.upperLeg, hipFlex, sign * hipSide);
+    const shinForward = hipFlex - kneeFlex;
     const ankle = down(knee, .53 * metrics.lowerLeg / defaultSportMetrics.lowerLeg, shinForward, 0);
-    const kneeTurn = sign * (pose[`${side}KneeTurn`] ?? 0);
+    const rawKneeTurn = pose[`${side}KneeTurn`] ?? 0;
+    const kneeTurnRange = 5 + 35 * Math.sin(radians(Math.min(90, Math.max(0, kneeFlex))));
+    const constrainedKneeTurn = settings.kneeRotationLimits ? kneeTurnRange * Math.tanh(rawKneeTurn / kneeTurnRange) : rawKneeTurn;
+    const kneeTurn = sign * constrainedKneeTurn;
     const heel = rotateAroundAxis(solePoint(ankle, -.13, shinForward, pose[`${side}Ankle`]), ankle, knee, kneeTurn);
     const toe = rotateAroundAxis(solePoint(ankle, .25, shinForward, pose[`${side}Ankle`]), ankle, knee, kneeTurn);
     const neutralNormal = soleNormal(shinForward, pose[`${side}Ankle`]);
@@ -164,7 +182,7 @@ export function buildSportRig(pose: Pose, metrics: SportMetricValues = defaultSp
   };
 }
 
-export function groundedSportFigureHeight(rig: SportRig, pose: Pose): number {
+export function groundedSportFigureHeight(rig: SportRig, pose: Pose, settings: SportModelSettings = defaultSportModelSettings): number {
   const pitch = radians(pose.pitch ?? 0);
   const roll = radians(pose.roll ?? 0);
   const lowest = Math.min(...[
@@ -175,5 +193,7 @@ export function groundedSportFigureHeight(rig: SportRig, pose: Pose): number {
     const rolledY = x * Math.sin(roll) + y * Math.cos(roll);
     return rolledY * Math.cos(pitch) - z * Math.sin(pitch);
   }));
-  return -lowest + Math.max(0, pose.height ?? 0) / 100;
+  const lift = Math.max(0, pose.height ?? 0) / 100;
+  if (settings.footContact && Math.abs(pose.pitch ?? 0) < 45 && Math.abs(pose.roll ?? 0) < 45) return rig.pelvisHeight + lift;
+  return -lowest + lift;
 }

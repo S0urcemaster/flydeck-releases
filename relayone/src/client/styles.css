@@ -95,6 +95,11 @@ textarea {
 .sportViewport:active { cursor: grabbing; }
 .sportViewport canvas { display: block; width: 100%; height: 100%; }
 
+.sportPlayerKeyframes { display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.7rem 0.7rem 0; background: #203747; }
+.sportPlayerKeyframes button { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 1px solid #78909c; border-radius: 0.4rem; background: #fffef4; color: #172631; cursor: pointer; }
+.sportPlayerKeyframes span { display: grid; place-items: center; width: 1.4rem; height: 1.4rem; border: 1px solid currentColor; border-radius: 50%; font-size: 0.78rem; }
+.sportPlayerKeyframes .sportKeyframeActive { border-color: var(--logo-right-color); background: var(--logo-right-color); color: #fff; }
+
 .sportPlayerControls {
   display: grid;
   grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;

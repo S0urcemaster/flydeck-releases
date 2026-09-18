@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentProps } from "react";
+import { useMemo, useState, type ComponentProps } from "react";
 
 import { Button, type ButtonProps } from "../../components/Button";
 import { Checkbox } from "../../components/Checkbox";
@@ -76,15 +76,6 @@ export function SettingsModule({
     onSave(structuredClone(next));
     setSaved(structuredClone(next));
   }
-
-  useEffect(() => {
-    if (!dirty) return;
-    const timeout = window.setTimeout(() => {
-      onSave(structuredClone(draft));
-      setSaved(structuredClone(draft));
-    }, 2_000);
-    return () => window.clearTimeout(timeout);
-  }, [dirty, draft, onSave]);
 
   const updateCheckedValue = (
     node: TreeBrowserNode<SettingsTreeData>,
