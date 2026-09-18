@@ -8,7 +8,11 @@ Your agent should be able to connect it
 
 ## Releases
 
-### 07.09.026 22:30 V2 Beta2 (a09d23b67a91)
+### 18.09.026 22:30 V2 Beta2 (a40b8778afbd)
+
+- Sport App "pretty moving" patch
+
+### 16.09.026 22:30 V2 Beta2 (a09d23b67a91)
 
 + Flydeck Sport App
 
