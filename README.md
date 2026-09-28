@@ -1,4 +1,4 @@
-# Flydeck Workspace Console
+# Flydeck Information System
 
 AI programmed agent homeserver interface + workspace tools app
 
