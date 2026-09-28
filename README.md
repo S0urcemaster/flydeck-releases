@@ -8,6 +8,9 @@ Your agent should be able to connect it
 
 ## Releases
 
+### 28.09.26 11:30 V2 Beta Final (d3915e9c224d)
+- Shoulder not fixed yet
+
 ### 18.09.026 22:30 V2 Beta2 (a40b8778afbd)
 
 - Sport App "pretty moving" patch
