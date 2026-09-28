@@ -27,6 +27,10 @@ export type RelaySite = {
   roots: RelayPostSummary[];
 };
 
+export type RelayLatestPost = RelayPostSummary & {
+  path: string[];
+};
+
 export type RelayNodePage = {
   post: RelayPost;
   parents: RelayPostSummary[];

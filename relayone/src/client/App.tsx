@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type { RelayPost, RelaySite } from "../shared/contracts";
+import type { RelayLatestPost, RelayPost, RelaySite } from "../shared/contracts";
 import type {
   RelayNavigationLevel,
   RelayNodePage,
@@ -24,6 +24,7 @@ export function App() {
   const [peers, setPeers] = useState<Array<{ id: string; nodeId: string; title: string }>>([]);
   const [site, setSite] = useState<RelaySite | null>(null);
   const [page, setPage] = useState<RelayNodePage | null>(null);
+  const [latest, setLatest] = useState<RelayLatestPost[] | null>(null);
   const [error, setError] = useState<string>();
   const [selectedPath, setSelectedPath] = useState(initialLocation.path);
   const [showcaseMode, setShowcaseMode] = useState(false);
@@ -50,20 +51,36 @@ export function App() {
       .then((value) => setPeers(value));
   }, []);
 
+  const isLanding = peerId === null && selectedPath.length === 0;
   const activePath = selectedPath.length > 0
     ? selectedPath
-    : site?.roots[0] ? [site.roots[0].localId] : null;
+    : peerId && site?.roots[0] ? [site.roots[0].localId] : null;
 
   useEffect(() => {
     if (site?.title) document.title = site.title;
   }, [site?.title]);
 
   useEffect(() => {
-    if (selectedPath.length === 0 && activePath) {
+    if (peerId && selectedPath.length === 0 && activePath) {
       window.history.replaceState(null, "", postHref(activePath, peerId));
       setSelectedPath(activePath);
     }
-  }, [activePath?.join("/"), selectedPath.length]);
+  }, [activePath?.join("/"), peerId, selectedPath.length]);
+
+  useEffect(() => {
+    if (!isLanding) return;
+    const controller = new AbortController();
+    fetch("/api/latest", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Relay node returned ${response.status}.`);
+        return response.json() as Promise<RelayLatestPost[]>;
+      })
+      .then((value) => { setLatest(value); setError(undefined); })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "The latest posts are unavailable.");
+      });
+    return () => controller.abort();
+  }, [isLanding]);
 
   useEffect(() => {
     if (!activePath) {
@@ -153,11 +170,8 @@ export function App() {
     );
   }
 
-  if (!page) {
-    return <main className="statusPage" aria-busy="true">Loading publication…</main>;
-  }
-
-  const { post, parents } = page;
+  const post = page?.post;
+  const parents = page?.parents ?? [];
   return (
     <div className="siteShell">
       <header className={`siteHeader${showcaseMode ? " siteHeaderShowcase" : ""}`}>
@@ -187,7 +201,9 @@ export function App() {
         </nav>}
         {!showcaseMode && <>
           <hr className="headerDivider" />
-          <nav className="breadcrumbs" aria-label="Breadcrumb">
+          {isLanding ? <nav className="breadcrumbs" aria-label="Breadcrumb">
+            <span aria-current="page">Latest Posts</span>
+          </nav> : post && <nav className="breadcrumbs" aria-label="Breadcrumb">
         {parents.map((parent, index) => (
           <span key={parent.id}>
             {parent !== parents[0] && <span aria-hidden="true">/</span>}
@@ -203,11 +219,40 @@ export function App() {
           {parents.length > 0 && <span aria-hidden="true">/</span>}
           <span aria-current="page">{post.label}</span>
         </span>
-          </nav>
+          </nav>}
         </>}
       </header>
       {!showcaseMode && <>
-      <div className="publication">
+      {isLanding ? <div className="publication">
+        <aside className="postNavigation" aria-label="Published data">
+          <nav>
+            <PostNavigation
+              levels={[{ activeId: null, depth: 0, nodes: site.roots }]}
+              selectedId=""
+              peerId={peerId}
+            />
+          </nav>
+        </aside>
+        <main className="postView landingPage">
+          {latest === null ? <div className="contentLoading" aria-busy="true">Loading latest posts…</div>
+            : latest.length > 0 ? <section className="childPosts" aria-label="Latest posts">
+              <div className="postGrid">
+                {latest.map((entry) => <a
+                  className="postCard"
+                  data-relay-navigation
+                  href={postHref(entry.path)}
+                  key={entry.id}
+                >
+                  {entry.imageUrl && <img src={entry.imageUrl} alt="" loading="lazy" />}
+                  <span className="postCardBody">
+                    <ItemCreatedDate createdAt={entry.createdAt} />
+                    <strong>{entry.label}</strong>
+                  </span>
+                </a>)}
+              </div>
+            </section> : <p className="emptyLanding">No posts published yet.</p>}
+        </main>
+      </div> : page && post ? <div className="publication">
         <aside className="postNavigation" aria-label="Published data">
           <nav ref={navigationRef}>
             <PostNavigation
@@ -226,7 +271,7 @@ export function App() {
                 updatedAt={post.updatedAt}
               />
             </header>
-            {post.imageUrl && (
+            {post.imageUrl && !isSportExerciseContent(post.content) && (
               <FullscreenImage
                 alt={post.label}
                 buttonClassName="heroImageButton"
@@ -262,7 +307,20 @@ export function App() {
             </section>
           )}
         </main>
-      </div>
+      </div> : <div className="publication">
+        <aside className="postNavigation" aria-label="Published data">
+          <nav>
+            <PostNavigation
+              levels={[{ activeId: null, depth: 0, nodes: site.roots }]}
+              selectedId=""
+              peerId={peerId}
+            />
+          </nav>
+        </aside>
+        <main className="postView">
+          <div className="contentLoading" aria-busy="true">Loading publication…</div>
+        </main>
+      </div>}
       <footer>{site.title} by Digi Craft</footer>
       </>}
     </div>
@@ -382,6 +440,10 @@ export function ItemDateRange({
   );
 }
 
+export function ItemCreatedDate({ createdAt }: { createdAt: string }) {
+  return <span className="dateRange"><time dateTime={createdAt}>{formatDate(createdAt)}</time></span>;
+}
+
 function prettyJson(value: string) {
   try {
     return JSON.stringify(JSON.parse(value), null, 2);
@@ -410,9 +472,15 @@ export function postHref(localIds: readonly string[], peerId?: string | null) {
   return `${prefix}/${localIds.map(encodeURIComponent).join("/")}`;
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+export function formatDate(value: string) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(new Date(value)).map(({ type, value: part }) => [type, part]));
+  return `${parts.year.slice(-3)} ${parts.month} ${parts.day} ${parts.weekday}, ${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
 }

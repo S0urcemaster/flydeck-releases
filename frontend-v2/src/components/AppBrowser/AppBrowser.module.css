@@ -1,0 +1,9 @@
+.deviceInfoScroller {
+  height: 18rem;
+  min-width: 0;
+  overflow: auto;
+}
+
+.deviceInfoScroller > section {
+  height: 100%;
+}

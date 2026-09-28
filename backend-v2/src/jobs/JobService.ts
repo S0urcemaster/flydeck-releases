@@ -4,12 +4,13 @@ import type { JobSnapshotDto, JobTrigger } from "@flydeck/shared/v2";
 import { JobStore, type JobExecution } from "./JobStore.js";
 
 type Subscriber = (snapshot: JobSnapshotDto) => void;
+type JobNotifier = { sendTimer(message: string, deliveryAt?: Date, sequenceId?: string, title?: string): Promise<void> };
 
 export class JobService {
   private readonly controllers = new Map<string, AbortController>();
   private readonly subscribers = new Map<string, Set<Subscriber>>();
 
-  constructor(readonly store: JobStore) {}
+  constructor(readonly store: JobStore, private readonly notifier?: JobNotifier) {}
 
   async start(
     workspaceId: string,
@@ -96,9 +97,17 @@ export class JobService {
       }
       if (!output.trim()) throw new Error("Flydon completed without a final response");
       if (execution.destinationNodeId) {
-        await this.store.importAgentOutput(workspaceId, execution.destinationNodeId, output);
+        if (!execution.parserNodeId) await this.store.importAgentOutput(workspaceId, execution.destinationNodeId, output);
       }
+      const parsedNotification = execution.parserNodeId
+        ? await this.store.processParserOutput(workspaceId, execution.parserNodeId, execution.destinationNodeId, output)
+        : null;
       await this.store.finishRun(execution.run.id, "completed", output, null);
+      if (execution.notifyWithNtfy && this.notifier) {
+        await this.notifier.sendTimer(parsedNotification?.message ?? output, undefined, execution.run.id, parsedNotification?.title ?? "Flydeck Idol").catch((error: unknown) => {
+          console.error(`Idol notification ${execution.run.id} could not be sent`, error);
+        });
+      }
     } catch (error) {
       const cancelled = controller.signal.aborted;
       await this.store.finishRun(

@@ -45,6 +45,7 @@ export const componentManifest = defineComponentManifest({
   SubmoduleButton: { parent: "PressButton", source: "components/SubmoduleButton/SubmoduleButton.tsx", labGroup: "individual" },
   AppStatusLine: { parent: "Base", source: "components/AppStatusLine/AppStatusLine.tsx", labGroup: "individual" },
   InlineAppView: { parent: "Base", source: "components/InlineAppView/InlineAppView.tsx", labGroup: "individual" },
+  EmptyTrashApp: { parent: "InlineAppView", source: "components/EmptyTrashApp/EmptyTrashApp.tsx", labGroup: "individual" },
   BackupApp: { parent: "InlineAppView", source: "components/BackupApp/BackupApp.tsx", labGroup: "individual" },
   MaintenanceApp: { parent: "InlineAppView", source: "components/MaintenanceApp/MaintenanceApp.tsx", labGroup: "individual" },
   SymbolButton: { parent: "Button", source: "components/SymbolButton/SymbolButton.tsx", labGroup: "individual" },
@@ -82,6 +83,7 @@ export const componentManifest = defineComponentManifest({
   Form: { parent: "Base", source: "components/Form/Form.tsx", labGroup: "individual" },
   FormRow: { parent: "Block", source: "components/FormRow/FormRow.tsx", labGroup: "individual" },
   Input: { parent: "Base", source: "components/Input/Input.tsx", labGroup: "browser" },
+  DateInput: { parent: "Base", source: "components/DateInput/DateInput.tsx", labGroup: "browser" },
   Keyboard: { parent: "Base", source: "components/Keyboard/Keyboard.tsx", labGroup: "individual" },
   InputControl: { parent: "Base", source: "components/InputControl/InputControl.tsx", labGroup: "browser" },
   PromptInput: { parent: "InputControl", source: "components/PromptInput/PromptInput.tsx", labGroup: "browser" },
@@ -112,6 +114,7 @@ export const componentManifest = defineComponentManifest({
   InventoryApp: { parent: "AppView", source: "components/InventoryApp/InventoryApp.tsx", labGroup: "individual" },
   ShoppingListView: { parent: "AppView", source: "components/ShoppingListView/ShoppingListView.tsx", labGroup: "individual" },
   SchedulerApp: { parent: "AppView", source: "components/SchedulerApp/SchedulerApp.tsx", labGroup: "individual" },
+  IdolsApp: { parent: "AppView", source: "components/IdolsApp/IdolsApp.tsx", labGroup: "individual" },
 
   AgentModule: { parent: "Module", source: "modules/AgentModule/AgentModule.tsx", labGroup: "module" },
   DataModule: { parent: "Module", source: "modules/DataModule/DataModule.tsx", labGroup: "module" },

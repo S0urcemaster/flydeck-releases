@@ -45,7 +45,7 @@ import {
 } from "../../state";
 import styles from "./JobCase.module.css";
 
-type JobTab = "MEMO" | "DATA" | "PRMPT" | "IMPRT";
+type JobTab = "MEMO" | "DATA" | "PRMPT" | "PRSR";
 
 export type TreeImportNode = {
   depth: number;
@@ -290,6 +290,7 @@ export function JobCase({
           dataSourceNodeIds: next.dataSourceNodeIds,
           dataSources: next.dataSources,
           destinationNodeId: next.destinationNodeId,
+          parserNodeId: next.parserNodeId,
           prompt: next.prompt,
           modelTier: next.modelTier,
           effort: next.effort,
@@ -639,11 +640,11 @@ export function JobCase({
         </div>
       ) : null}
       <div className={styles.tabs} role="tablist" aria-label="Job settings">
-        {(["MEMO", "DATA", "PRMPT", "IMPRT"] as const).map((item) => (
+        {(["MEMO", "DATA", "PRMPT", "PRSR"] as const).map((item) => (
           <Button
             {...buttonProps}
             key={item}
-            activeColor={item === "IMPRT"
+            activeColor={item === "PRSR"
               ? "COLOR_SUCCESS"
               : buttonProps?.activeColor}
             role="tab"
@@ -812,9 +813,6 @@ export function JobCase({
             />
             {config ? (
               <>
-                <DestinationField key={`${nodeId}:${config.revision}`} config={config}
-                  disabled={editingLocked} inputControlProps={inputControlProps}
-                  nodes={tree.document.nodes} onUpdate={updateConfig} />
                 <TimeSettings
                   buttonProps={buttonProps}
                   config={config}
@@ -825,67 +823,11 @@ export function JobCase({
             ) : null}
           </>
         )}
-        {tab === "IMPRT" && (
-          <div className={styles.importFields}>
-            <InputControl
-              {...inputControlProps}
-              control="textarea"
-              keyboardActions={<></>}
-              keyboardLayout="block"
-              value={effectiveImportSource}
-              textareaProps={{
-                ...inputControlProps?.textareaProps,
-                "aria-label": "Import source",
-                label: "Import source",
-                height: "18rem",
-                readOnly: importPending,
-              }}
-              onChange={(value) => {
-                setImportResult("");
-                setImportSources((current) => ({ ...current, [nodeId]: value }));
-              }}
-            />
-            <InputControl
-              {...inputControlProps}
-              control="input"
-              keyboardActions={<></>}
-              keyboardLayout="block"
-              value={effectiveImportParent}
-              inputProps={{
-                ...inputControlProps?.inputProps,
-                "aria-label": "Import parent",
-                label: "setParent",
-                color: importParentValid ? "COLOR_SUCCESS" : "COLOR_ERROR",
-                placeholder: "empty = DATA root",
-                readOnly: importPending,
-              }}
-              onChange={(value) => setImportParent({ nodeId, value })}
-            />
-            <div
-              className={styles.importPreview}
-              aria-live="polite"
-              aria-label="Import preview"
-            >
-              {!effectiveImportSource.trim() ? "Paste import source" : null}
-              {effectiveImportSource.trim() && !currentImportPreview
-                ? "Generating preview …" : null}
-              {currentImportPreview?.error ? (
-                <p className={styles.importError}>Parser error: {currentImportPreview.error}</p>
-              ) : null}
-              {currentImportPreview?.nodes ? (
-                <pre>{formatTreeImportPreview(currentImportPreview.nodes)}</pre>
-              ) : null}
-            </div>
-            <Button
-              {...buttonProps}
-              disabled={importPending || !importParentValid || !currentImportPreview?.nodes}
-              onClick={() => void importDataTree()}
-            >
-              {importPending ? "Importing …" : "Import"}
-            </Button>
-            {importResult ? <p className={styles.status}>{importResult}</p> : null}
-          </div>
-        )}
+        {tab === "PRSR" && config ? (
+          <ParserSettings buttonProps={buttonProps} config={config}
+            disabled={editingLocked} inputControlProps={inputControlProps}
+            nodes={tree.document.nodes} onUpdate={updateConfig} />
+        ) : null}
       </div>
       {tab === "PRMPT" ? (
         <div className={styles.actions}>
@@ -930,9 +872,11 @@ function TimeSettings({
   const [fallback] = useState(() => {
     const now = Date.now();
     return {
+      comment: "", comments: ["", ""],
       startAt: new Date(now + 60 * 60_000).toISOString(),
       endAt: new Date(now + 2 * 60 * 60_000).toISOString(),
       stops: [], repetitions: 0, timeZone: defaultZone, enabled: false,
+      notifyWithNtfy: true,
     };
   });
   const schedule = config.schedule ?? fallback;
@@ -948,12 +892,33 @@ function DestinationField({ config, disabled, inputControlProps, nodes, onUpdate
   const [value, setValue] = useState(config.destinationNodeId ?? "");
   return <InputControl {...inputControlProps} control="input" value={value}
     inputProps={{ ...inputControlProps?.inputProps, "aria-label": "DATA destination",
-      label: "DATA destination", placeholder: "DATA item ID, local ID or path", readOnly: disabled }}
+      label: "Output source", placeholder: "DATA item ID, local ID or path", readOnly: disabled }}
     onChange={setValue} onSend={(next) => {
       const destination = next.trim() ? resolveDataSource(nodes, next) : undefined;
       if (next.trim() && !destination) return false;
       return onUpdate((current) => ({ ...current, destinationNodeId: destination?.id ?? null }));
     }} />;
+}
+
+function ParserSettings({ buttonProps, config, disabled, inputControlProps, nodes, onUpdate }: {
+  buttonProps?: Omit<ButtonProps, "children" | "onClick">;
+  config: JobConfigDto; disabled: boolean; inputControlProps?: InputControlProps;
+  nodes: readonly TreeNodeDto[];
+  onUpdate: (change: (current: JobConfigDto) => JobConfigDto) => Promise<boolean>;
+}) {
+  const root = resolveDataSource(nodes, "_system/Agnt/_prsr");
+  const parsers = root ? nodes.filter((node) => node.parentId === root.id && node.kind === "agent-parser") : [];
+  return <div className={styles.importFields}>
+    <strong>Available parsers</strong>
+    {parsers.map((parser) => <Button {...buttonProps} key={parser.id}
+      selected={config.parserNodeId === parser.id} disabled={disabled}
+      onClick={() => void onUpdate((current) => ({ ...current, parserNodeId: parser.id }))}>
+      {parser.label}
+    </Button>)}
+    {!parsers.length ? <p>No fixed parsers are available.</p> : null}
+    <DestinationField config={config} disabled={disabled || !config.parserNodeId}
+      inputControlProps={inputControlProps} nodes={nodes} onUpdate={onUpdate} />
+  </div>;
 }
 
 function jobOptionColor(value: string, defaultColor?: string) {

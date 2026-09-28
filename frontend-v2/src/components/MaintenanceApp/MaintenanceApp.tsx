@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 
 import { AppStatusLine, type AppStatusLineProps } from "../AppStatusLine";
-import { Button, type ButtonProps } from "../Button";
+import { DeleteButton, type DeleteButtonProps } from "../DeleteButton";
 import { InlineAppView, type InlineAppViewProps } from "../InlineAppView";
 
 export type MaintenanceAppProps = Omit<
@@ -9,8 +9,8 @@ export type MaintenanceAppProps = Omit<
   "children" | "componentName"
 > & {
   buttonProps?: Omit<
-    ButtonProps,
-    "aria-label" | "children" | "disabled" | "onClick"
+    DeleteButtonProps,
+    "children" | "disabled" | "label" | "onDelete"
   >;
   onResetClientToServer?: () => Promise<void>;
   statusLineProps?: Omit<
@@ -49,15 +49,16 @@ export function MaintenanceApp({
 
   return (
     <InlineAppView {...inlineAppViewProps} componentName="MaintenanceApp">
-      <Button
+      <DeleteButton
         {...buttonProps}
-        aria-label="Reset client cache to server state"
+        action="reset"
         disabled={!onResetClientToServer || status === "running"}
+        label="client cache to server state"
         width="100%"
-        onClick={() => void resetClient()}
+        onDelete={resetClient}
       >
         Reset Client to Server
-      </Button>
+      </DeleteButton>
       <AppStatusLine
         {...statusLineProps}
         activity={status === "running"}

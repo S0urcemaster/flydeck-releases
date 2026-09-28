@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BackupStatusDto } from "@flydeck/shared/v2";
 import { v2Api, V2ApiError } from "../../api/V2ApiClient";
 import { AppStatusLine, type AppStatusLineProps } from "../AppStatusLine";
-import { Button, type ButtonProps } from "../Button";
+import { DeleteButton, type DeleteButtonProps } from "../DeleteButton";
 import {
   InlineAppView,
   type InlineAppViewProps,
@@ -13,8 +13,8 @@ export type BackupAppProps = Omit<
   "children" | "componentName"
 > & {
   buttonProps?: Omit<
-    ButtonProps,
-    "aria-label" | "children" | "disabled" | "onClick"
+    DeleteButtonProps,
+    "children" | "disabled" | "label" | "onDelete"
   >;
   statusLineProps?: Omit<
     AppStatusLineProps,
@@ -67,15 +67,16 @@ export function BackupApp({
 
   return (
     <InlineAppView {...inlineAppViewProps} componentName="BackupApp">
-      <Button
+      <DeleteButton
         {...buttonProps}
-        aria-label="Create PostgreSQL backup"
+        action="run"
         disabled={!workspaceId || status.state === "running"}
+        label="PostgreSQL backup"
         width="100%"
-        onClick={() => void startBackup()}
+        onDelete={startBackup}
       >
         BACKUP
-      </Button>
+      </DeleteButton>
       <AppStatusLine
         {...statusLineProps}
         activity={status.state === "running"}

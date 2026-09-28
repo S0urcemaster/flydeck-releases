@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type {
   RelayNavigationLevel,
+  RelayLatestPost,
   RelayNodePage,
   RelayPostSummary,
   RelaySite,
@@ -45,6 +46,11 @@ export class ProjectedRelayStore implements RelayReader {
       info: this.config.info,
       roots: result.rows.map(toSummary),
     };
+  }
+
+  async loadLatest(limit: number): Promise<RelayLatestPost[]> {
+    const result = await this.database.query<ProjectedNodeRow & { local_path: string[] }>(projectedLatestSql, [limit]);
+    return result.rows.map((row) => ({ ...toSummary(row), path: row.local_path }));
   }
 
   async loadNode(nodeId: string): Promise<RelayNodePage | null> {
@@ -224,4 +230,37 @@ const projectedAssetSql = `
        AND publication.active_version = reference.publication_version
       WHERE reference.sha256 = asset.sha256
     )
+`;
+
+const projectedLatestSql = `
+  WITH RECURSIVE published AS (
+    SELECT node.publication_id, node.publication_version, node.id, node.parent_id,
+      ARRAY[node.local_id]::text[] AS local_path
+    FROM relay_publications publication
+    JOIN relay_nodes node
+      ON node.publication_id = publication.id
+     AND node.publication_version = publication.active_version
+    WHERE publication.active_version IS NOT NULL AND node.parent_id IS NULL
+    UNION ALL
+    SELECT child.publication_id, child.publication_version, child.id, child.parent_id,
+      parent.local_path || child.local_id
+    FROM published parent
+    JOIN relay_nodes child
+      ON child.publication_id = parent.publication_id
+     AND child.publication_version = parent.publication_version
+     AND child.parent_id = parent.id
+  )
+  SELECT ${projectedNodeColumns}, published.local_path
+  FROM published
+  JOIN relay_nodes node
+    ON node.publication_id = published.publication_id
+   AND node.publication_version = published.publication_version
+   AND node.id = published.id
+  LEFT JOIN relay_node_assets hero
+    ON hero.publication_id = node.publication_id
+   AND hero.publication_version = node.publication_version
+   AND hero.node_id = node.id AND hero.role = 'hero' AND hero.position = 0
+  WHERE published.parent_id IS NOT NULL
+  ORDER BY node.source_created_at DESC, node.id
+  LIMIT $1
 `;

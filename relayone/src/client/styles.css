@@ -272,6 +272,32 @@ textarea {
   padding: 2rem 0 clamp(2rem, 5vw, 5rem);
 }
 
+.landingPage {
+  min-width: 0;
+}
+
+.landingPage .childPosts {
+  margin-top: 0;
+}
+
+.emptyLanding {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--item-muted-color);
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.contentLoading {
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  border: 1px solid #354039;
+  border-radius: 0.8rem;
+  background: var(--item-background);
+  color: var(--item-muted-color);
+}
+
 .postNavigation {
   align-self: start;
   position: sticky;

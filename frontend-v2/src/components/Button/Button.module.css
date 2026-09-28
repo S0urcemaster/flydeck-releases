@@ -9,3 +9,8 @@
   cursor: wait;
   opacity: 0.5;
 }
+
+.root[data-size="medium"] {
+  min-height: 2rem;
+  padding: var(--space-xs);
+}

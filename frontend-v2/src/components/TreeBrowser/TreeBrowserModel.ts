@@ -106,6 +106,8 @@ type LegacyStoredTreeBrowserModel = {
 
 export type TreeBrowserModelOptions<TData> = {
   definitionAuthority?: boolean;
+  definitionOrderAuthority?: boolean;
+  retainStoredOnlyNodes?: boolean;
   initialTree: TreeBrowserModelInitialNode<TData>[];
   storageKey: string;
   store?: ClientStateStore;
@@ -115,17 +117,23 @@ export class TreeBrowserModel<TData = unknown> {
   readonly storageKey: string;
   readonly initialTree: TreeBrowserModelInitialNode<TData>[];
   private readonly definitionAuthority: boolean;
+  private readonly definitionOrderAuthority: boolean;
+  private readonly retainStoredOnlyNodes: boolean;
   private readonly store: ClientStateStore;
   private readonly slice: ClientStateSlice<StoredTreeBrowserModel>;
 
   constructor({
     definitionAuthority = false,
+    definitionOrderAuthority = false,
+    retainStoredOnlyNodes = true,
     initialTree,
     storageKey,
     store = clientStateStore,
   }: TreeBrowserModelOptions<TData>) {
     this.initialTree = initialTree;
     this.definitionAuthority = definitionAuthority;
+    this.definitionOrderAuthority = definitionOrderAuthority;
+    this.retainStoredOnlyNodes = retainStoredOnlyNodes;
     this.storageKey = storageKey;
     this.store = store;
     const initialized = initializeTree(initialTree);
@@ -144,7 +152,12 @@ export class TreeBrowserModel<TData = unknown> {
     const stored = this.store.get(this.slice);
     const nodes = this.definitionAuthority
       ? initialized.document.nodes
-      : mergeNodes(initialized.document.nodes, stored.document.nodes);
+      : mergeNodes(
+        initialized.document.nodes,
+        stored.document.nodes,
+        this.definitionOrderAuthority,
+        this.retainStoredOnlyNodes,
+      );
     const nodeIds = collectNodeIds(nodes);
     const semanticState = this.definitionAuthority
       ? initialized.semanticState
@@ -221,21 +234,36 @@ function initializeTree<TData>(
 function mergeNodes<TData>(
   definitions: TreeBrowserModelNode<TData>[],
   storedNodes: StoredTreeBrowserNode[],
+  definitionOrderAuthority = false,
+  retainStoredOnlyNodes = true,
 ): TreeBrowserModelNode<TData>[] {
   const definitionsById = new Map(definitions.map((node) => [node.id, node]));
   const storedById = new Map(storedNodes.map((node) => [node.id, node]));
-  const orderedIds = storedNodes.map(({ id }) => id);
-  definitions.forEach((definition, definitionIndex) => {
-    if (storedById.has(definition.id)) return;
-    const followingDefinition = definitions.slice(definitionIndex + 1).find(
-      ({ id }) => orderedIds.includes(id),
-    );
-    if (!followingDefinition) {
-      orderedIds.push(definition.id);
-      return;
-    }
-    orderedIds.splice(orderedIds.indexOf(followingDefinition.id), 0, definition.id);
-  });
+  const orderedIds = definitionOrderAuthority
+    ? [
+      ...definitions.map(({ id }) => id),
+      ...(retainStoredOnlyNodes ? storedNodes
+        .map(({ id }) => id)
+        .filter((id) => !definitionsById.has(id)) : []),
+    ]
+    : storedNodes.map(({ id }) => id);
+  if (!definitionOrderAuthority) {
+    definitions.forEach((definition, definitionIndex) => {
+      if (storedById.has(definition.id)) return;
+      const followingDefinition = definitions.slice(definitionIndex + 1).find(
+        ({ id }) => orderedIds.includes(id),
+      );
+      if (!followingDefinition) {
+        orderedIds.push(definition.id);
+        return;
+      }
+      orderedIds.splice(
+        orderedIds.indexOf(followingDefinition.id),
+        0,
+        definition.id,
+      );
+    });
+  }
 
   return orderedIds.flatMap((id) => {
     const definition = definitionsById.get(id);
@@ -260,7 +288,12 @@ function mergeNodes<TData>(
       listItemLimit: definition.data === undefined
         ? stored.listItemLimit
         : definition.listItemLimit,
-      children: mergeNodes(definition.children, stored.children),
+      children: mergeNodes(
+        definition.children,
+        stored.children,
+        definitionOrderAuthority,
+        retainStoredOnlyNodes,
+      ),
     }];
   });
 }

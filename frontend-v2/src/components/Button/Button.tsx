@@ -43,7 +43,7 @@ export type ButtonProps = Omit<BaseProps<"button">, "as"> & {
   fontWeight?: string;
   pressed?: boolean;
   selected?: boolean;
-  size?: "standard" | "compact";
+  size?: "standard" | "medium" | "compact";
 };
 
 export function Button({

@@ -1,12 +1,15 @@
 import { z } from "zod";
 
 export const schedulePlanSchema = z.object({
+  comment: z.string().max(4_000).default(""),
+  comments: z.array(z.string().max(4_000)).max(66).default([]),
   startAt: z.iso.datetime(),
   endAt: z.iso.datetime(),
   stops: z.array(z.iso.datetime()).max(64),
   repetitions: z.number().int().min(0).max(10_000),
   timeZone: z.string().trim().min(1).max(100),
   enabled: z.boolean(),
+  notifyWithNtfy: z.boolean().default(false),
 }).superRefine((plan, context) => {
   const start = Date.parse(plan.startAt);
   const end = Date.parse(plan.endAt);

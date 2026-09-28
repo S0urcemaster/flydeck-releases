@@ -23,7 +23,7 @@
     }
   },
   "BackgroundLogo": {
-    "symbol": "𐦍",
+    "symbol": "\ud802\udd8d",
     "fontSizeFactor": 1.8,
     "opacity": 0.06,
     "top": "-85px",
@@ -191,7 +191,7 @@
     }
   },
   "ModuleButton": {
-    "symbol": "◆",
+    "symbol": "\u25c6",
     "base": {
       "color": "inherit",
       "background": "inherit",
@@ -239,7 +239,7 @@
     }
   },
   "ConfigModuleButton": {
-    "symbol": "⚙",
+    "symbol": "\u2699",
     "base": {
       "color": "inherit",
       "background": "inherit",
@@ -735,6 +735,17 @@
       "height": "inherit"
     }
   },
+  "DateInput": {
+    "base": {
+      "color": "COLOR_TEXT",
+      "background": "transparent",
+      "border": "BORDER_STANDARD",
+      "padding": "3px 3px 3px 7px",
+      "margin": "0",
+      "width": "100%",
+      "height": "inherit"
+    }
+  },
   "InputControl": {
     "base": {
       "color": "COLOR_TEXT",
@@ -829,6 +840,17 @@
       "height": "unset"
     }
   },
+  "EmptyTrashApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
   "BackupApp": {
     "base": {
       "color": "inherit",
@@ -853,7 +875,7 @@
   },
   "AppTitle": {
     "title": "Flydeck",
-    "symbol": "𐦍",
+    "symbol": "\ud802\udd8d",
     "subtitle": "Information System",
     "fontSize": 22,
     "titleTop": 0,
@@ -1027,6 +1049,17 @@
     }
   },
   "SchedulerApp": {
+    "base": {
+      "color": "inherit",
+      "background": "inherit",
+      "border": "inherit",
+      "padding": "inherit",
+      "margin": "inherit",
+      "width": "inherit",
+      "height": "inherit"
+    }
+  },
+  "IdolsApp": {
     "base": {
       "color": "inherit",
       "background": "inherit",

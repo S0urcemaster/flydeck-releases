@@ -6,22 +6,26 @@ export class NtfyNotifier {
     private readonly timeoutMs = 10_000,
   ) {}
 
-  async sendTimer(title: string) {
+  async sendTimer(message: string, deliveryAt?: Date, sequenceId?: string, title = "Flydeck Timer") {
     if (!this.config.ntfyUrl || !this.config.ntfyTopic) return;
     const configuredUrl = this.config.ntfyUrl.trim();
     const baseUrl = /^https?:\/\//i.test(configuredUrl)
       ? configuredUrl
       : `https://${configuredUrl}`;
     const response = await fetch(
-      `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(this.config.ntfyTopic)}`,
+      `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(this.config.ntfyTopic)}${sequenceId ? `/${encodeURIComponent(sequenceId)}` : ""}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
-          Title: "Flydeck Timer",
+          Title: title,
           Tags: "alarm_clock",
+          Priority: "high",
+          ...(deliveryAt && deliveryAt.getTime() - Date.now() >= 10_000
+            ? { At: String(Math.floor(deliveryAt.getTime() / 1_000)) }
+            : {}),
         },
-        body: title,
+        body: message,
         signal: AbortSignal.timeout(this.timeoutMs),
       },
     );

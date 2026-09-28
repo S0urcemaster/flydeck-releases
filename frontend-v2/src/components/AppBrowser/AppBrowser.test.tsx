@@ -1,21 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import {
-  AppBrowser,
-  generateFunctionOutput,
-  type AppData,
-} from "./AppBrowser";
-import type { TreeBrowserNode } from "../TreeBrowser";
+import { AppBrowser } from "./AppBrowser";
 
 describe("AppBrowser", () => {
   it("starts with apps and _system directly in the root list", () => {
     const markup = renderToStaticMarkup(<AppBrowser rowGap="0" />);
 
     expect(markup).toContain('data-component-name="AppBrowser"');
-    expect(markup).toContain("Compass");
-    expect(markup).toContain("Inventory");
-    expect(markup).toContain("ShoppingList");
+    expect(markup).not.toContain(">Compass</button>");
+    expect(markup).not.toContain(">Inventory</button>");
+    expect(markup).not.toContain(">ShoppingList</button>");
     expect(markup).toContain("Bluesky");
     expect(markup).not.toContain(">Widgets</button>");
     expect(markup).not.toContain(">User</button>");
@@ -38,91 +33,41 @@ describe("AppBrowser", () => {
     );
   });
 
-  it("places Maintenance directly before Backup", () => {
+  it("renders Device Info inline in a scroller beneath its System item", () => {
+    const markup = renderToStaticMarkup(
+      <AppBrowser initialSelectedPath={["_system", "device-info"]} />,
+    );
+
+    expect(markup).toContain(">Device Info</button>");
+    expect(markup).toContain('aria-label="DeviceInfo result"');
+    expect(markup).not.toContain('data-component-name="DeviceInfoView"');
+  });
+
+  it("orders the System utilities by destructive scope", () => {
     const markup = renderToStaticMarkup(
       <AppBrowser initialSelectedPath={["_system"]} />,
     );
 
     expect(markup).toContain(">Maintenance</button>");
-    expect(markup.indexOf(">Maintenance</button>"))
+    expect(markup).toContain(">Empty trash</button>");
+    expect(markup.indexOf(">Empty trash</button>"))
       .toBeLessThan(markup.indexOf(">Backup</button>"));
+    expect(markup.indexOf(">Backup</button>"))
+      .toBeLessThan(markup.indexOf(">Maintenance</button>"));
+    expect(markup.indexOf(">Maintenance</button>"))
+      .toBeLessThan(markup.indexOf(">Device Info</button>"));
   });
 
-  it("requires the root app and its content choices to be checked", () => {
-    const nodes: TreeBrowserNode<AppData>[] = [{
-      id: "compass",
-      label: "Compass",
-      enabled: false,
-      contentVisible: false,
-      data: { kind: "view-generator", viewId: "compass" },
-      children: [{
-        id: "category",
-        label: "Mut",
-        enabled: true,
-        contentVisible: false,
-        data: { kind: "category", category: "Mut" },
-        children: [{
-          id: "saying",
-          label: "Vollständiger Spruch",
-          enabled: true,
-          contentVisible: true,
-          data: {
-            kind: "saying",
-            saying: {
-              id: 1,
-              text: "Vollständiger Spruch",
-              categories: ["Mut"],
-              source: [],
-              rating: 0,
-            },
-          },
-          children: [],
-        }],
-      }],
-    }];
+  it("renders Empty trash inline beneath its System item", () => {
+    const markup = renderToStaticMarkup(
+      <AppBrowser
+        initialSelectedPath={["_system", "empty-trash"]}
+        workspaceId="00000000-0000-4000-8000-000000000001"
+      />,
+    );
 
-    expect(generateFunctionOutput(nodes).categories).toEqual([]);
-    nodes[0].enabled = true;
-    const output = generateFunctionOutput(nodes);
-    expect(output.compassActive).toBe(true);
-    expect(output.categories[0]).toMatchObject({
-      label: "Mut",
-      sayings: [{ text: "Vollständiger Spruch" }],
-    });
+    expect(markup).toContain('data-component-name="EmptyTrashApp"');
+    expect(markup).toContain('data-component-name="DeleteButton"');
   });
 
-  it("generates shopping output only through the complete active path", () => {
-    const nodes: TreeBrowserNode<AppData>[] = [{
-      id: "shopping-list",
-      label: "ShoppingList",
-      enabled: false,
-      contentVisible: false,
-      data: { kind: "view-generator", viewId: "shopping-list" },
-      children: [{
-        id: "bakery",
-        label: "Backwaren",
-        enabled: true,
-        contentVisible: false,
-        data: { kind: "shopping-category", category: "Backwaren" },
-        children: [{
-          id: "bread",
-          label: "Brot",
-          enabled: true,
-          contentVisible: true,
-          data: { kind: "shopping-item", label: "Brot" },
-          children: [],
-        }],
-      }],
-    }];
-
-    expect(generateFunctionOutput(nodes).shoppingCategories).toEqual([]);
-    nodes[0].enabled = true;
-    const output = generateFunctionOutput(nodes);
-    expect(output.shoppingListActive).toBe(true);
-    expect(output.shoppingCategories[0]).toEqual({
-      id: "bakery",
-      label: "Backwaren",
-      items: [{ id: "bread", label: "Brot" }],
-    });
-  });
 });

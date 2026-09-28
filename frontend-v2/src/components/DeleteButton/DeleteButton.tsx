@@ -13,7 +13,7 @@ export type DeleteButtonProps = Omit<
   ButtonProps,
   "aria-label" | "aria-pressed" | "children" | "onClick" | "selected"
 > & {
-  action?: "delete" | "reset" | "duplicate";
+  action?: "delete" | "reset" | "duplicate" | "run";
   armedColor?: string;
   children?: ReactNode;
   confirmation?: boolean;
@@ -79,9 +79,9 @@ export function DeleteButton({
     selected: armed,
     disabled: buttonProps.disabled || pending,
     "aria-label": `${pending
-      ? action === "delete" ? "Deleting" : action === "duplicate" ? "Duplicating" : "Resetting"
-      : armed ? `Confirm ${action} for`
-        : confirmation ? `Arm ${action} for` : `${action === "delete" ? "Delete" : action === "duplicate" ? "Duplicate" : "Reset"}`} ${label}`,
+      ? action === "delete" ? "Deleting" : action === "duplicate" ? "Duplicating" : action === "run" ? "Running" : "Resetting"
+      : armed ? `Confirm ${action === "run" ? "action" : action} for`
+        : confirmation ? `Arm ${action === "run" ? "action" : action} for` : `${action === "delete" ? "Delete" : action === "duplicate" ? "Duplicate" : action === "run" ? "Run" : "Reset"}`} ${label}`,
     onClick: click,
   };
 

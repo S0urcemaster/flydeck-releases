@@ -17,7 +17,7 @@ type SnakeModule = WebAssembly.Exports & {
 type Point3 = { x: number; y: number; z: number };
 type ProjectedPoint = Point3 & { screenX: number; screenY: number; scale: number };
 
-const automaticStopDelay = 3 * 60 * 1_000;
+const automaticStopDelay = 60 * 1_000;
 const grid = { x: 9, y: 7, z: 9 };
 
 async function loadSnakeModule(): Promise<SnakeModule> {

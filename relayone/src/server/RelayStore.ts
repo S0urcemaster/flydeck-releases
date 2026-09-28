@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type {
   RelayNavigationLevel,
+  RelayLatestPost,
   RelayNodePage,
   RelayPostSummary,
   RelaySite,
@@ -42,6 +43,7 @@ export type RelayAsset = {
 
 export interface RelayReader {
   loadSite(): Promise<RelaySite | null>;
+  loadLatest(limit: number): Promise<RelayLatestPost[]>;
   loadNode(nodeId: string): Promise<RelayNodePage | null>;
   loadNodeByPath(localIds: readonly string[]): Promise<RelayNodePage | null>;
   readImage(nodeId: string): Promise<RelayImage | null>;
@@ -59,6 +61,11 @@ export class RelayStore implements RelayReader {
     const result = await this.database.query<PublishedNodeRow>(publicationRootsSql);
     const roots = result.rows.map(toSummary);
     return { title: this.config.title, info: this.config.info, roots };
+  }
+
+  async loadLatest(limit: number): Promise<RelayLatestPost[]> {
+    const result = await this.database.query<PublishedNodeRow & { local_path: string[] }>(publishedLatestSql, [limit]);
+    return result.rows.map((row) => ({ ...toSummary(row), path: row.local_path }));
   }
 
   async loadNode(nodeId: string): Promise<RelayNodePage | null> {
@@ -378,4 +385,52 @@ const publishedImageSql = `
       SELECT 1 FROM ancestors
       WHERE shared = true AND share_name IS NOT NULL
     )
+`;
+
+const publishedLatestSql = `
+  WITH RECURSIVE publication_roots AS (
+    SELECT node.id, node.tree_id
+    FROM tree_nodes node
+    JOIN trees ON trees.id = node.tree_id
+    WHERE trees.kind = 'data'
+      AND node.shared = true
+      AND node.share_name IS NOT NULL
+      AND NOT EXISTS (
+        WITH RECURSIVE ancestors AS (
+          SELECT parent.id, parent.parent_id, parent.shared, parent.kind
+          FROM tree_nodes parent
+          WHERE parent.id = node.parent_id AND parent.tree_id = node.tree_id
+          UNION ALL
+          SELECT parent.id, parent.parent_id, parent.shared, parent.kind
+          FROM tree_nodes parent
+          JOIN ancestors child ON child.parent_id = parent.id
+          WHERE parent.tree_id = node.tree_id
+        )
+        SELECT 1 FROM ancestors
+        WHERE shared = true OR kind IN ('system-directory', 'trash-directory')
+      )
+  ), published AS (
+    SELECT root.id AS publication_root_id, node.*, ARRAY[node.local_id]::text[] AS local_path
+    FROM publication_roots root
+    JOIN tree_nodes node ON node.id = root.id
+    UNION ALL
+    SELECT parent.publication_root_id, child.*, parent.local_path || child.local_id
+    FROM published parent
+    JOIN tree_nodes child ON child.tree_id = parent.tree_id AND child.parent_id = parent.id
+  )
+  SELECT
+    published.publication_root_id, published.id, published.parent_id,
+    published.label, published.local_id, published.position,
+    published.created_at, published.updated_at,
+    COALESCE(node_contents.format, 'text') AS format,
+    COALESCE(node_contents.content, '') AS content,
+    (node_images.node_id IS NOT NULL) AS has_image,
+    0::int AS child_count,
+    published.local_path
+  FROM published
+  LEFT JOIN node_contents ON node_contents.node_id = published.id
+  LEFT JOIN node_images ON node_images.node_id = published.id
+  WHERE published.id <> published.publication_root_id
+  ORDER BY published.created_at DESC, published.id
+  LIMIT $1
 `;

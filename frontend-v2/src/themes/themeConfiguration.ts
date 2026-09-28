@@ -28,6 +28,9 @@ export type ThemeConfiguration = {
     accessibility: {
       capitalLetters: boolean;
     };
+    dateTime: {
+      timeZone: string;
+    };
   };
   themes: ThemeConfigurationEntry[];
 };
@@ -49,6 +52,9 @@ export const defaultThemeConfiguration: ThemeConfiguration = {
   global: {
     accessibility: {
       capitalLetters: false,
+    },
+    dateTime: {
+      timeZone: "Europe/Berlin",
     },
   },
   themes: themeColorMaps.map(({ id, label }) => ({
@@ -181,19 +187,38 @@ function hasGlobalConfiguration(value: unknown): value is Pick<
 > {
   if (!isRecord(value) || !isRecord(value.global)) return false;
   const accessibility = value.global.accessibility;
+  const dateTime = value.global.dateTime;
   return isRecord(accessibility)
-    && typeof accessibility.capitalLetters === "boolean";
+    && typeof accessibility.capitalLetters === "boolean"
+    && isRecord(dateTime)
+    && typeof dateTime.timeZone === "string"
+    && isTimeZone(dateTime.timeZone);
 }
 
 function normalizeGlobalConfiguration(value: unknown): ThemeConfiguration["global"] {
   if (hasGlobalConfiguration(value)) return structuredClone(value.global);
   if (isRecord(value) && isRecord(value.global)) {
     const accessibility = value.global.accessibility;
-    if (isRecord(accessibility) && typeof accessibility.xxlFont === "boolean") {
-      return { accessibility: { capitalLetters: accessibility.xxlFont } };
+    if (isRecord(accessibility)) {
+      const capitalLetters = typeof accessibility.capitalLetters === "boolean"
+        ? accessibility.capitalLetters
+        : accessibility.xxlFont === true;
+      return {
+        accessibility: { capitalLetters },
+        dateTime: structuredClone(defaultThemeConfiguration.global.dateTime),
+      };
     }
   }
   return structuredClone(defaultThemeConfiguration.global);
+}
+
+function isTimeZone(value: string) {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isLegacyThemeConfigurationForIds(

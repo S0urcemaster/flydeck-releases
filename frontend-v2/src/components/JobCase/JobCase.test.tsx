@@ -43,7 +43,7 @@ describe("JobCase", () => {
     expect(markup).toContain(">Details</button>");
     expect(markup).not.toContain('aria-label="Job name"');
     expect(markup).not.toContain(">Start</button>");
-    for (const tab of ["MEMO", "DATA", "PRMPT", "IMPRT"]) {
+    for (const tab of ["MEMO", "DATA", "PRMPT", "PRSR"]) {
       expect(markup).toContain(`>${tab}</button>`);
     }
     expect(markup).not.toContain(">FUNC</button>");

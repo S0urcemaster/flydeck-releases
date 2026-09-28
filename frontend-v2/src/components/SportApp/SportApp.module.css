@@ -48,6 +48,13 @@
 .player button { display: grid; place-items: center; height: 36px; border: var(--border-standard); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
 .player .loopActive { border-color: var(--color-accent-one); background: var(--color-accent-one); color: var(--color-surface); }
 .player input { width: 100%; accent-color: var(--color-accent-one); }
+.speedPreviewRow, .commentPreviewRow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-xs); min-width: 0; }
+.speedPreviewRow > button { width: 100%; }
+.commentPreviewRow [data-component-name="Textarea"] { grid-column: 1; grid-row: 1; }
+.commentPreviewRow [data-component-name="Keyboard"] { grid-column: 1 / -1; grid-row: 2; }
+.commentPreviewRow > .previewImage, .commentPreviewRow > .previewPlaceholder { grid-column: 2; grid-row: 1; }
+.previewImage, .previewPlaceholder { width: 100%; height: 100%; min-height: 72px; max-height: 118px; border: var(--border-standard); border-radius: var(--radius-control); background: #152638; object-fit: cover; }
+.previewPlaceholder { display: grid; place-items: center; color: var(--color-text-muted); font-size: 12px; }
 .browserTitle { margin-top: var(--space-xs); font-weight: 600; }
 .note { margin: 0; line-height: 1.4; }
 .empty { padding: var(--space-sm); border: var(--border-standard); border-radius: var(--radius-control); color: var(--color-text-muted); }

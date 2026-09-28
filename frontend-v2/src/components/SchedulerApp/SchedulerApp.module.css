@@ -1,0 +1,5 @@
+.root { display: grid; gap: var(--space-sm); min-width: 0; }
+.root p { margin: 0; color: var(--color-text-muted); }
+.titleRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-sm); align-items: baseline; min-width: 0; font-size: 1.2em; }
+.titleRow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.titleRow time { font-weight: 700; text-align: right; white-space: nowrap; }

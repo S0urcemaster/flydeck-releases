@@ -23,6 +23,7 @@ import {
   type WorkspaceReplicaScope,
 } from "../../replica";
 import { useClientStateScope } from "../../state";
+import { jobApi } from "../../api/jobs";
 import styles from "./AgentJobBrowser.module.css";
 
 type JobNodeData = { kind: string; runContentEditable?: boolean };
@@ -524,10 +525,40 @@ async function ensureAgentDataStructure(
   const jobs = await ensureNode(agent.id, "Jobs", "jobs", "system-directory");
   const memo = await ensureNode(agent.id, "Memo", "memo", "system-directory");
   if (!jobs || !memo) return false;
+  const parsers = await ensureNode(agent.id, "_prsr", "_prsr", "system-directory");
+  const inputPrototypes = parsers ? await ensureNode(parsers.id, "_input_prototypes", "_input_prototypes", "system-directory") : null;
+  if (inputPrototypes) await ensureNode(inputPrototypes.id, "ntfy", "ntfy", "data-item", '{"title":"Gary found something","message":"A concise notification for the owner.","tags":["pet","inbox"],"priority":"default","item":{"label":"Found fragment","content":"The complete datasource item content.","source":"path/to/source"}}');
+  const idolParser = parsers ? await ensureNode(parsers.id, "Idol to Inbox", "idol-to-inbox", "agent-parser", '{"type":"flydeck-agent-parser","version":1,"parser":"idol-to-inbox","outputSource":""}') : null;
+  const jobIdols = await ensureNode(jobs.id, "_idols", "_idols", "agent-job-group");
+  if (jobIdols) {
+    await ensureNode(jobIdols.id, "Gary", "gary", "agent-job");
+    await ensureNode(jobIdols.id, "Bello", "bello", "agent-job");
+  }
+  const idols = await ensureNode(memo.id, "_idols", "_idols", "agent-memo");
+  if (idols) {
+    await ensureNode(idols.id, "Gary", "gary", "agent-memo", "You are Gary, a quiet and curious data companion. Select one interesting fragment from the configured datasource. Return the fragment, its exact source path, and one concise sentence explaining why it caught your attention. Never invent source material.");
+    await ensureNode(idols.id, "Bello", "bello", "agent-memo", "You are Bello, an eager newspaper dog. Bite one random newspaper clipping from the configured datasource and proudly bring it to your owner. Return the clipping, its exact source path, publication date when available, and one short cheerful sentence. Never invent a clipping or source.");
+  }
   if (!nodes.some(({ parentId }) => parentId === jobs.id)) {
     await ensureNode(jobs.id, "Job", "job", "agent-job");
   }
   await workspaceSyncEngine.flush(scope);
+  if (jobIdols) {
+    const definitions = [
+      { node: nodes.find((node) => node.parentId === jobIdols.id && node.localId === "gary"), memory: "You are Gary, a quiet and curious data companion. Select one interesting fragment from the configured datasource. Return the fragment, its exact source path, and one concise sentence explaining why it caught your attention. Never invent source material.", prompt: "Select one interesting fragment from the configured datasource and bring it to me with its exact source path." },
+      { node: nodes.find((node) => node.parentId === jobIdols.id && node.localId === "bello"), memory: "You are Bello, an eager newspaper dog. Bite one random newspaper clipping from the configured datasource and proudly bring it to your owner. Return the clipping, its exact source path, publication date when available, and one short cheerful sentence. Never invent a clipping or source.", prompt: "Bite one random newspaper clipping from the configured datasource and proudly bring it to me with its exact source path and publication date when available." },
+    ];
+    for (const definition of definitions) {
+      if (!definition.node) continue;
+      const snapshot = await jobApi.read(scope.workspaceId, definition.node.id);
+      if (snapshot.configured) continue;
+      await jobApi.update(scope.workspaceId, definition.node.id, {
+        requestId: crypto.randomUUID(), expectedRevision: snapshot.config.revision,
+        memoryNodeIds: [], memory: definition.memory, dataSourceNodeIds: [], dataSources: "",
+        destinationNodeId: null, parserNodeId: idolParser?.id ?? null, prompt: definition.prompt, modelTier: "ECON", effort: "FAST", schedule: null,
+      });
+    }
+  }
   return true;
 }
 

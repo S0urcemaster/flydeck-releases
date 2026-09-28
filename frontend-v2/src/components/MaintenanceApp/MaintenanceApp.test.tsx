@@ -10,6 +10,7 @@ describe("MaintenanceApp", () => {
     );
 
     expect(markup).toContain('data-component-name="MaintenanceApp"');
+    expect(markup).toContain('data-component-name="DeleteButton"');
     expect(markup).toContain("Reset Client to Server");
   });
 

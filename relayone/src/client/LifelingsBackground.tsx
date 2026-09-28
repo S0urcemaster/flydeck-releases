@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 import initLifelings, { LifeEngine } from "./lifelings/lifelings";
 
-const automaticStopDelay = 3 * 60 * 1_000;
+const automaticStopDelay = 60 * 1_000;
 
 export function LifelingsBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

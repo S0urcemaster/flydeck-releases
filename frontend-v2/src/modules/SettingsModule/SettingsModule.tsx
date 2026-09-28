@@ -22,10 +22,11 @@ import {
 import styles from "./SettingsModule.module.css";
 
 type SettingsTreeData =
-  | { kind: "folder"; folder: "themes" | "global" | "accessibility" }
+  | { kind: "folder"; folder: "themes" | "global" | "accessibility" | "dateTime" }
   | { kind: "theme"; themeId: string }
   | { kind: "variable"; themeId: string; name: string }
-  | { kind: "boolean"; setting: "capitalLetters" };
+  | { kind: "boolean"; setting: "capitalLetters" }
+  | { kind: "string"; setting: "timeZone" };
 
 type SettingsSelection = Exclude<SettingsTreeData, { kind: "folder" }> | null;
 
@@ -71,6 +72,7 @@ export function SettingsModule({
   const checkedNodeIds = useMemo(() => createCheckedNodeIds(draft), [draft]);
   const resetAvailable = canResetSelection(draft, selection);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  const timeZoneValid = isValidTimeZone(draft.global.dateTime.timeZone);
 
   function saveDraft(next = draft) {
     onSave(structuredClone(next));
@@ -127,6 +129,21 @@ export function SettingsModule({
               />
             );
           }
+          if (data?.kind === "string" && data.setting === "timeZone") {
+            return (
+              <div className={styles.variableEditor}>
+                <Input {...inputProps} aria-label="Timezone" type="text"
+                  value={draft.global.dateTime.timeZone}
+                  onChange={(event) => setDraft((current) => ({
+                    ...current,
+                    global: {
+                      ...current.global,
+                      dateTime: { timeZone: event.currentTarget.value },
+                    },
+                  }))} />
+              </div>
+            );
+          }
           if (data?.kind !== "variable") return null;
           const variable = findVariable(draft, data.themeId, data.name);
           if (!variable) return null;
@@ -172,13 +189,22 @@ export function SettingsModule({
         >
           RESET
         </DeleteButton>
-        <Button {...saveButtonProps} disabled={saveButtonProps?.disabled || !dirty}
+        <Button {...saveButtonProps} disabled={saveButtonProps?.disabled || !dirty || !timeZoneValid}
           onClick={() => saveDraft()}>
           SAVE
         </Button>
       </div>
     </Module>
   );
+}
+
+function isValidTimeZone(value: string) {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function BooleanValueRenderer({
@@ -217,6 +243,9 @@ export function findSettingsSelection(
   if (selectedId === "settings:global:accessibility:capital-letters") {
     return { kind: "boolean", setting: "capitalLetters" };
   }
+  if (selectedId === "settings:global:date-time:timezone") {
+    return { kind: "string", setting: "timeZone" };
+  }
   if (!selectedId) return null;
   for (const theme of configuration.themes) {
     if (selectedId === `theme:${theme.id}`) {
@@ -240,6 +269,10 @@ export function canResetSelection(
     return configuration.global.accessibility.capitalLetters
       !== defaultThemeConfiguration.global.accessibility.capitalLetters;
   }
+  if (selection.kind === "string") {
+    return configuration.global.dateTime.timeZone
+      !== defaultThemeConfiguration.global.dateTime.timeZone;
+  }
   const currentTheme = configuration.themes.find(({ id }) => id === selection.themeId);
   const defaultTheme = defaultThemeConfiguration.themes.find(({ id }) => (
     id === selection.themeId
@@ -262,6 +295,15 @@ export function resetSettingsSelection(
 ): ThemeConfiguration {
   if (selection.kind === "boolean") {
     return { ...configuration, global: structuredClone(defaultThemeConfiguration.global) };
+  }
+  if (selection.kind === "string") {
+    return {
+      ...configuration,
+      global: {
+        ...configuration.global,
+        dateTime: structuredClone(defaultThemeConfiguration.global.dateTime),
+      },
+    };
   }
   const defaultTheme = defaultThemeConfiguration.themes.find(({ id }) => (
     id === selection.themeId
@@ -352,6 +394,26 @@ export function createSettingsTree(
           data: { kind: "boolean", setting: "capitalLetters" },
           children: [],
         }],
+      }, {
+        id: "settings:global:date-time",
+        kind: "settings-folder",
+        label: "Date & Time",
+        enabled: false,
+        contentEditable: false,
+        contentVisible: false,
+        listEditable: false,
+        data: { kind: "folder", folder: "dateTime" },
+        children: [{
+          id: "settings:global:date-time:timezone",
+          kind: "string-setting",
+          label: "Timezone",
+          enabled: false,
+          contentEditable: true,
+          contentVisible: true,
+          listEditable: false,
+          data: { kind: "string", setting: "timeZone" },
+          children: [],
+        }],
       }],
     },
   ];
@@ -398,6 +460,7 @@ export function updateCheckedSetting(
       },
     };
   }
+  if (data.kind === "string") return configuration;
   return {
     ...configuration,
     themes: configuration.themes.map((theme) => theme.id !== data.themeId
@@ -441,7 +504,9 @@ function updateVariableValue(
 
 function selectionKey(selection: SettingsSelection) {
   if (!selection) return "no-selection";
-  if (selection.kind === "boolean") return selection.setting;
+  if (selection.kind === "boolean" || selection.kind === "string") {
+    return selection.setting;
+  }
   return `${selection.themeId}:${selection.kind === "variable"
     ? selection.name
     : "theme"}`;
@@ -450,5 +515,6 @@ function selectionKey(selection: SettingsSelection) {
 function selectionLabel(selection: SettingsSelection) {
   if (!selection) return "selected setting";
   if (selection.kind === "boolean") return "Capital letters";
+  if (selection.kind === "string") return "Timezone";
   return selection.kind === "variable" ? selection.name : selection.themeId;
 }

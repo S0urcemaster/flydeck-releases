@@ -11,15 +11,17 @@ import { PublicationSnapshotBuilder } from "./publication/PublicationSnapshotBui
 import { PublicationWorker } from "./publication/PublicationWorker.js";
 import { RelayIngestClient } from "./publication/RelayIngestClient.js";
 import { SchedulerPlanService } from "./scheduler/SchedulerPlanService.js";
+import { NtfyNotifier } from "./cron/NtfyNotifier.js";
 
 const config = loadConfig();
 const database = createDatabase(config);
 await runMigrations(database);
-const jobs = new JobService(new JobStore(database));
+const notifier = new NtfyNotifier(config);
+const jobs = new JobService(new JobStore(database), notifier);
 await jobs.store.markInterrupted();
 const jobScheduler = new JobScheduler(jobs, config.schedulerIntervalMs);
 jobScheduler.start();
-const schedulerPlans = new SchedulerPlanService(database);
+const schedulerPlans = new SchedulerPlanService(database, notifier);
 const planScheduler = new JobScheduler(schedulerPlans, config.schedulerIntervalMs);
 planScheduler.start();
 const publicationWorker = config.relayIngestUrl && config.relayIngestSecret

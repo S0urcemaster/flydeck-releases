@@ -19,6 +19,7 @@ export const jobConfigDtoSchema = z.object({
   dataSourceNodeIds: z.array(z.uuid()).max(64),
   dataSources: z.string().max(100_000).default(""),
   destinationNodeId: z.uuid().nullable().default(null),
+  parserNodeId: z.uuid().nullable().default(null),
   prompt: z.string().max(100_000),
   modelTier: jobModelTierSchema,
   effort: jobEffortSchema,
@@ -29,6 +30,7 @@ export const updateJobConfigRequestSchema = jobConfigDtoSchema.omit({
   jobId: true,
   revision: true,
 }).extend({
+  parserNodeId: z.uuid().nullable().optional(),
   requestId: requestIdSchema,
   expectedRevision: revisionSchema,
 }).strict();

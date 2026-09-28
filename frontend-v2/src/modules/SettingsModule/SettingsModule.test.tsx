@@ -51,6 +51,8 @@ describe("SettingsModule", () => {
     expect(tree[1].children[0].label).toBe("Accessibility");
     expect(tree[1].children[0].children[0].label).toBe("Capital letters");
     expect(tree[1].children[0].children[0].contentEditable).toBe(true);
+    expect(tree[1].children[1].label).toBe("Date & Time");
+    expect(tree[1].children[1].children[0].label).toBe("Timezone");
   });
 
   it("resets either the selected value or every value in a selected theme", () => {

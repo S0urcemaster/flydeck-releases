@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { CanvasTexture, DoubleSide, Matrix4, Quaternion, Vector3 } from "three";
 import { Base, type BaseStyleProps } from "../Base";
@@ -185,9 +185,9 @@ function HandDumbbell({ joint, size, color }: { joint: RigJoint; size: number; c
   </group></group></group>;
 }
 
-export type SportFigure3DProps = BaseStyleProps & { pose: Pose; metrics?: SportMetricValues; furniture?: SportFurniture; modelSettings?: SportModelSettings; cameraControls?: SportCameraControls; onCameraAngleChange?: (angle: number) => void; onCameraReset?: () => void };
+export type SportFigure3DProps = BaseStyleProps & { pose: Pose; metrics?: SportMetricValues; furniture?: SportFurniture; modelSettings?: SportModelSettings; cameraControls?: SportCameraControls; onCameraAngleChange?: (angle: number) => void; onCameraReset?: () => void; captureRef?: MutableRefObject<(() => Promise<Blob>) | null> };
 
-export function SportFigure3D({ pose, metrics = defaultSportMetrics, furniture = defaultSportFurniture, modelSettings = defaultSportModelSettings, cameraControls = defaultSportCamera, onCameraAngleChange, onCameraReset, ...baseProps }: SportFigure3DProps) {
+export function SportFigure3D({ pose, metrics = defaultSportMetrics, furniture = defaultSportFurniture, modelSettings = defaultSportModelSettings, cameraControls = defaultSportCamera, onCameraAngleChange, onCameraReset, captureRef, ...baseProps }: SportFigure3DProps) {
   const figure = useMemo(() => buildSportRig(pose, metrics, modelSettings), [pose, metrics, modelSettings]);
   const figureHeight = groundedSportFigureHeight(figure, pose, modelSettings);
   const drag = useRef<{ pointerId: number; x: number; angle: number } | null>(null);
@@ -208,7 +208,9 @@ export function SportFigure3D({ pose, metrics = defaultSportMetrics, furniture =
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     }}
     onPointerCancel={() => { drag.current = null; }}>
-    <Canvas dpr={[1, 1.5]} frameloop="demand" camera={{ position: [1.5, 1.65, 3.2], fov: 46 }} gl={{ antialias: true }}>
+    <Canvas dpr={[1, 1.5]} frameloop="demand" camera={{ position: [1.5, 1.65, 3.2], fov: 46 }} gl={{ antialias: true, preserveDrawingBuffer: true }} onCreated={({ gl }) => {
+      if (captureRef) captureRef.current = () => new Promise<Blob>((resolve, reject) => gl.domElement.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not create preview image.")), "image/webp", .86));
+    }}>
       <color attach="background" args={["#152638"]} />
       <ambientLight intensity={1.5} />
       <directionalLight position={[2, 4, 5]} intensity={2.2} />

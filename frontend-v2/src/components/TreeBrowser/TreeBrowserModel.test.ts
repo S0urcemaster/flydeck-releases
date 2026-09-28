@@ -236,4 +236,72 @@ describe("TreeBrowserModel", () => {
     expect(refreshed.semanticState.enabledByNodeId.theme).toBe(false);
     expect(refreshed.viewState.pageSizes.theme).toBe(10);
   });
+
+  it("can keep definition order without discarding stored state", () => {
+    const { store } = createStore();
+    const storedModel = new TreeBrowserModel({
+      store,
+      storageKey: "definition-order-authority",
+      initialTree: [{
+        id: "group",
+        label: "Group",
+        enabled: false,
+        children: [
+          { id: "second", label: "Second", enabled: false, children: [] },
+          { id: "first", label: "First", enabled: false, children: [] },
+        ],
+      }],
+    });
+    const storedState = storedModel.load();
+    storedState.semanticState.enabledByNodeId.first = true;
+    storedModel.save(storedState);
+
+    const refreshedModel = new TreeBrowserModel({
+      definitionOrderAuthority: true,
+      store,
+      storageKey: "definition-order-authority",
+      initialTree: [{
+        id: "group",
+        label: "Group",
+        enabled: false,
+        children: [
+          { id: "first", label: "First", enabled: false, children: [] },
+          { id: "second", label: "Second", enabled: false, children: [] },
+        ],
+      }],
+    });
+    const refreshed = refreshedModel.load();
+
+    expect(refreshed.document.nodes[0].children.map(({ id }) => id)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(refreshed.semanticState.enabledByNodeId.first).toBe(true);
+  });
+
+  it("can discard stored nodes that were removed from the definition", () => {
+    const { store } = createStore();
+    const original = new TreeBrowserModel({
+      store,
+      storageKey: "pruned-definition",
+      initialTree: [
+        { id: "removed", label: "Removed", enabled: true, children: [] },
+        { id: "kept", label: "Kept", enabled: false, children: [] },
+      ],
+    });
+    original.save(original.load());
+
+    const pruned = new TreeBrowserModel({
+      definitionOrderAuthority: true,
+      retainStoredOnlyNodes: false,
+      store,
+      storageKey: "pruned-definition",
+      initialTree: [
+        { id: "kept", label: "Kept", enabled: false, children: [] },
+      ],
+    }).load();
+
+    expect(pruned.document.nodes.map(({ id }) => id)).toEqual(["kept"]);
+    expect(pruned.semanticState.enabledByNodeId).toEqual({ kept: false });
+  });
 });

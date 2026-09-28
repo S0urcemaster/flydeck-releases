@@ -7,7 +7,8 @@ describe("BackupApp", () => {
     const markup = renderToStaticMarkup(<BackupApp workspaceId="workspace" />);
 
     expect(markup).toContain('data-component-name="BackupApp"');
-    expect(markup).toContain('aria-label="Create PostgreSQL backup"');
+    expect(markup).toContain('data-component-name="DeleteButton"');
+    expect(markup).toContain('aria-label="Arm action for PostgreSQL backup"');
     expect(markup).toContain(">BACKUP</button>");
     expect(markup).toContain("Ready : no backup yet");
   });

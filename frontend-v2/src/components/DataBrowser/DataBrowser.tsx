@@ -521,6 +521,13 @@ function ServerDataBrowser({
         pageSize,
         root,
       }) => {
+        if (node.kind === "trash-directory") {
+          return <DataListSizeControl
+            listSizeButtonProps={treeBrowserProps.listControlProps?.listSizeButtonProps}
+            pageSize={pageSize}
+            onPageSizeChange={onPageSizeChange}
+          />;
+        }
         const serverNode = treeLoad.document.nodes.find(({ id }) => id === node.id);
         return <ServerDataContent
           {...inputControlProps}
@@ -1374,7 +1381,7 @@ export function clipboardImage(
   return null;
 }
 
-function toInitialTree(
+export function toInitialTree(
   load: TreeLoadDto,
   rootNodeId: string | null = null,
   rootChildIds?: readonly string[],
@@ -1402,7 +1409,9 @@ function toInitialTree(
         label: node.label,
         localId: node.localId,
         enabled: enabled.has(node.id),
-        contentEditable: node.capabilities.contentEditable,
+        contentEditable: node.kind === "trash-directory"
+          ? true
+          : node.capabilities.contentEditable,
         contentVisible: false,
         listEditable: node.kind === "trash-directory"
           ? false

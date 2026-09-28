@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import type { RelayPostSummary } from "../shared/contracts";
 import {
   ItemDateRange,
+  ItemCreatedDate,
+  formatDate,
   normalizeRelaySite,
   postHref,
   PostNavigation,
@@ -69,6 +71,17 @@ describe("Relay One client response", () => {
     expect(markup).not.toContain('role="dialog"');
   });
 
+  it("keeps sport preview images for cards while the open post uses its player", async () => {
+    const source = await import("node:fs/promises").then(({ readFile }) => readFile(
+      new URL("./App.tsx", import.meta.url),
+      "utf8",
+    ));
+
+    expect(source).toContain("post.imageUrl && !isSportExerciseContent(post.content)");
+    expect(source).toContain("entry.imageUrl && <img");
+    expect(source).toContain("child.imageUrl && (");
+  });
+
   it("shows the recursive descendant count instead of an arrow for parents", () => {
     const markup = renderToStaticMarkup(
       <PostNavigation
@@ -92,6 +105,11 @@ describe("Relay One client response", () => {
     expect(readPath("/posts/september/06")).toEqual(["posts", "september", "06"]);
   });
 
+  it("keeps the root path available for the latest-post landing page", () => {
+    expect(readPath("/")).toEqual([]);
+    expect(postHref([])).toBe("/");
+  });
+
   it("renders each item date from creation through its last change", () => {
     const markup = renderToStaticMarkup(
       <ItemDateRange
@@ -103,5 +121,18 @@ describe("Relay One client response", () => {
     expect(markup).toContain('dateTime="2026-08-28T08:00:00.000Z"');
     expect(markup).toContain('dateTime="2026-09-06T10:30:00.000Z"');
     expect(markup).toContain(" – ");
+  });
+
+  it("renders only the creation date on latest-post cards", () => {
+    const markup = renderToStaticMarkup(
+      <ItemCreatedDate createdAt="2026-09-18T10:30:00.000Z" />,
+    );
+
+    expect(markup).toContain('dateTime="2026-09-18T10:30:00.000Z"');
+    expect(markup).not.toContain(" – ");
+  });
+
+  it("formats dates in the fixed English Relay One order", () => {
+    expect(formatDate("2026-09-19T14:16:00")).toBe("026 Sep 19 Sat, 2:16 PM");
   });
 });

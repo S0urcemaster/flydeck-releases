@@ -10,9 +10,11 @@ import {
 import { InputControl, type InputControlProps } from "../InputControl";
 import { BackupApp, type BackupAppProps } from "../BackupApp";
 import { MaintenanceApp, type MaintenanceAppProps } from "../MaintenanceApp";
+import { EmptyTrashApp, type EmptyTrashAppProps } from "../EmptyTrashApp";
+import { DeviceInfo, type DeviceInfoProps } from "../DeviceInfo";
+import { InlineAppView } from "../InlineAppView";
 import { AppSettings, type AppSettingsProps } from "../AppView";
-import sayings from "../../assets/apps/compass/sayings.json";
-import shoppingList from "../../assets/shopping-list.json";
+import styles from "./AppBrowser.module.css";
 import {
   isStringRecord,
   useClientStateSlice,
@@ -32,6 +34,8 @@ export type AppBrowserProps = Omit<
   | "renderInlineContent"
 > & {
   backupAppProps?: Omit<BackupAppProps, "workspaceId">;
+  emptyTrashAppProps?: Omit<EmptyTrashAppProps, "workspaceId">;
+  deviceInfoProps?: DeviceInfoProps;
   maintenanceAppProps?: MaintenanceAppProps;
   appSettingsEditorProps?: AppSettingsProps["configEditorProps"];
   onOutputChange?: (output: AppBrowserOutputState) => void;
@@ -47,49 +51,25 @@ export type AppBrowserOutputCategory = {
   sayings: { id: string; text: string }[];
 };
 
-export type AppBrowserOutputState = {
-  blueskyActive: boolean;
-  categories: AppBrowserOutputCategory[];
-  compassActive: boolean;
-  deviceInfoActive: boolean;
-  gpsEventsActive: boolean;
-  inventoryActive: boolean;
-  shoppingListActive: boolean;
-  sportActive: boolean;
-  schedulerActive: boolean;
-  shoppingCategories: ShoppingListOutputCategory[];
-};
-
 export type ShoppingListOutputCategory = {
   id: string;
   label: string;
   items: { id: string; label: string }[];
 };
 
+export type AppBrowserOutputState = {
+  blueskyActive: boolean;
+  gpsEventsActive: boolean;
+  sportActive: boolean;
+  schedulerActive: boolean;
+  idolsActive: boolean;
+};
+
 export type AppData =
   | { kind: "group"; groupId: "system" }
-  | { kind: "view-generator"; viewId: "bluesky" | "compass" | "gps-events" | "inventory" | "shopping-list" | "scheduler" | "sport" }
-  | { kind: "category"; category: string }
-  | { kind: "shopping-category"; category: string }
-  | { kind: "shopping-item"; label: string }
-  | { kind: "saying"; saying: Saying }
-  | { kind: "system-function"; functionId: "device-info" }
-  | { kind: "inline-app"; appId: "backup" | "maintenance" }
+  | { kind: "view-generator"; viewId: "bluesky" | "gps-events" | "idols" | "scheduler" | "sport" }
+  | { kind: "inline-app"; appId: "backup" | "device-info" | "empty-trash" | "maintenance" }
   | { kind: "user-function"; functionId: string; source: string };
-
-type Saying = {
-  id: number;
-  text: string;
-  categories: string[];
-  source: unknown[];
-  rating: number;
-};
-
-type ShoppingCategory = {
-  id: string;
-  category: string;
-  items: string[];
-};
 
 type FunctionTreeNode = {
   id: string;
@@ -102,6 +82,8 @@ type FunctionTreeNode = {
 export function AppBrowser({
   appSettingsEditorProps,
   backupAppProps,
+  emptyTrashAppProps,
+  deviceInfoProps,
   maintenanceAppProps,
   onOutputChange,
   userInputControlProps,
@@ -148,7 +130,11 @@ export function AppBrowser({
         node.data?.kind === "inline-app"
           ? node.data.appId === "backup"
             ? <BackupApp {...backupAppProps} workspaceId={workspaceId} />
-            : <MaintenanceApp {...maintenanceAppProps} />
+            : node.data.appId === "empty-trash"
+              ? <EmptyTrashApp {...emptyTrashAppProps} workspaceId={workspaceId} />
+              : node.data.appId === "device-info"
+                ? <InlineAppView><div className={styles.deviceInfoScroller}><DeviceInfo {...deviceInfoProps} showRefreshButton={false} /></div></InlineAppView>
+                : <MaintenanceApp {...maintenanceAppProps} />
           : null
       )}
       renderContent={({ height, node }) => {
@@ -166,11 +152,7 @@ export function AppBrowser({
             />
           );
         }
-        const initialValue = node.data?.kind === "saying"
-          ? node.data.saying.text
-          : node.data?.kind === "shopping-item"
-            ? node.data.label
-            : node.data?.kind === "user-function"
+        const initialValue = node.data?.kind === "user-function"
               ? node.data.source
               : "";
         const inputProps = {
@@ -182,29 +164,11 @@ export function AppBrowser({
             [node.id]: value,
           })),
         };
-        if (node.data?.kind === "saying" || node.data?.kind === "shopping-item") {
-          return (
-            <InputControl
-              {...widgetInputControlProps}
-              {...inputProps}
-            />
-          );
-        }
-
         if (node.data?.kind === "user-function" || node.kind === "user-function") {
           return (
             <InputControl
               {...userInputControlProps}
               {...inputProps}
-            />
-          );
-        }
-
-        if (node.data?.kind === "system-function") {
-          return (
-            <output
-              aria-label={`${node.label} output`}
-              style={{ display: "block", height }}
             />
           );
         }
@@ -232,44 +196,18 @@ const checkedAppsSlice: ClientStateSlice<string[]> = {
 };
 
 const rootAppIds = new Set([
-  "compass", "inventory", "shopping-list", "bluesky", "gps-events", "scheduler", "sport", "_system",
+  "bluesky", "gps-events", "idols", "scheduler", "sport", "_system",
 ]);
 
 const appSettingsByViewId = {
-  compass: { componentName: "CompassApp", defaultDataSource: "_system/compass" },
-  inventory: { componentName: "InventoryApp", defaultDataSource: "lagerraum" },
-  "shopping-list": { componentName: "ShoppingListView", defaultDataSource: "" },
   bluesky: { componentName: "BlueskyApp", defaultDataSource: "" },
   "gps-events": { componentName: "GpsEventsApp", defaultDataSource: "" },
   sport: { componentName: "SportApp", defaultDataSource: "" },
   scheduler: { componentName: "SchedulerApp", defaultDataSource: "" },
+  idols: { componentName: "IdolsApp", defaultDataSource: "" },
 } as const;
 
 const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
-  {
-    id: "compass",
-    label: "Compass",
-    enabled: false,
-    contentVisible: false,
-    data: { kind: "view-generator", viewId: "compass" },
-    children: createCompassCategories(sayings),
-  },
-  {
-    id: "inventory",
-    label: "Inventory",
-    enabled: false,
-    contentVisible: false,
-    data: { kind: "view-generator", viewId: "inventory" },
-    children: [],
-  },
-  {
-    id: "shopping-list",
-    label: "ShoppingList",
-    enabled: false,
-    contentVisible: false,
-    data: { kind: "view-generator", viewId: "shopping-list" },
-    children: createShoppingCategories(shoppingList),
-  },
   {
     id: "bluesky",
     label: "Bluesky",
@@ -284,6 +222,14 @@ const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
     enabled: false,
     contentVisible: false,
     data: { kind: "view-generator", viewId: "gps-events" },
+    children: [],
+  },
+  {
+    id: "idols",
+    label: "Idols",
+    enabled: false,
+    contentVisible: false,
+    data: { kind: "view-generator", viewId: "idols" },
     children: [],
   },
   {
@@ -309,16 +255,32 @@ const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
     contentEditable: false,
     contentVisible: false,
     listEditable: false,
-    listItemLimit: 3,
+    listItemLimit: 4,
     data: { kind: "group", groupId: "system" },
     children: [
       {
-        id: "device-info",
-        label: "DeviceInfo",
+        id: "empty-trash",
+        label: "Empty trash",
         enabled: false,
+        contentEditable: false,
+        contentVisible: false,
+        listEditable: false,
         data: {
-          kind: "system-function",
-          functionId: "device-info",
+          kind: "inline-app",
+          appId: "empty-trash",
+        },
+        children: [],
+      },
+      {
+        id: "backup",
+        label: "Backup",
+        enabled: false,
+        contentEditable: false,
+        contentVisible: false,
+        listEditable: false,
+        data: {
+          kind: "inline-app",
+          appId: "backup",
         },
         children: [],
       },
@@ -336,74 +298,18 @@ const functionHierarchy: TreeBrowserInitialNode<AppData>[] = [
         children: [],
       },
       {
-        id: "backup",
-        label: "Backup",
+        id: "device-info",
+        label: "Device Info",
         enabled: false,
-        contentEditable: false,
-        contentVisible: false,
-        listEditable: false,
         data: {
           kind: "inline-app",
-          appId: "backup",
+          appId: "device-info",
         },
         children: [],
       },
     ],
   },
 ];
-
-function createCompassCategories(
-  compassSayings: Saying[],
-): TreeBrowserInitialNode<AppData>[] {
-  const categoryNames = Array.from(
-    new Set(compassSayings.flatMap(({ categories }) => categories)),
-  );
-
-  return categoryNames.map((category) => {
-    const categoryId = toFunctionId(category);
-
-    return {
-      id: `compass-category-${categoryId}`,
-      label: category,
-      enabled: false,
-      contentVisible: false,
-      data: { kind: "category", category },
-      children: compassSayings
-        .filter(({ categories }) => categories.includes(category))
-        .map((saying) => ({
-          id: `compass-${categoryId}-saying-${saying.id}`,
-          label: saying.text,
-          enabled: false,
-          data: { kind: "saying", saying },
-          children: [],
-        })),
-    };
-  });
-}
-
-function createShoppingCategories(
-  categories: ShoppingCategory[],
-): TreeBrowserInitialNode<AppData>[] {
-  return categories.map((category) => ({
-    id: `shopping-category-${category.id}`,
-    label: category.category,
-    enabled: false,
-    contentVisible: false,
-    data: { kind: "shopping-category", category: category.category },
-    children: category.items.map((label, index) => ({
-      id: `shopping-${category.id}-item-${index}`,
-      label,
-      enabled: false,
-      data: { kind: "shopping-item", label },
-      children: [],
-    })),
-  }));
-}
-
-function toFunctionId(name: string) {
-  return name.trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") || "function";
-}
 
 function findNode(
   nodes: readonly FunctionTreeNode[],
@@ -420,16 +326,6 @@ function findNode(
 export function generateFunctionOutput(
   nodes: readonly FunctionTreeNode[],
 ): AppBrowserOutputState {
-  const compass = nodes.find(
-    ({ data }) => data?.kind === "view-generator" && data.viewId === "compass",
-  );
-  const shopping = nodes.find(
-    ({ data }) => data?.kind === "view-generator"
-      && data.viewId === "shopping-list",
-  );
-  const inventory = nodes.find(
-    ({ data }) => data?.kind === "view-generator" && data.viewId === "inventory",
-  );
   const bluesky = nodes.find(
     ({ data }) => data?.kind === "view-generator" && data.viewId === "bluesky",
   );
@@ -442,53 +338,15 @@ export function generateFunctionOutput(
   const scheduler = nodes.find(
     ({ data }) => data?.kind === "view-generator" && data.viewId === "scheduler",
   );
-  const compassActive = Boolean(compass?.enabled);
-  const shoppingListActive = Boolean(shopping?.enabled);
+  const idols = nodes.find(
+    ({ data }) => data?.kind === "view-generator" && data.viewId === "idols",
+  );
   return {
     blueskyActive: Boolean(bluesky?.enabled),
-    compassActive,
-    deviceInfoActive: false,
     gpsEventsActive: Boolean(gpsEvents?.enabled),
-    inventoryActive: Boolean(inventory?.enabled),
-    categories: compassActive && compass
-      ? compass.children
-          .filter(({ enabled }) => enabled)
-          .map((category) => ({
-            id: category.id,
-            label: category.data?.kind === "category"
-              ? category.data.category
-              : category.label,
-            sayings: category.children
-              .filter(({ data, enabled }) => enabled && data?.kind === "saying")
-              .map(({ data, id }) => ({
-                id,
-                text: data?.kind === "saying" ? data.saying.text : "",
-              })),
-          }))
-          .filter(({ sayings: activeSayings }) => activeSayings.length > 0)
-      : [],
-    shoppingListActive,
     sportActive: Boolean(sport?.enabled),
     schedulerActive: Boolean(scheduler?.enabled),
-    shoppingCategories: shoppingListActive && shopping
-      ? shopping.children
-          .filter(({ enabled }) => enabled)
-          .map((category) => ({
-            id: category.id,
-            label: category.data?.kind === "shopping-category"
-              ? category.data.category
-              : category.label,
-            items: category.children
-              .filter(({ data, enabled }) => (
-                enabled && data?.kind === "shopping-item"
-              ))
-              .map(({ data, id }) => ({
-                id,
-                label: data?.kind === "shopping-item" ? data.label : "",
-              })),
-          }))
-          .filter(({ items }) => items.length > 0)
-      : [],
+    idolsActive: Boolean(idols?.enabled),
   };
 }
 
@@ -512,6 +370,8 @@ function isSystemNode(
 }
 
 const appBrowserModel = new TreeBrowserModel({
+  definitionOrderAuthority: true,
   initialTree: functionHierarchy,
+  retainStoredOnlyNodes: false,
   storageKey: "flydeck.tree.apps.v2",
 });

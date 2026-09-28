@@ -21,6 +21,7 @@ type JobRow = {
   data_source_node_ids: string[];
   data_sources: string;
   destination_node_id: string | null;
+  parser_node_id: string | null;
   prompt: string;
   model_tier: JobConfigDto["modelTier"];
   effort: JobConfigDto["effort"];
@@ -55,6 +56,8 @@ export type JobExecution = {
   modelTier: JobConfigDto["modelTier"];
   effort: JobConfigDto["effort"];
   destinationNodeId: string | null;
+  parserNodeId: string | null;
+  notifyWithNtfy: boolean;
 };
 
 export class JobStore {
@@ -91,30 +94,31 @@ export class JobStore {
     if (input.schedule) assertTimeZone(input.schedule.timeZone);
     await this.assertReferences(workspaceId, input.dataSourceNodeIds);
     if (input.destinationNodeId) await this.assertReferences(workspaceId, [input.destinationNodeId]);
+    if (input.parserNodeId) await this.assertReferences(workspaceId, [input.parserNodeId]);
     const result = await this.database.query<JobRow>(`
       WITH updated AS (
         UPDATE agent_jobs SET
           memory_node_ids = '{}'::uuid[], data_source_node_ids = $1::uuid[],
           memory = $2, data_sources = $3, prompt = $4, destination_node_id = $5,
-          model_tier = $6, effort = $7,
-          schedule_due_at = $8, schedule_start_at = $8, schedule_end_at = $9,
-          schedule_stops = $10::timestamptz[], schedule_repetitions = $11,
-          schedule_occurrence = 0, schedule_time_zone = $12,
-          schedule_enabled = $13, schedule_claimed_at = NULL,
+          parser_node_id = $6, model_tier = $7, effort = $8,
+          schedule_due_at = $9, schedule_start_at = $9, schedule_end_at = $10,
+          schedule_stops = $11::timestamptz[], schedule_repetitions = $12,
+          schedule_occurrence = 0, schedule_time_zone = $13,
+          schedule_enabled = $14, schedule_claimed_at = NULL,
           revision = agent_jobs.revision + 1, updated_at = now()
-        WHERE job_id = $14 AND revision = $15
+        WHERE job_id = $15 AND revision = $16
         RETURNING agent_jobs.*
       ), inserted AS (
         INSERT INTO agent_jobs (
           job_id, revision, memory_node_ids, data_source_node_ids,
-          memory, data_sources, prompt, destination_node_id,
+          memory, data_sources, prompt, destination_node_id, parser_node_id,
           model_tier, effort, schedule_due_at, schedule_start_at, schedule_end_at,
           schedule_stops, schedule_repetitions, schedule_occurrence,
           schedule_time_zone, schedule_enabled, schedule_claimed_at
         )
-        SELECT $14, 1, '{}'::uuid[], $1::uuid[], $2, $3, $4, $5, $6, $7,
-               $8, $8, $9, $10::timestamptz[], $11, 0, $12, $13, NULL
-        WHERE $15 = 0 AND NOT EXISTS (SELECT 1 FROM updated)
+        SELECT $15, 1, '{}'::uuid[], $1::uuid[], $2, $3, $4, $5, $6, $7, $8,
+               $9, $9, $10, $11::timestamptz[], $12, 0, $13, $14, NULL
+        WHERE $16 = 0 AND NOT EXISTS (SELECT 1 FROM updated)
         ON CONFLICT (job_id) DO NOTHING
         RETURNING agent_jobs.*
       )
@@ -127,6 +131,7 @@ export class JobStore {
       input.dataSources,
       input.prompt,
       input.destinationNodeId,
+      input.parserNodeId,
       input.modelTier,
       input.effort,
       input.schedule?.startAt ?? null,
@@ -176,6 +181,8 @@ export class JobStore {
           memory: resolved.memory, userInput: resolved.userInput,
           modelTier: config.modelTier, effort: config.effort,
           destinationNodeId: config.destinationNodeId,
+          parserNodeId: config.parserNodeId,
+          notifyWithNtfy: config.schedule?.notifyWithNtfy ?? false,
         },
         created: false,
       };
@@ -282,6 +289,8 @@ export class JobStore {
         memory: resolved.memory, userInput: resolved.userInput,
         modelTier: config.modelTier, effort: config.effort,
         destinationNodeId: config.destinationNodeId,
+        parserNodeId: config.parserNodeId,
+        notifyWithNtfy: config.schedule?.notifyWithNtfy ?? false,
       },
       created: created.inserted,
     };
@@ -464,6 +473,19 @@ export class JobStore {
     });
   }
 
+  async processParserOutput(workspaceId: string, parserNodeId: string, destinationNodeId: string | null, output: string) {
+    const parser = await this.database.query<{ local_id: string }>(`
+      SELECT node.local_id FROM tree_nodes node JOIN trees ON trees.id = node.tree_id
+      WHERE node.id = $1 AND trees.workspace_id = $2 AND node.kind = 'agent-parser'
+    `, [parserNodeId, workspaceId]);
+    if (parser.rows[0]?.local_id !== "idol-to-inbox") throw new Error("The selected parser is not available");
+    if (!destinationNodeId) throw new Error("Idol to Inbox requires an output source");
+    const value = parseIdolNtfyOutput(output);
+    const content = [value.item.content, value.item.source ? `Source: ${value.item.source}` : ""].filter(Boolean).join("\n\n");
+    await this.importAgentOutput(workspaceId, destinationNodeId, `|- ${value.item.label}\n${content}`);
+    return { title: value.title, message: value.message, tags: value.tags, priority: value.priority };
+  }
+
   private async ensureJob(workspaceId: string, jobId: string, configured = true) {
     const result = await this.database.query<{ id: string }>(`
       WITH RECURSIVE ancestry AS (
@@ -636,6 +658,7 @@ function mapConfig(row: JobRow): JobConfigDto {
     dataSourceNodeIds: row.data_source_node_ids,
     dataSources: row.data_sources,
     destinationNodeId: row.destination_node_id,
+    parserNodeId: row.parser_node_id,
     prompt: row.prompt,
     modelTier: row.model_tier,
     effort: row.effort,
@@ -659,6 +682,7 @@ function defaultConfig(jobId: string): JobConfigDto {
     dataSourceNodeIds: [],
     dataSources: "",
     destinationNodeId: null,
+    parserNodeId: null,
     prompt: "",
     modelTier: "ECON",
     effort: "FAST",
@@ -703,6 +727,22 @@ function parseAgentTree(source: string) {
   }
   if (!items.length) return [{ depth: 1, label: "Agent response", content: source.trim() }];
   return items.map((item) => ({ ...item, content: item.content.trim() }));
+}
+
+function parseIdolNtfyOutput(source: string) {
+  const normalized = source.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const value = JSON.parse(normalized) as Record<string, unknown>;
+  const item = value.item as Record<string, unknown> | undefined;
+  if (typeof value.title !== "string" || typeof value.message !== "string"
+    || !item || typeof item.label !== "string" || typeof item.content !== "string") {
+    throw new Error("Idol output does not match the ntfy input prototype");
+  }
+  return {
+    title: value.title.slice(0, 100), message: value.message,
+    tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    priority: typeof value.priority === "string" ? value.priority : "default",
+    item: { label: item.label.slice(0, 100), content: item.content, source: typeof item.source === "string" ? item.source : "" },
+  };
 }
 
 function assertUnique(values: readonly string[], message: string) {

@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import { Armchair, BedSingle, BicepsFlexed, Camera, ChevronLeft, ChevronRight, Crosshair, Dumbbell, Image as ImageIcon, Link2, ListChecks, Pause, Pencil, PersonStanding, Play, Plus, RectangleHorizontal, Repeat2, Settings2, Shirt, SportShoe, Sprout, StretchHorizontal, Table2, UserRound } from "lucide-react";
 import { AppView, type AppViewProps } from "../AppView";
@@ -9,7 +9,8 @@ import { Checkbox } from "../Checkbox";
 import { Textarea, type TextareaProps } from "../Textarea";
 import { resolveFlatTreePath } from "../DataBrowser/DataBrowser";
 import { useClientStateScope } from "../../state";
-import { workspaceReplica, workspaceSyncEngine, useWorkspaceReplica, type WorkspaceReplicaScope } from "../../replica";
+import { createDataImagePreview, workspaceReplica, workspaceSyncEngine, useWorkspaceReplica, writeDataImageDraft, type WorkspaceReplicaScope } from "../../replica";
+import { v2Api } from "../../api/V2ApiClient";
 import { addInterpolatedSportKeyframe, addSportKeyframe, changeSportPoseAxis, createSportExercise, defaultSportFurniture, defaultSportModelSettings, defaultSportPose, deleteSportKeyframe, mirrorSportLimb, moveSportKeyframe, parseSportExercise, sportKeyframeComment, type SportExercise, type SportFurniture, type SportKeyframe, type SportModelSettings, type SportPose } from "./SportExercise";
 import { defaultSportMetrics, parseSportMetrics, type SportMetricValues } from "./SportMetrics";
 import { saveSportMetrics } from "./SportMetricsStore";
@@ -143,7 +144,7 @@ function PlacedFurnitureEditor({ id, furniture, onChange }: { id: typeof placedF
   </div>;
 }
 
-function SportPlaybackView({ poses, selected, viewResetSignal, metrics, furniture, modelSettings, secondsPerKeyframe, playerTarget, loop, onLoopChange, onPlayingChange, onCurrentKeyframeChange }: { poses: SportKeyframe[]; selected: number; viewResetSignal: number; metrics: SportMetricValues; furniture: SportFurniture; modelSettings: SportModelSettings; secondsPerKeyframe: number; playerTarget: HTMLDivElement | null; loop: boolean; onLoopChange: (enabled: boolean) => void; onPlayingChange: (playing: boolean) => void; onCurrentKeyframeChange: (index: number) => void }) {
+function SportPlaybackView({ poses, selected, viewResetSignal, metrics, furniture, modelSettings, secondsPerKeyframe, playerTarget, loop, captureRef, onLoopChange, onPlayingChange, onCurrentKeyframeChange }: { poses: SportKeyframe[]; selected: number; viewResetSignal: number; metrics: SportMetricValues; furniture: SportFurniture; modelSettings: SportModelSettings; secondsPerKeyframe: number; playerTarget: HTMLDivElement | null; loop: boolean; captureRef: MutableRefObject<(() => Promise<Blob>) | null>; onLoopChange: (enabled: boolean) => void; onPlayingChange: (playing: boolean) => void; onCurrentKeyframeChange: (index: number) => void }) {
   const selectedValues = poses[selected]?.values;
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(selected);
@@ -198,7 +199,7 @@ function SportPlaybackView({ poses, selected, viewResetSignal, metrics, furnitur
   };
   return <>
     <Suspense fallback={<div className={styles.view} role="status">Loading 3D view…</div>}>
-      <SportFigure3D pose={pose} metrics={metrics} furniture={furniture} modelSettings={modelSettings} cameraControls={cameraControls} onCameraAngleChange={setTemporaryViewAngle} onCameraReset={() => setTemporaryViewAngle(null)} />
+      <SportFigure3D pose={pose} metrics={metrics} furniture={furniture} modelSettings={modelSettings} cameraControls={cameraControls} captureRef={captureRef} onCameraAngleChange={setTemporaryViewAngle} onCameraReset={() => setTemporaryViewAngle(null)} />
     </Suspense>
     {playerTarget ? createPortal(<div className={styles.player}><button type="button" aria-label={playing ? "Pause" : "Play"} onClick={() => { if (progress >= (loop ? poses.length : poses.length - 1)) seek(0); setPlaying(!playing); }}>{playing ? <Pause size={20} /> : <Play size={20} />}</button><input aria-label="Playback position" type="range" min="0" max={poses.length} step="0.01" value={progress} onChange={(event) => seek(Number(event.target.value))} /><button type="button" className={loop ? styles.loopActive : undefined} aria-label={loop ? "Turn loop off" : "Turn loop on"} aria-pressed={loop} onClick={() => onLoopChange(!loop)}><Repeat2 size={18} /></button></div>, playerTarget) : null}
   </>;
@@ -210,7 +211,9 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   const [viewResetSignal, setViewResetSignal] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SportExercise | null>(null);
-  const [message, setMessage] = useState("");
+  const setMessage = useCallback((message: string) => {
+    if (message) treeProps?.onSynchronizationError?.(message);
+  }, [treeProps]);
   const [source, setSource] = useState("");
   const [metricsDraft, setMetricsDraft] = useState<SportMetricValues>(defaultSportMetrics);
   const [presetDraft, setPresetDraft] = useState<SportPosePresets>(defaultSportPosePresets);
@@ -235,6 +238,9 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   const presetTimer = useRef<number | null>(null);
   const presetSaveQueue = useRef(Promise.resolve());
   const framesRef = useRef<HTMLDivElement>(null);
+  const capturePreviewRef = useRef<(() => Promise<Blob>) | null>(null);
+  const [previewState, setPreviewState] = useState<{ nodeId: string; blob: Blob | null; revision: number; visible: boolean } | null>(null);
+  const [previewPending, setPreviewPending] = useState(false);
   const { userId } = useClientStateScope();
   const scope = useMemo<WorkspaceReplicaScope | null>(() => workspaceId ? { userId, workspaceId } : null, [userId, workspaceId]);
   const record = useWorkspaceReplica(scope);
@@ -249,6 +255,8 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   const presetsContent = presetsNode ? record?.contents[presetsNode.id]?.content : undefined;
   const selectedItem = nodes.find((node) => node.id === selectedNodeId && root && isInBranch(nodes, node.id, root.id));
   const selectedItemId = selectedItem?.id;
+  const previewBlob = previewState && previewState.nodeId === selectedItemId ? previewState.blob : null;
+  const previewUrl = useMemo(() => previewBlob ? URL.createObjectURL(previewBlob) : null, [previewBlob]);
   const editButtonProps = treeProps?.inputControlProps?.buttonProps;
   const selectedContent = selectedItem ? record?.contents[selectedItem.id]?.content : undefined;
   const poses = selectedItem ? draft?.keyframes ?? [{ id: "empty", values: defaultSportPose, comment: "" }] : demo;
@@ -295,6 +303,7 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
     setDraft(parsed);
     latestDraft.current = parsed;
   }, [selectedNodeId, selectedContent]);
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
   useEffect(() => () => {
     if (saveTimer.current !== null) clearTimeout(saveTimer.current);
     if (metricsTimer.current !== null) clearTimeout(metricsTimer.current);
@@ -333,6 +342,29 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
       metricsPending.current?.();
       metricsPending.current = null;
     }, 200);
+  }
+  async function setPreviewImage() {
+    if (!scope || !selectedItem || !capturePreviewRef.current || previewPending) return;
+    setPreviewPending(true);
+    try {
+      const blob = await capturePreviewRef.current();
+      const preview = await createDataImagePreview(blob);
+      const fileName = `${selectedItem.localId || "exercise"}-preview.${blob.type === "image/webp" ? "webp" : "png"}`;
+      await writeDataImageDraft(scope.workspaceId, selectedItem.id, { blob, fileName, previewBlob: preview });
+      await workspaceSyncEngine.submit(scope, {
+        type: "upload-image",
+        nodeId: selectedItem.id,
+        input: { requestId: crypto.randomUUID(), fileName, mimeType: blob.type },
+      });
+      setPreviewState((current) => ({ nodeId: selectedItem.id, blob: preview, revision: (current?.revision ?? 0) + 1, visible: true }));
+      setMessage("");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Could not save preview image";
+      setMessage(reason);
+      treeProps?.onSynchronizationError?.(reason);
+    } finally {
+      setPreviewPending(false);
+    }
   }
   const flushMetricsPending = useCallback(() => {
     if (metricsTimer.current !== null) window.clearTimeout(metricsTimer.current);
@@ -416,7 +448,7 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
   return <AppView {...viewProps} onDataSourceResolved={resolveSource} componentName="SportApp" accessMode="read-write">
     <div className={styles.layout}>
       <div className={styles.exerciseTitle}><strong>{selectedItem?.label ?? "Squat"}</strong><span>{selectedItem ? `${poses.length} poses` : "Example · 3 poses"}</span></div>
-      <SportPlaybackView poses={visiblePoses} selected={selected} viewResetSignal={viewResetSignal} metrics={metricsDraft} furniture={draft?.furniture ?? defaultSportFurniture} modelSettings={draft?.modelSettings ?? defaultSportModelSettings} secondsPerKeyframe={draft?.secondsPerKeyframe ?? 1.2} playerTarget={playerTarget} loop={loop} onLoopChange={setLoop} onPlayingChange={setPlaybackPlaying} onCurrentKeyframeChange={markCurrentKeyframe} />
+      <SportPlaybackView poses={visiblePoses} selected={selected} viewResetSignal={viewResetSignal} metrics={metricsDraft} furniture={draft?.furniture ?? defaultSportFurniture} modelSettings={draft?.modelSettings ?? defaultSportModelSettings} secondsPerKeyframe={draft?.secondsPerKeyframe ?? 1.2} playerTarget={playerTarget} loop={loop} captureRef={capturePreviewRef} onLoopChange={setLoop} onPlayingChange={setPlaybackPlaying} onCurrentKeyframeChange={markCurrentKeyframe} />
       <div className={styles.tabLayout} role="tablist" aria-label="Joint groups">
         <div className={styles.poseTabs}>
           {groups.slice(0, 8).map(({ label, icon: Icon, color }, index) => <button key={label} type="button" role="tab" aria-selected={group === index} aria-label={label} title={label} style={{ "--sport-group-color": color } as CSSProperties} className={group === index ? styles.activeTab : styles.tab} onClick={() => setGroup(index)}><Icon size={19} /><span>{index > 3 ? (index % 2 ? "R" : "L") : ""}</span></button>)}
@@ -476,10 +508,15 @@ export function SportApp({ workspaceId, treeProps, commentTextareaProps, ...view
         </div>
       </div>
       <div ref={setPlayerTarget} />
-      <label className={styles.slider}><span>Speed</span><output>{(draft?.secondsPerKeyframe ?? 1.2).toFixed(1)} s / keyframe</output><input aria-label="Seconds per keyframe" type="range" min="0.1" max="2" step="0.1" value={draft?.secondsPerKeyframe ?? 1.2} disabled={!selectedItem || !draft} onChange={(event) => { if (draft) changeExercise({ ...draft, secondsPerKeyframe: Number(event.target.value) }); }} /></label>
-      <Textarea {...commentTextareaProps} rows={3} size="compact" resize="none" label="Comment" aria-label="Keyframe comment" value={playbackPlaying ? sportKeyframeComment(draft?.keyframes ?? [], playbackFrame) : draft?.keyframes[selected]?.comment ?? ""} disabled={!selectedItem || !draft || playbackPlaying} onChange={(event) => { if (!draft) return; changeExercise({ ...draft, keyframes: draft.keyframes.map((frame, index) => index === selected ? { ...frame, comment: event.target.value } : frame) }); }} />
+      <div className={styles.speedPreviewRow}>
+        <label className={styles.slider}><span>Speed</span><output>{(draft?.secondsPerKeyframe ?? 1.2).toFixed(1)} s / keyframe</output><input aria-label="Seconds per keyframe" type="range" min="0.1" max="2" step="0.1" value={draft?.secondsPerKeyframe ?? 1.2} disabled={!selectedItem || !draft} onChange={(event) => { if (draft) changeExercise({ ...draft, secondsPerKeyframe: Number(event.target.value) }); }} /></label>
+        <Button {...editButtonProps} className={styles.sliderAction} fontSize="12px" height="auto" width="100%" background="COLOR_SURFACE" disabled={!selectedItem || !draft || previewPending} onClick={() => void setPreviewImage()}>{previewPending ? "Saving…" : "Set preview image"}</Button>
+      </div>
+      <div className={styles.commentPreviewRow}>
+        <Textarea {...commentTextareaProps} keyboardLayout="block" rows={4} size="compact" resize="none" label="Comment" aria-label="Keyframe comment" value={playbackPlaying ? sportKeyframeComment(draft?.keyframes ?? [], playbackFrame) : draft?.keyframes[selected]?.comment ?? ""} disabled={!selectedItem || !draft || playbackPlaying} onChange={(event) => { if (!draft) return; changeExercise({ ...draft, keyframes: draft.keyframes.map((frame, index) => index === selected ? { ...frame, comment: event.target.value } : frame) }); }} />
+        {selectedItemId && (previewState?.nodeId !== selectedItemId || previewState.visible) ? <img className={styles.previewImage} src={previewUrl ?? `${v2Api.dataImageUrl(workspaceId!, selectedItemId)}?v=${previewState?.nodeId === selectedItemId ? previewState.revision : 0}`} alt="Exercise preview" onError={() => setPreviewState((current) => ({ nodeId: selectedItemId, blob: current?.nodeId === selectedItemId ? current.blob : null, revision: current?.revision ?? 0, visible: false }))} /> : <div className={styles.previewPlaceholder}>No preview</div>}
+      </div>
       <div className={styles.browserTitle}>Exercises</div>
-      {message ? <p className={styles.note} role="status">{message}</p> : null}
       {root && workspaceId ? <StableDataTree {...treeProps} navigationSlot="sport-exercises" rootNodeId={root.id} workspaceId={workspaceId} onSelectedNodeChange={selectNode} onNodeCreated={createExerciseContent} /> : <div className={styles.empty}>Choose an exercise data source in the app settings.</div>}
     </div>
   </AppView>;

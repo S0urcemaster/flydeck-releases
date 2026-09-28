@@ -7,18 +7,15 @@ import {
   useClientStateSlice,
   type ClientStateSlice,
 } from "../../state";
-import { CompassApp } from "../../components/CompassApp";
 import type { AppSettingsProps } from "../../components/AppView";
 import type { BaseStyleProps } from "../../components/Base";
 import type { ButtonProps } from "../../components/Button";
 import type { DeviceInfoProps } from "../../components/DeviceInfo";
-import { DeviceInfoView } from "../../components/DeviceInfoView";
-import { InventoryApp, type InventoryAppProps } from "../../components/InventoryApp";
-import { ShoppingListView } from "../../components/ShoppingListView";
 import { BlueskyApp, type BlueskyAppProps } from "../../components/BlueskyApp";
 import { GpsEventsApp, type GpsEventsAppProps } from "../../components/GpsEventsApp";
 import { SportApp } from "../../components/SportApp";
 import { SchedulerApp } from "../../components/SchedulerApp";
+import { IdolsApp } from "../../components/IdolsApp";
 import type { DataTreeProps } from "../../components/DataTree";
 import type { TextareaProps } from "../../components/Textarea";
 import {
@@ -35,11 +32,8 @@ import {
 export type FunctionsAppTab =
   | "BROWSER"
   | "BLUESKY"
-  | "DEVICE INFO"
-  | "COMPASS"
   | "GPS EVENTS"
-  | "INVENTORY"
-  | "SHOPPING LIST"
+  | "IDOLS"
   | "SCHEDULER"
   | "SPORT";
 
@@ -53,24 +47,15 @@ export type FunctionsModuleProps = ModuleProps & {
   appViewButtonProps?: Omit<ButtonProps, "aria-label" | "children" | "onClick">;
   blueskyAppProps?: Omit<BlueskyAppProps, "workspaceId">;
   gpsEventsAppProps?: Omit<GpsEventsAppProps, "workspaceId">;
-  compassAppBaseProps?: BaseStyleProps;
   deviceInfoProps?: DeviceInfoProps;
-  deviceInfoViewBaseProps?: BaseStyleProps;
-  inventoryAppBaseProps?: BaseStyleProps;
-  inventoryBreadcrumbProps?: InventoryAppProps["breadcrumbProps"];
-  inventoryCompactButtonProps?: InventoryAppProps["compactButtonProps"];
-  inventoryFormProps?: InventoryAppProps["formProps"];
-  inventoryFormRowProps?: InventoryAppProps["formRowProps"];
-  inventoryInputProps?: InventoryAppProps["inputProps"];
-  inventoryItemListProps?: InventoryAppProps["itemListProps"];
-  inventoryNodeIdInputProps?: InventoryAppProps["nodeIdInputProps"];
-  inventoryParentInputProps?: InventoryAppProps["parentInputProps"];
-  inventoryTextareaProps?: InventoryAppProps["textareaProps"];
-  shoppingListViewBaseProps?: BaseStyleProps;
   sportAppBaseProps?: BaseStyleProps;
   sportAppTreeProps?: DataTreeProps;
+  schedulerAppTreeProps?: DataTreeProps;
+  schedulerAppDateInputProps?: BaseStyleProps;
+  schedulerAppCommentTextareaProps?: Omit<TextareaProps, "aria-label" | "onChange" | "rows" | "value">;
   sportAppCommentTextareaProps?: Omit<TextareaProps, "rows" | "value" | "onChange">;
   workspaceId?: string;
+  timeZone?: string;
 };
 
 export function FunctionsModule({
@@ -80,39 +65,25 @@ export function FunctionsModule({
   appViewButtonProps,
   blueskyAppProps,
   gpsEventsAppProps,
-  compassAppBaseProps,
   deviceInfoProps,
-  deviceInfoViewBaseProps,
-  inventoryAppBaseProps,
-  inventoryBreadcrumbProps,
-  inventoryCompactButtonProps,
-  inventoryFormProps,
-  inventoryFormRowProps,
-  inventoryInputProps,
-  inventoryItemListProps,
-  inventoryNodeIdInputProps,
-  inventoryParentInputProps,
-  inventoryTextareaProps,
-  shoppingListViewBaseProps,
   sportAppBaseProps,
   sportAppTreeProps,
+  schedulerAppTreeProps,
+  schedulerAppDateInputProps,
+  schedulerAppCommentTextareaProps,
   sportAppCommentTextareaProps,
   workspaceId,
+  timeZone,
   ...props
 }: FunctionsModuleProps) {
   const { userId } = useClientStateScope();
   const [activeTab, setActiveTab] = useClientStateSlice(functionsAppTabSlice);
   const [output, setOutput] = useState<AppBrowserOutputState>({
     blueskyActive: false,
-    categories: [],
-    compassActive: false,
-    deviceInfoActive: false,
     gpsEventsActive: false,
-    inventoryActive: false,
-    shoppingListActive: false,
     sportActive: false,
     schedulerActive: false,
-    shoppingCategories: [],
+    idolsActive: false,
   });
   const visibleTabs = getVisibleFunctionsAppTabs(output);
   const visibleActiveTab = visibleTabs.includes(activeTab)
@@ -142,52 +113,6 @@ export function FunctionsModule({
         items={visibleTabs}
         onChange={setActiveTab}
       />
-      {visibleActiveTab === "DEVICE INFO" ? (
-        <DeviceInfoView
-          {...deviceInfoViewBaseProps}
-          key="device-info-view"
-          deviceInfoProps={deviceInfoProps}
-        />
-      ) : null}
-      {visibleActiveTab === "COMPASS"
-        ? (
-            <CompassApp
-              {...compassAppBaseProps}
-              key="compass-view"
-              categories={output.categories}
-              reorderButtonProps={appViewButtonProps}
-            />
-          )
-        : null}
-      {visibleActiveTab === "INVENTORY"
-        ? (
-            <InventoryApp
-              {...inventoryAppBaseProps}
-              key="inventory-view"
-              buttonProps={appViewButtonProps}
-              breadcrumbProps={inventoryBreadcrumbProps}
-              compactButtonProps={inventoryCompactButtonProps}
-              formProps={inventoryFormProps}
-              formRowProps={inventoryFormRowProps}
-              formRowButtonProps={appViewButtonProps}
-              inputProps={inventoryInputProps}
-              itemListProps={inventoryItemListProps}
-              nodeIdInputProps={inventoryNodeIdInputProps}
-              parentInputProps={inventoryParentInputProps}
-              textareaProps={inventoryTextareaProps}
-              workspaceId={workspaceId}
-            />
-          )
-        : null}
-      {visibleActiveTab === "SHOPPING LIST"
-        ? (
-            <ShoppingListView
-              {...shoppingListViewBaseProps}
-              key="shopping-list-view"
-              categories={output.shoppingCategories}
-            />
-          )
-        : null}
       {visibleActiveTab === "BLUESKY" ? (
         <BlueskyApp
           {...blueskyAppProps}
@@ -208,11 +133,15 @@ export function FunctionsModule({
         <SportApp {...sportAppBaseProps} key="sport-view" treeProps={sportAppTreeProps} commentTextareaProps={sportAppCommentTextareaProps} workspaceId={workspaceId} />
       ) : null}
       {visibleActiveTab === "SCHEDULER" ? (
-        <SchedulerApp key="scheduler-view" workspaceId={workspaceId} />
+        <SchedulerApp key="scheduler-view" timeZone={timeZone} treeProps={schedulerAppTreeProps} dateInputProps={schedulerAppDateInputProps} commentTextareaProps={schedulerAppCommentTextareaProps} workspaceId={workspaceId} />
+      ) : null}
+      {visibleActiveTab === "IDOLS" ? (
+        <IdolsApp key="idols-view" workspaceId={workspaceId} timeZone={timeZone} dateInputProps={schedulerAppDateInputProps} buttonProps={appViewButtonProps} />
       ) : null}
       {visibleActiveTab === "BROWSER" ? (
         <AppBrowser
           {...appBrowserProps}
+          deviceInfoProps={deviceInfoProps}
           key="function-browser"
           appSettingsEditorProps={appViewConfigEditorProps}
           onOutputChange={setOutput}
@@ -230,12 +159,9 @@ export function getVisibleFunctionsAppTabs(
   const tabs: FunctionsAppTab[] = ["BROWSER"];
   if (output.sportActive) tabs.push("SPORT");
   if (output.schedulerActive) tabs.push("SCHEDULER");
+  if (output.idolsActive) tabs.push("IDOLS");
   if (output.blueskyActive) tabs.push("BLUESKY");
-  if (output.deviceInfoActive) tabs.push("DEVICE INFO");
   if (output.gpsEventsActive) tabs.push("GPS EVENTS");
-  if (output.compassActive) tabs.push("COMPASS");
-  if (output.inventoryActive) tabs.push("INVENTORY");
-  if (output.shoppingListActive) tabs.push("SHOPPING LIST");
   return tabs;
 }
 
@@ -263,11 +189,8 @@ const functionsAppTabSlice: ClientStateSlice<FunctionsAppTab> = {
   validate: (value): value is FunctionsAppTab => (
     value === "BROWSER"
     || value === "BLUESKY"
-    || value === "DEVICE INFO"
     || value === "GPS EVENTS"
-    || value === "COMPASS"
-    || value === "INVENTORY"
-    || value === "SHOPPING LIST"
+    || value === "IDOLS"
     || value === "SPORT"
     || value === "SCHEDULER"
   ),

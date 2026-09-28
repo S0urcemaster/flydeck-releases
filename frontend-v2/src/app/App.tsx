@@ -119,20 +119,6 @@ export function App() {
   const shellBase = resolveBaseProperties(properties.AppShell.base);
   const panelBase = resolveBaseProperties(properties.ModulePanel.base);
   const buttonBase = resolveBaseProperties(properties.Button.base);
-  const compactButtonBase = resolveDerivedBaseProperties(
-    buttonBase,
-    properties.CompactButton.base,
-  );
-  const compactButtonProps = {
-    ...compactButtonBase,
-    activeColor: properties.Button.activeColor,
-    fontSize: properties.CompactButton.fontSize === "inherit"
-      ? properties.Button.fontSize
-      : properties.CompactButton.fontSize,
-    fontWeight: properties.CompactButton.fontWeight === "inherit"
-      ? properties.Button.fontWeight
-      : properties.CompactButton.fontWeight,
-  };
   const pressButtonBase = resolveDerivedBaseProperties(
     buttonBase,
     properties.PressButton.base,
@@ -174,6 +160,11 @@ export function App() {
   const appStatusLineBase = withoutColor(resolvedAppStatusLineBase);
   const inlineAppViewBase = resolveBaseProperties(
     properties.InlineAppView.base,
+  );
+  const dateInputBase = resolveBaseProperties(properties.DateInput.base);
+  const emptyTrashAppBase = resolveDerivedBaseProperties(
+    inlineAppViewBase,
+    properties.EmptyTrashApp.base,
   );
   const backupAppBase = resolveDerivedBaseProperties(
     inlineAppViewBase,
@@ -259,31 +250,7 @@ export function App() {
     appViewBase,
     properties.SportApp.base,
   );
-  const compassAppBase = resolveDerivedBaseProperties(
-    appViewBase,
-    properties.CompassApp.base,
-  );
-  const deviceInfoViewBase = resolveDerivedBaseProperties(
-    appViewBase,
-    properties.DeviceInfoView.base,
-  );
-  const inventoryAppBase = resolveDerivedBaseProperties(
-    appViewBase,
-    properties.InventoryApp.base,
-  );
-  const shoppingListViewBase = resolveDerivedBaseProperties(
-    appViewBase,
-    properties.ShoppingListView.base,
-  );
   const configEditorBase = resolveBaseProperties(properties.ConfigEditor.base);
-  const formBase = resolveBaseProperties(properties.Form.base);
-  const blockBase = resolveBaseProperties(properties.Block.base);
-  const formRowBase = resolveDerivedBaseProperties(
-    blockBase,
-    properties.FormRow.base,
-  );
-  const breadcrumbBase = resolveBaseProperties(properties.Breadcrumb.base);
-  const itemListBase = resolveBaseProperties(properties.ItemList.base);
   const browserItemBase = resolveBaseProperties(properties.BrowserItem.base);
   const browserItemLabelButtonBase = resolveDerivedBaseProperties(
     buttonBase,
@@ -803,6 +770,10 @@ export function App() {
           sportAppCommentTextareaProps={configuredTextareaProps}
           {...functionsModuleBase}
           workspaceId={workspaceId}
+          timeZone={themeConfiguration.global.dateTime.timeZone}
+          schedulerAppTreeProps={standardDataTreeProps}
+          schedulerAppDateInputProps={dateInputBase}
+          schedulerAppCommentTextareaProps={configuredTextareaProps}
           appTabPanelProps={{
             ...submodulePanelBase,
             buttonProps: {
@@ -837,34 +808,10 @@ export function App() {
             ...gpsEventsAppBase,
             treeProps: standardDataTreeProps,
           }}
-          compassAppBaseProps={compassAppBase}
           deviceInfoProps={{
             ...deviceInfoBase,
             textareaProps: configuredTextareaProps,
           }}
-          deviceInfoViewBaseProps={deviceInfoViewBase}
-          inventoryAppBaseProps={inventoryAppBase}
-          inventoryBreadcrumbProps={breadcrumbBase}
-          inventoryCompactButtonProps={compactButtonProps}
-          inventoryFormProps={formBase}
-          inventoryFormRowProps={formRowBase}
-          inventoryInputProps={configuredInputProps}
-          inventoryParentInputProps={{
-            ...parentInputBase,
-            buttonProps: {
-              ...buttonBase,
-              activeColor: properties.Button.activeColor,
-            },
-            inputProps: configuredInputProps,
-          }}
-          inventoryItemListProps={itemListBase}
-          inventoryNodeIdInputProps={{
-            ...nodeIdInputBase,
-            buttonProps: sharedInputControlProps.buttonProps,
-            inputProps: configuredInputProps,
-          }}
-          inventoryTextareaProps={configuredTextareaProps}
-          shoppingListViewBaseProps={shoppingListViewBase}
           appBrowserProps={{
             ...appBrowserBase,
             backupAppProps: {
@@ -872,6 +819,8 @@ export function App() {
               buttonProps: {
                 ...buttonBase,
                 activeColor: properties.Button.activeColor,
+                armedColor: properties.DeleteButton.armedColor,
+                timeout: unlockButtonTimeout,
               },
               statusLineProps: {
                 ...appStatusLineBase,
@@ -884,12 +833,28 @@ export function App() {
               buttonProps: {
                 ...buttonBase,
                 activeColor: properties.Button.activeColor,
+                armedColor: properties.DeleteButton.armedColor,
+                timeout: unlockButtonTimeout,
               },
               onResetClientToServer: userId && workspaceId
                 ? async () => {
                     await workspaceSyncEngine.resetToServer({ userId, workspaceId });
                   }
                 : undefined,
+              statusLineProps: {
+                ...appStatusLineBase,
+                fontSize: properties.AppStatusLine.fontSize,
+                fontWeight: properties.AppStatusLine.fontWeight,
+              },
+            },
+            emptyTrashAppProps: {
+              ...emptyTrashAppBase,
+              buttonProps: {
+                ...buttonBase,
+                activeColor: properties.Button.activeColor,
+                armedColor: properties.DeleteButton.armedColor,
+                timeout: unlockButtonTimeout,
+              },
               statusLineProps: {
                 ...appStatusLineBase,
                 fontSize: properties.AppStatusLine.fontSize,

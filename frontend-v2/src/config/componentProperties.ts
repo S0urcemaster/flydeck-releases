@@ -134,6 +134,7 @@ export type ComponentPropertiesConfig = {
   GpsEventsApp: { base: StoredBaseProperties };
   SportApp: { base: StoredBaseProperties };
   SchedulerApp: { base: StoredBaseProperties };
+  IdolsApp: { base: StoredBaseProperties };
   SportFigure3D: { base: StoredBaseProperties };
   CompassApp: { base: StoredBaseProperties };
   ConfigEditor: { base: StoredBaseProperties };
@@ -147,6 +148,7 @@ export type ComponentPropertiesConfig = {
     keyboard: boolean;
     base: StoredBaseProperties;
   };
+  DateInput: { base: StoredBaseProperties };
   InputControl: { base: StoredBaseProperties };
   PromptInput: { base: StoredBaseProperties };
   ScheduleEditor: { base: StoredBaseProperties };
@@ -166,6 +168,7 @@ export type ComponentPropertiesConfig = {
     base: StoredBaseProperties;
   };
   InlineAppView: { base: StoredBaseProperties };
+  EmptyTrashApp: { base: StoredBaseProperties };
   BackupApp: { base: StoredBaseProperties };
   MaintenanceApp: { base: StoredBaseProperties };
   AppTitle: {
@@ -274,6 +277,7 @@ export function parseComponentPropertiesConfig(
   const gpsEventsApp = input.GpsEventsApp;
   const sportApp = input.SportApp;
   const schedulerApp = input.SchedulerApp;
+  const idolsApp = input.IdolsApp;
   const sportFigure3D = input.SportFigure3D;
   const compassApp = input.CompassApp;
   const configEditor = input.ConfigEditor;
@@ -283,6 +287,7 @@ export function parseComponentPropertiesConfig(
   const form = input.Form;
   const formRow = input.FormRow;
   const inputComponent = input.Input;
+  const dateInput = input.DateInput;
   const inputControl = input.InputControl;
   const promptInput = input.PromptInput;
   const scheduleEditor = input.ScheduleEditor;
@@ -292,6 +297,7 @@ export function parseComponentPropertiesConfig(
   const listControlListSizeButton = input.ListControlListSizeButton;
   const appStatusLine = input.AppStatusLine;
   const inlineAppView = input.InlineAppView;
+  const emptyTrashApp = input.EmptyTrashApp;
   const backupApp = input.BackupApp;
   const maintenanceApp = input.MaintenanceApp;
   const appTitle = input.AppTitle;
@@ -369,6 +375,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(gpsEventsApp)
     || !isRecord(sportApp)
     || !isRecord(schedulerApp)
+    || !isRecord(idolsApp)
     || !isRecord(sportFigure3D)
     || !isRecord(compassApp)
     || !isRecord(configEditor)
@@ -378,6 +385,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(form)
     || !isRecord(formRow)
     || !isRecord(inputComponent)
+    || !isRecord(dateInput)
     || !isRecord(inputControl)
     || !isRecord(promptInput)
     || !isRecord(scheduleEditor)
@@ -387,6 +395,7 @@ export function parseComponentPropertiesConfig(
     || !isRecord(listControlListSizeButton)
     || !isRecord(appStatusLine)
     || !isRecord(inlineAppView)
+    || !isRecord(emptyTrashApp)
     || !isRecord(backupApp)
     || !isRecord(maintenanceApp)
     || !isRecord(appTitle)
@@ -466,6 +475,7 @@ export function parseComponentPropertiesConfig(
   const gpsEventsAppBase = parseStoredBaseProperties(gpsEventsApp.base);
   const sportAppBase = parseStoredBaseProperties(sportApp.base);
   const schedulerAppBase = parseStoredBaseProperties(schedulerApp.base);
+  const idolsAppBase = parseStoredBaseProperties(idolsApp.base);
   const sportFigure3DBase = parseStoredBaseProperties(sportFigure3D.base);
   const compassAppBase = parseStoredBaseProperties(compassApp.base);
   const configEditorBase = parseStoredBaseProperties(configEditor.base);
@@ -475,6 +485,7 @@ export function parseComponentPropertiesConfig(
   const formBase = parseStoredBaseProperties(form.base);
   const formRowBase = parseStoredBaseProperties(formRow.base);
   const inputBase = parseStoredBaseProperties(inputComponent.base);
+  const dateInputBase = parseStoredBaseProperties(dateInput.base);
   const inputControlBase = parseStoredBaseProperties(inputControl.base);
   const promptInputBase = parseStoredBaseProperties(promptInput.base);
   const scheduleEditorBase = parseStoredBaseProperties(scheduleEditor.base);
@@ -486,6 +497,7 @@ export function parseComponentPropertiesConfig(
   );
   const appStatusLineBase = parseStoredBaseProperties(appStatusLine.base);
   const inlineAppViewBase = parseStoredBaseProperties(inlineAppView.base);
+  const emptyTrashAppBase = parseStoredBaseProperties(emptyTrashApp.base);
   const backupAppBase = parseStoredBaseProperties(backupApp.base);
   const maintenanceAppBase = parseStoredBaseProperties(maintenanceApp.base);
   const titleBase = parseStoredBaseProperties(appTitle.base);
@@ -567,6 +579,7 @@ export function parseComponentPropertiesConfig(
     || !gpsEventsAppBase
     || !sportAppBase
     || !schedulerAppBase
+    || !idolsAppBase
     || !sportFigure3DBase
     || !compassAppBase
     || !configEditorBase
@@ -576,6 +589,7 @@ export function parseComponentPropertiesConfig(
     || !formBase
     || !formRowBase
     || !inputBase
+    || !dateInputBase
     || !inputControlBase
     || !promptInputBase
     || !scheduleEditorBase
@@ -584,6 +598,7 @@ export function parseComponentPropertiesConfig(
     || !listControlListSizeButtonBase
     || !appStatusLineBase
     || !inlineAppViewBase
+    || !emptyTrashAppBase
     || !backupAppBase
     || !maintenanceAppBase
     || !titleBase
@@ -860,6 +875,7 @@ export function parseComponentPropertiesConfig(
     GpsEventsApp: { base: gpsEventsAppBase },
     SportApp: { base: sportAppBase },
     SchedulerApp: { base: schedulerAppBase },
+    IdolsApp: { base: idolsAppBase },
     SportFigure3D: { base: sportFigure3DBase },
     CompassApp: { base: compassAppBase },
     ConfigEditor: { base: configEditorBase },
@@ -873,6 +889,7 @@ export function parseComponentPropertiesConfig(
       keyboard: inputComponent.keyboard,
       base: inputBase,
     },
+    DateInput: { base: dateInputBase },
     InputControl: { base: inputControlBase },
     PromptInput: { base: promptInputBase },
     ScheduleEditor: { base: scheduleEditorBase },
@@ -892,6 +909,7 @@ export function parseComponentPropertiesConfig(
       base: appStatusLineBase,
     },
     InlineAppView: { base: inlineAppViewBase },
+    EmptyTrashApp: { base: emptyTrashAppBase },
     BackupApp: { base: backupAppBase },
     MaintenanceApp: { base: maintenanceAppBase },
     AppTitle: {

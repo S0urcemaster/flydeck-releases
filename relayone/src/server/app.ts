@@ -121,6 +121,13 @@ export function createApp(
     );
     response.json(site);
   });
+  app.get("/api/latest", async (_request, response) => {
+    response.setHeader(
+      "Cache-Control",
+      `public, max-age=${config.publicCacheSeconds}, must-revalidate`,
+    );
+    response.json(await relay.loadLatest(10));
+  });
   app.get("/api/nodes/:nodeId", async (request, response) => {
     const page = await relay.loadNode(request.params.nodeId);
     if (!page) {

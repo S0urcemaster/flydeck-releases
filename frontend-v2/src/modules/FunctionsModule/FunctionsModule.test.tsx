@@ -11,9 +11,9 @@ describe("FunctionsModule", () => {
     expect(markup).toContain('aria-label="Submodule panel"');
     expect(markup).toContain("BROWSER");
     expect(markup).toContain('data-component-name="AppBrowser"');
-    expect(markup).toContain("Compass");
-    expect(markup).toContain("Inventory");
-    expect(markup).toContain("ShoppingList");
+    expect(markup).not.toContain(">Compass</button>");
+    expect(markup).not.toContain(">Inventory</button>");
+    expect(markup).not.toContain(">ShoppingList</button>");
     expect(markup).toContain("Bluesky");
     expect(markup).not.toContain(">Widgets</button>");
     expect(markup).not.toContain(">User</button>");

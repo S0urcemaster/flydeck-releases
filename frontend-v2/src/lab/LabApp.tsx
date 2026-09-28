@@ -223,6 +223,7 @@ const manifestPreviewComponentNames = [
   "BlueskyApp",
   "GpsEventsApp",
   "SportApp",
+  "IdolsApp",
   "SportFigure3D",
   "CompassApp",
   "CompactButton",
@@ -250,6 +251,7 @@ const appViewFamilyComponentNames = [
   "BlueskyApp",
   "GpsEventsApp",
   "SportApp",
+  "IdolsApp",
   "CompassApp",
   "ConfigEditor",
   "DeviceInfoView",
@@ -260,6 +262,7 @@ type AppViewFamilyComponentName =
   typeof appViewFamilyComponentNames[number];
 const inlineAppFamilyComponentNames = [
   "InlineAppView",
+  "EmptyTrashApp",
   "MaintenanceApp",
   "BackupApp",
 ] as const;
@@ -397,6 +400,7 @@ export function LabApp() {
     BlueskyApp: storedComponentProperties.BlueskyApp.base,
     GpsEventsApp: storedComponentProperties.GpsEventsApp.base,
     SportApp: storedComponentProperties.SportApp.base,
+    IdolsApp: storedComponentProperties.IdolsApp.base,
     CompassApp: storedComponentProperties.CompassApp.base,
     ConfigEditor: storedComponentProperties.ConfigEditor.base,
     DeviceInfoView: storedComponentProperties.DeviceInfoView.base,
@@ -407,6 +411,7 @@ export function LabApp() {
     Record<InlineAppFamilyComponentName, BaseLabValues>
   >({
     InlineAppView: storedComponentProperties.InlineAppView.base,
+    EmptyTrashApp: storedComponentProperties.EmptyTrashApp.base,
     BackupApp: storedComponentProperties.BackupApp.base,
     MaintenanceApp: storedComponentProperties.MaintenanceApp.base,
   });
@@ -518,6 +523,7 @@ export function LabApp() {
     PromptInput: storedComponentProperties.PromptInput.base,
     MemoryBrowser: storedComponentProperties.MemoryBrowser.base,
     Input: storedComponentProperties.Input.base,
+    DateInput: storedComponentProperties.DateInput.base,
     ListControl: storedComponentProperties.ListControl.base,
     ListControlButton: storedComponentProperties.ListControlButton.base,
     ListControlListSizeButton:
@@ -792,9 +798,11 @@ export function LabApp() {
       GpsEventsApp: { base: appViewFamilyBaseValues.GpsEventsApp },
       SportApp: { base: appViewFamilyBaseValues.SportApp },
       SchedulerApp: { base: storedComponentProperties.SchedulerApp.base },
+      IdolsApp: { base: appViewFamilyBaseValues.IdolsApp },
       SportFigure3D: { base: storedComponentProperties.SportFigure3D.base },
       ScheduleEditor: { base: storedComponentProperties.ScheduleEditor.base },
       InlineAppView: { base: inlineAppFamilyBaseValues.InlineAppView },
+      EmptyTrashApp: { base: inlineAppFamilyBaseValues.EmptyTrashApp },
       BackupApp: { base: inlineAppFamilyBaseValues.BackupApp },
       MaintenanceApp: { base: inlineAppFamilyBaseValues.MaintenanceApp },
       CompassApp: { base: appViewFamilyBaseValues.CompassApp },
@@ -893,6 +901,7 @@ export function LabApp() {
         keyboard: inputKeyboard,
         base: browserComponentBaseValues.Input,
       },
+      DateInput: { base: browserComponentBaseValues.DateInput },
       ListControl: { base: browserComponentBaseValues.ListControl },
       ListControlButton: { base: browserComponentBaseValues.ListControlButton },
       ListControlListSizeButton: {

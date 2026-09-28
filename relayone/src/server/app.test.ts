@@ -94,6 +94,14 @@ describe("Relay One app", () => {
     expect(response.body.levels[0].nodes[0]).not.toHaveProperty("content");
   });
 
+  it("serves the ten latest post summaries for the landing page", async () => {
+    const response = await request(createApp(config, reader())).get("/api/latest");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([{ ...site.roots[0], path: ["posts"] }]);
+    expect(response.headers["cache-control"]).toContain("max-age=15");
+  });
+
   it("loads a publication by its current local-id path", async () => {
     const response = await request(createApp(config, reader()))
       .get("/api/path?value=posts");
@@ -152,6 +160,7 @@ describe("Relay One app", () => {
 function reader(overrides: Partial<RelayReader> = {}): RelayReader {
   return {
     loadSite: async () => site,
+    loadLatest: async () => [{ ...site.roots[0], path: ["posts"] }],
     loadNode: async (nodeId) => nodeId === page.post.id ? page : null,
     loadNodeByPath: async (localIds) => (
       localIds.join("/") === "posts" ? page : null
